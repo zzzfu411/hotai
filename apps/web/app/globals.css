@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  @apply bg-white text-ink-900 dark:bg-ink-950 dark:text-ink-100;
+}
+
+.fire-gradient {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 50%, #d946ef 100%);
+}

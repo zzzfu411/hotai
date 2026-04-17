@@ -1,0 +1,24 @@
+{
+  "name": "hotai",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @hotai/web dev",
+    "dev:fetcher": "pnpm --filter @hotai/fetcher dev",
+    "fetch:once": "pnpm --filter @hotai/fetcher start --once",
+    "build": "pnpm --filter @hotai/db build && pnpm --filter @hotai/web build && pnpm --filter @hotai/fetcher build",
+    "db:generate": "pnpm --filter @hotai/db generate",
+    "db:migrate": "pnpm --filter @hotai/db migrate",
+    "db:seed": "pnpm --filter @hotai/db seed",
+    "db:studio": "pnpm --filter @hotai/db studio"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4",
+    "tsx": "4.19.1",
+    "@types/node": "20.14.11"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

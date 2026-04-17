@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Source {
+  id        Int       @id @default(autoincrement())
+  slug      String    @unique
+  name      String
+  url       String
+  homepage  String?
+  type      String    // "rss" | "scrape" | "api"
+  lang      String    // "en" | "zh"
+  weight    Float     @default(1.0)
+  category  String    // "research" | "industry" | "opensource" | "media"
+  enabled   Boolean   @default(true)
+  lastFetch DateTime?
+  articles  Article[]
+
+  @@index([category, enabled])
+}
+
+model Article {
+  id          Int      @id @default(autoincrement())
+  sourceId    Int
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  url         String   @unique
+  urlHash     String   @unique
+  title       String
+  titleHash   String
+  summary     String?
+  author      String?
+  publishedAt DateTime
+  fetchedAt   DateTime @default(now())
+  lang        String
+  category    String
+  tags        String[] @default([])
+  score       Float    @default(0)
+  signals     Json?    // e.g. { comments: 120, stars: 340 }
+  raw         Json?
+
+  @@index([score(sort: Desc), publishedAt(sort: Desc)])
+  @@index([category, score(sort: Desc)])
+  @@index([sourceId, publishedAt(sort: Desc)])
+  @@index([publishedAt(sort: Desc)])
+  @@index([titleHash])
+}
