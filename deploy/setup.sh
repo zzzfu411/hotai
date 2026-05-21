@@ -15,10 +15,10 @@ if ! command -v node >/dev/null || ! node -v | grep -q '^v20'; then
   sudo apt-get install -y nodejs
 fi
 
-echo "==> Installing pnpm"
-if ! command -v pnpm >/dev/null; then
-  sudo npm install -g pnpm@9
-fi
+echo "==> Activating pnpm via corepack (pinned by packageManager field)"
+sudo corepack enable
+# corepack reads "packageManager": "pnpm@9.12.0" from package.json on first run
+# inside the repo, so no explicit version pin needed here.
 
 echo "==> Installing PM2"
 if ! command -v pm2 >/dev/null; then
