@@ -16,14 +16,20 @@ type HFModel = {
 
 export async function fetchHuggingFaceTrending(source: Source): Promise<RawItem[]> {
   const models = await httpJson<HFModel[]>(source.url);
+  const now = Date.now();
+  // "Trending now" snapshot — we don't want lastModified=2022 to tank the time-decay score.
+  // Clamp publishedAt to "now" when the model's lastModified is older than 30 days.
+  const STALE_MS = 30 * 24 * 3600 * 1000;
   return models.map((m) => {
     const id = m.modelId ?? m.id;
     const published = m.lastModified ?? m.createdAt;
+    const rawDate = published ? new Date(published) : new Date();
+    const publishedAt = now - rawDate.getTime() > STALE_MS ? new Date() : rawDate;
     return {
       url: `https://huggingface.co/${id}`,
       title: id,
       summary: m.pipeline_tag ? `Pipeline: ${m.pipeline_tag}` : null,
-      publishedAt: published ? new Date(published) : new Date(),
+      publishedAt,
       tags: m.tags?.slice(0, 5) ?? [],
       signals: { stars: m.likes ?? 0, downloads: m.downloads ?? 0 },
       raw: m,

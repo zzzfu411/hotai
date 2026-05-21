@@ -43,9 +43,33 @@ model Article {
   signals     Json?    // e.g. { comments: 120, stars: 340 }
   raw         Json?
 
+  // ===== AI enrichment (filled by background analyzer) =====
+  aiSummaryEn   String?   // 1-2 sentence English summary
+  aiSummaryZh   String?   // 1-2 sentence Chinese summary
+  aiTopics      String[]  @default([]) // 3-5 normalized topic tags
+  aiSentiment   String?   // "release" | "research" | "opinion" | "rumor" | "tutorial" | "other"
+  aiImportance  Float?    // 0-1, model's standalone importance estimate
+  aiAnalyzedAt  DateTime?
+  aiModel       String?   // model id used, e.g. "claude-haiku-4-5"
+
   @@index([score(sort: Desc), publishedAt(sort: Desc)])
   @@index([category, score(sort: Desc)])
   @@index([sourceId, publishedAt(sort: Desc)])
   @@index([publishedAt(sort: Desc)])
   @@index([titleHash])
+  @@index([aiAnalyzedAt])
+}
+
+model Digest {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @unique // truncated to UTC day
+  lang        String   @default("en") // generated as a bilingual record but split for index by lang/date
+  headline    String   // single-line "story of the day"
+  overview    String   // 3-5 sentence prose
+  bullets     Json     // [{ title, takeaway, urls: [..] }]
+  themes      String[] @default([])
+  model       String?
+  createdAt   DateTime @default(now())
+
+  @@index([date(sort: Desc)])
 }

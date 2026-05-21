@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { CSSProperties } from "react";
 import { useLang } from "./LangContext";
 
 type Item = { slug: string; label_en: string; label_zh: string };
+
+function iconMask(slug: string): CSSProperties {
+  const value = `url(/categories/${slug}.svg) center / contain no-repeat`;
+  return { WebkitMask: value, mask: value };
+}
 
 export function CategoryNav({ categories }: { categories: readonly Item[] }) {
   const pathname = usePathname();
@@ -18,12 +24,13 @@ export function CategoryNav({ categories }: { categories: readonly Item[] }) {
           <Link
             key={c.slug}
             href={href}
-            className={`px-2.5 py-1 rounded-md transition ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md transition ${
               active
                 ? "bg-accent/10 text-accent-deep dark:text-accent"
                 : "text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800"
             }`}
           >
+            <span className="h-4 w-4 bg-current opacity-85" style={iconMask(c.slug)} aria-hidden />
             {lang === "zh" ? c.label_zh : c.label_en}
           </Link>
         );

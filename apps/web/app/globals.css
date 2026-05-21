@@ -9,12 +9,62 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   @apply bg-white text-ink-900 dark:bg-ink-950 dark:text-ink-100;
+  background-image:
+    radial-gradient(circle at 12% -10%, rgba(249, 115, 22, 0.07), transparent 45%),
+    radial-gradient(circle at 88% 8%, rgba(217, 70, 239, 0.06), transparent 50%);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(circle at 12% -10%, rgba(249, 115, 22, 0.14), transparent 45%),
+    radial-gradient(circle at 88% 8%, rgba(217, 70, 239, 0.12), transparent 50%);
 }
 
 .fire-gradient {
   background: linear-gradient(135deg, #f97316 0%, #ef4444 50%, #d946ef 100%);
+}
+
+.fire-text {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 50%, #d946ef 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.12) 25%,
+    rgba(148, 163, 184, 0.22) 50%,
+    rgba(148, 163, 184, 0.12) 75%
+  );
+  background-size: 200% 100%;
+  @apply animate-shimmer rounded;
+}
+
+.card-surface {
+  @apply rounded-2xl border border-ink-200/70 dark:border-ink-800/70 bg-white/60 dark:bg-ink-900/40 backdrop-blur-sm;
+}
+
+.chip {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border;
+}
+
+.chip-soft {
+  @apply chip border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-300 bg-ink-50/60 dark:bg-ink-800/40;
+}
+
+.chip-accent {
+  @apply chip border-ember-200 dark:border-ember-700/60 text-ember-700 dark:text-ember-200 bg-ember-50 dark:bg-ember-900/30;
+}
+
+/* Subtle focus rings for keyboard nav */
+:focus-visible {
+  @apply outline-none ring-2 ring-accent/60 ring-offset-2 ring-offset-white dark:ring-offset-ink-950 rounded;
 }

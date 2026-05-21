@@ -19,3 +19,6 @@ packages/*/dist/
 
 prisma/migrations/dev.db*
 *.sqlite
+
+# TS incremental build cache
+*.tsbuildinfo

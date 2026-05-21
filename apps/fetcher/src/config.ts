@@ -17,4 +17,11 @@ export const config = {
   revalidateSecret: process.env.REVALIDATE_SECRET || "",
   fetchTimeoutMs: 20_000,
   perSourceLimit: 40,
+  // Hard retention — articles older than this are wiped each cycle.
+  // Project policy: keep 2 weeks; the homepage focus is "today's hot", not archive.
+  retentionDays: Number(process.env.ARTICLE_RETENTION_DAYS ?? 14),
+  // AI enrichment knobs — only used when ANTHROPIC_API_KEY is set.
+  aiEnrichPerRun: Number(process.env.AI_ENRICH_PER_RUN ?? 30),
+  aiConcurrency: Number(process.env.AI_CONCURRENCY ?? 4),
+  aiDigestEnabled: (process.env.AI_DIGEST_ENABLED ?? "true").toLowerCase() !== "false",
 };

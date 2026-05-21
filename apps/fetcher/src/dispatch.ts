@@ -8,16 +8,23 @@ import {
 } from "./sources/huggingface.js";
 import { scrapeChineseList } from "./sources/chinese-media.js";
 
+type Fetcher = (source: Source) => Promise<RawItem[]>;
+
+const BY_SLUG: Record<string, Fetcher> = {
+  "github-trending": fetchGithubTrending,
+  "huggingface-trending": fetchHuggingFaceTrending,
+  "huggingface-papers": fetchHuggingFacePapers,
+};
+
+const BY_TYPE: Record<string, Fetcher> = {
+  rss: fetchRss,
+  scrape: scrapeChineseList,
+};
+
 export async function fetchSource(source: Source): Promise<RawItem[]> {
-  switch (source.slug) {
-    case "github-trending":
-      return fetchGithubTrending(source);
-    case "huggingface-trending":
-      return fetchHuggingFaceTrending(source);
-    case "huggingface-papers":
-      return fetchHuggingFacePapers(source);
-  }
-  if (source.type === "rss") return fetchRss(source);
-  if (source.type === "scrape") return scrapeChineseList(source);
+  const bySlug = BY_SLUG[source.slug];
+  if (bySlug) return bySlug(source);
+  const byType = BY_TYPE[source.type];
+  if (byType) return byType(source);
   return [];
 }

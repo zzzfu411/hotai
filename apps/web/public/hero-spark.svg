@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" width="480" height="360" role="img" aria-label="Signal becoming heat">
+  <defs>
+    <linearGradient id="spark-stroke" x1="70" y1="280" x2="420" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f97316"/>
+      <stop offset=".52" stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#d946ef"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#spark-stroke)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".82">
+    <path d="M52 255c72-38 150-52 234-17 42 18 78 16 112-18"/>
+    <path d="M78 178c58 4 104 18 143 44 52 35 101 37 160 4"/>
+    <path d="M118 108c52 30 95 66 124 112 28 45 68 66 122 54"/>
+    <path d="M300 262c38-28 42-70 19-113 40 28 72 64 72 112 0 43-29 74-75 84 18-18 16-43-16-83Z"/>
+    <path d="M335 84c8 35 38 54 44 88 4 24-4 46-22 62 2-23-9-41-30-53 2 33-20 55-41 74"/>
+    <path d="M320 242c-25 21-37 43-34 68 8-20 23-35 42-51 13-11 18-28 12-45-5 11-12 20-20 28Z"/>
+  </g>
+  <g fill="none" stroke="url(#spark-stroke)" stroke-width="1.25" opacity=".62">
+    <circle cx="52" cy="255" r="3"/>
+    <circle cx="78" cy="178" r="2.5"/>
+    <circle cx="118" cy="108" r="3"/>
+    <circle cx="151" cy="238" r="2"/>
+    <circle cx="177" cy="154" r="2.5"/>
+    <circle cx="213" cy="206" r="2"/>
+    <circle cx="256" cy="224" r="3"/>
+    <circle cx="391" cy="261" r="3.5"/>
+  </g>
+</svg>
