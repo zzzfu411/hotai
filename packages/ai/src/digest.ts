@@ -1,4 +1,4 @@
-import { AI_MODELS, AI_ENABLED, client, systemBlock, textOf } from "./client.js";
+import { AI_MODELS, AI_ENABLED, createMessage, systemBlock, textOf } from "./client.js";
 import { parseJson } from "./json.js";
 
 export type DigestArticleInput = {
@@ -67,7 +67,7 @@ export async function generateDigest(
     .join("\n\n");
 
   try {
-    const msg = await client().messages.create({
+    const msg = await createMessage({
       model,
       max_tokens: 1200,
       temperature: 0.3,

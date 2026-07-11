@@ -1,4 +1,4 @@
-import { AI_MODELS, client, systemBlock, textOf, AI_ENABLED } from "./client.js";
+import { AI_MODELS, createMessage, systemBlock, textOf, AI_ENABLED } from "./client.js";
 import { parseJson } from "./json.js";
 
 export type EnrichInput = {
@@ -101,7 +101,7 @@ export async function enrichArticle(input: EnrichInput): Promise<EnrichResult | 
   if (!AI_ENABLED) return null;
   const model = AI_MODELS.fast;
   try {
-    const msg = await client().messages.create({
+    const msg = await createMessage({
       model,
       max_tokens: 400,
       temperature: 0.2,
@@ -136,7 +136,7 @@ export async function enrichArticles(
     .map((input, i) => `[${i + 1}]\n${formatInput(input)}`)
     .join("\n\n");
   try {
-    const msg = await client().messages.create({
+    const msg = await createMessage({
       model,
       max_tokens: Math.min(400 * inputs.length, 8000),
       temperature: 0.2,

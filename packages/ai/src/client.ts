@@ -53,6 +53,19 @@ export function systemBlock(text: string): Anthropic.Messages.TextBlockParam[] {
   return [block];
 }
 
+/**
+ * Non-streaming completion with `stream: false` set EXPLICITLY on the wire.
+ * Some relays (protocol translators, e.g. Anthropic→xAI bridges) default to
+ * streaming when the field is omitted, which breaks the SDK's JSON parsing.
+ * Anthropic-direct treats the explicit false as a no-op, so this is safe
+ * everywhere. All non-streaming calls in this package must go through here.
+ */
+export function createMessage(
+  params: Omit<Anthropic.Messages.MessageCreateParamsNonStreaming, "stream">,
+): Promise<Anthropic.Messages.Message> {
+  return client().messages.create({ ...params, stream: false });
+}
+
 /** Extract concatenated text from a non-streaming message response. */
 export function textOf(msg: Anthropic.Messages.Message): string {
   return msg.content
