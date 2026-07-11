@@ -1,4 +1,5 @@
-import { AI_MODELS, AI_ENABLED, client, parseJson, systemBlock, textOf } from "./client.js";
+import { AI_MODELS, AI_ENABLED, client, systemBlock, textOf } from "./client.js";
+import { parseJson } from "./json.js";
 
 export type DigestArticleInput = {
   id: number;

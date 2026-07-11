@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { getTopArticles } from "@/lib/queries";
 import { SITE } from "@/lib/constants";
 
 export const revalidate = 600;
@@ -13,11 +13,7 @@ function esc(s: string) {
 }
 
 export async function GET() {
-  const articles = await prisma.article.findMany({
-    orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
-    take: 50,
-    include: { source: { select: { name: true } } },
-  });
+  const articles = await getTopArticles(50);
 
   const items = articles
     .map(

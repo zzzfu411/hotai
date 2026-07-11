@@ -1,7 +1,7 @@
-import { prisma } from "@/lib/db";
 import { HotList } from "@/components/HotList";
 import { SearchBox } from "@/components/SearchBox";
 import { toCard } from "@/lib/article";
+import { searchArticles } from "@/lib/queries";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -18,27 +18,7 @@ export default async function SearchPage({
   const q = (searchParams.q ?? "").trim();
   const sort = searchParams.sort === "recent" ? "recent" : "hot";
 
-  const articles =
-    q.length > 0
-      ? await prisma.article.findMany({
-          where: {
-            OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { summary: { contains: q, mode: "insensitive" } },
-              { aiSummaryEn: { contains: q, mode: "insensitive" } },
-              { aiSummaryZh: { contains: q } },
-              { aiTopics: { has: q.toLowerCase() } },
-              { tags: { has: q.toLowerCase() } },
-            ],
-          },
-          orderBy:
-            sort === "recent"
-              ? [{ publishedAt: "desc" }]
-              : [{ score: "desc" }, { publishedAt: "desc" }],
-          take: 60,
-          include: { source: { select: { slug: true, name: true } } },
-        })
-      : [];
+  const articles = q.length > 0 ? await searchArticles(q, sort) : [];
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">

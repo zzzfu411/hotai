@@ -214,9 +214,10 @@ const sources: SourceSeed[] = [
   {
     slug: "huggingface-papers",
     name: "HuggingFace Daily Papers",
-    url: "https://huggingface.co/papers",
+    // JSON API — includes the abstract, unlike the HTML list page.
+    url: "https://huggingface.co/api/daily_papers?limit=50",
     homepage: "https://huggingface.co/papers",
-    type: "scrape",
+    type: "api",
     lang: "en",
     weight: 1.4,
     category: "research",

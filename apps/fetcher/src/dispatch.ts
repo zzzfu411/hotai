@@ -21,10 +21,15 @@ const BY_TYPE: Record<string, Fetcher> = {
   scrape: scrapeChineseList,
 };
 
+/**
+ * Slug-specific integrations win over the generic per-type fetchers.
+ * An unmatched source is a config error — throw so it counts against the
+ * source's health instead of silently producing zero items forever.
+ */
 export async function fetchSource(source: Source): Promise<RawItem[]> {
-  const bySlug = BY_SLUG[source.slug];
-  if (bySlug) return bySlug(source);
-  const byType = BY_TYPE[source.type];
-  if (byType) return byType(source);
-  return [];
+  const fetcher = BY_SLUG[source.slug] ?? BY_TYPE[source.type];
+  if (!fetcher) {
+    throw new Error(`no fetcher wired for source "${source.slug}" (type=${source.type})`);
+  }
+  return fetcher(source);
 }

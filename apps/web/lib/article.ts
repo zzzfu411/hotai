@@ -19,5 +19,7 @@ export function toCard(a: Row): ArticleCardData {
     aiTopics: a.aiTopics,
     aiSentiment: a.aiSentiment,
     aiImportance: a.aiImportance,
+    // Reposts of this story folded in by the fetcher's cross-source dedupe.
+    crossPostCount: Array.isArray(a.crossPosts) ? a.crossPosts.length : 0,
   };
 }

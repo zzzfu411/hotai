@@ -1,27 +1,22 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
 import { HotList } from "@/components/HotList";
 import { toCard } from "@/lib/article";
+import { getArticlesBySource, getSourceBySlug } from "@/lib/queries";
 import type { Metadata } from "next";
 
 export const revalidate = 600;
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const s = await prisma.source.findUnique({ where: { slug: params.slug } });
+  const s = await getSourceBySlug(params.slug);
   if (!s) return {};
   return { title: `${s.name} · Hot AI` };
 }
 
 export default async function SourcePage({ params }: { params: { slug: string } }) {
-  const source = await prisma.source.findUnique({ where: { slug: params.slug } });
+  const source = await getSourceBySlug(params.slug);
   if (!source) notFound();
 
-  const rows = await prisma.article.findMany({
-    where: { sourceId: source.id },
-    orderBy: [{ publishedAt: "desc" }],
-    take: 80,
-    include: { source: { select: { slug: true, name: true } } },
-  });
+  const rows = await getArticlesBySource(source.id);
 
   const articles = rows.map(toCard);
 

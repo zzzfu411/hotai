@@ -1,7 +1,6 @@
 import type { Source } from "@hotai/db";
 import type { RawItem } from "../types.js";
-import { httpJson, httpText } from "../http.js";
-import * as cheerio from "cheerio";
+import { httpJson } from "../http.js";
 
 type HFModel = {
   id: string;
@@ -37,26 +36,48 @@ export async function fetchHuggingFaceTrending(source: Source): Promise<RawItem[
   });
 }
 
+type HFDailyPaperEntry = {
+  paper?: {
+    id?: string;
+    title?: string;
+    summary?: string;
+    upvotes?: number;
+    publishedAt?: string;
+  };
+  title?: string;
+  publishedAt?: string;
+};
+
+const HF_DAILY_PAPERS_API = "https://huggingface.co/api/daily_papers?limit=50";
+
+/**
+ * Daily papers via the JSON API — unlike the HTML list page it includes the
+ * abstract, which is what makes AI enrichment of papers actually useful.
+ * Falls back to the canonical API URL when the seeded source still points at
+ * the old HTML page.
+ */
 export async function fetchHuggingFacePapers(source: Source): Promise<RawItem[]> {
-  const html = await httpText(source.url);
-  const $ = cheerio.load(html);
+  const apiUrl = source.url.includes("/api/daily_papers") ? source.url : HF_DAILY_PAPERS_API;
+  const entries = await httpJson<HFDailyPaperEntry[]>(apiUrl);
   const items: RawItem[] = [];
-  $("article").each((_, el) => {
-    const $el = $(el);
-    const a = $el.find('a[href^="/papers/"]').first();
-    const href = a.attr("href");
-    const title = a.text().trim();
-    if (!href || !title) return;
-    const upvotesText = $el.find("[class*='upvote'], [class*='Upvote']").text().trim();
-    const upvotes = Number(upvotesText.match(/\d+/)?.[0] ?? 0);
+  for (const entry of entries) {
+    const paper = entry.paper;
+    if (!paper?.id) continue;
+    const title = (paper.title ?? entry.title ?? "").trim();
+    if (!title) continue;
+    const published = entry.publishedAt ?? paper.publishedAt;
     items.push({
-      url: `https://huggingface.co${href}`,
+      url: `https://huggingface.co/papers/${paper.id}`,
       title,
-      summary: null,
-      publishedAt: new Date(),
+      summary: paper.summary ? truncate(paper.summary.replace(/\s+/g, " ").trim(), 500) : null,
+      publishedAt: published ? new Date(published) : new Date(),
       tags: ["paper"],
-      signals: { points: upvotes },
+      signals: { points: paper.upvotes ?? 0 },
     });
-  });
+  }
   return items;
+}
+
+function truncate(s: string, n: number): string {
+  return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }

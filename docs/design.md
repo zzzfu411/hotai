@@ -77,28 +77,34 @@
 ```
 [cron tick @ :07]
   │
-  ├── purgeOldArticles()                  ← 先清,别浪费 AI 配额给马上要删的内容
-  │     └── DELETE FROM Article WHERE publishedAt < now - 14d
+  ├── purge                               ← 先清,别浪费 AI 配额给马上要删的内容
+  │     ├── DELETE FROM Article WHERE publishedAt < now - 14d
+  │     └── DELETE FROM AskCache WHERE createdAt < now - 24h
   │
   ├── prisma.source.findMany({ enabled: true })
   │
   ├── for each source:
   │     ├── dispatch.ts 按 slug→type 选 fetcher
   │     │     ├── slug 命中 (github-trending / hf-*) → 专用抓取器
-  │     │     └── 否则按 type: rss → rss-parser; scrape → cheerio
+  │     │     ├── 否则按 type: rss → rss-parser; scrape → cheerio
+  │     │     └── 没有匹配 / scrape 抓到 0 条 → 抛错,计入源健康
   │     │
-  │     ├── store.upsertArticles(source, items)
-  │     │     ├── normalizeUrl     ← 砍 utm_*, ref, gclid, fbclid…
+  │     ├── store.persistItems(source, items)   ← 去重阶梯,见 1.4
+  │     │     ├── normalizeUrl     ← 砍 utm_* / ref / gclid…;arXiv 去 vN、pdf→abs
   │     │     ├── hashUrl/Title    ← SHA-1
-  │     │     ├── computeScore(...) ← 见 1.3
-  │     │     └── prisma.article.upsert({ where: urlHash })
+  │     │     ├── urlHash 命中     → 刷新:signals 逐项取 max,重算 score
+  │     │     ├── titleHash 3d 内命中 → 转载:并入原文 crossPosts,不新建行
+  │     │     └── 否则 create      → computeScore(见 1.3)
   │     │
-  │     └── update source.lastFetch
+  │     └── 源健康:成功→ lastFetch + fails 清零;失败→ fails+1,
+  │           连续 ≥SOURCE_FAIL_THRESHOLD(默认 5)自动 enabled=false
   │
   ├── enrichPendingArticles()             ← AI 流水线 1/2
-  │     ├── 取 aiAnalyzedAt IS NULL 的所有文章 (按 score DESC, 软上限 AI_ENRICH_PER_RUN)
-  │     ├── N 个 worker 并发跑 LLM_MODEL_FAST
+  │     ├── 取 aiAnalyzedAt IS NULL 的文章 (按 score DESC, 软上限 AI_ENRICH_PER_RUN)
+  │     ├── 按 AI_BATCH_SIZE(默认 10)分批,一批一次 LLM_MODEL_FAST 调用
+  │     ├── 批量输出对不齐 → 整批降级成单篇调用
   │     ├── 每篇返回 { summaryEn, summaryZh, topics, sentiment, importance }
+  │     ├── 成功的同时用 importance 重算 score 并回写(排序闭环)
   │     └── 失败的也写 aiAnalyzedAt=now / aiModel="skipped" 防止热循环
   │
   ├── ensureTodayDigest()                 ← AI 流水线 2/2
@@ -115,19 +121,20 @@
 定义于 `apps/fetcher/src/scoring.ts`:
 
 ```
-score = (sourceWeight + signalBoost + keywordBoost) × decay + sourceWeight × 0.1
-       │              │              │                │
-       │              │              │                └── exp 衰减,半衰期 24h
+score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay + sourceWeight × 0.1
+       │              │              │               │                 │
+       │              │              │               │                 └── exp 衰减,半衰期 24h
+       │              │              │               └── aiImportance × AI_IMPORTANCE_WEIGHT(默认 2.0)
        │              │              └── 标题/摘要命中 keywords 每个 +0.4(封顶 2.0)
        │              └── log1p(points + comments×0.5 + stars×0.8 + min(downloads,100k)×0.01)
        └── 源权重,seed 里手填:OpenAI/Anthropic 2.0,arXiv 1.2,reddit 0.9
 ```
 
-**当前缺口:** `aiImportance` 字段已经在落库,但 **还没进入这条公式**。这是 3.1 要做的事。
-
 **特性:**
 - 每次 upsert 重算,所以一篇老文如果今天又拿到新 signals(HN 评论涨)会自动重排
-- "权威源 × 时间新鲜 × 信号热度 × 关键词相关性" 四维加权
+- "权威源 × 时间新鲜 × 信号热度 × 关键词相关性 × AI 重要度" 五维加权
+- `aiImportance` 在 enrich 完成时回写:AI 字段落库的同一个 update 里带上重算后的 score,
+  后续每次 upsert 刷新也会读取该行已有的 aiImportance 一起算(不会因刷新而丢失)
 - HF 模型 `lastModified` 早于 30 天的会被钳到 `now()`,否则老模型永远榜上无名
 - 14d 保留期 + 24h 半衰期 → 14 天后 decay = 2⁻¹⁴ ≈ 0.006%,老文实际上从未进入排序
 
@@ -135,17 +142,17 @@ score = (sourceWeight + signalBoost + keywordBoost) × decay + sourceWeight × 0
 
 | 层 | 做了什么 | 没做什么 |
 |---|---|---|
-| URL 层 | `normalizeUrl` 砍追踪参数 → SHA-1 → 作为 unique key | 不识别 301 重定向的最终 URL |
-| 标题层 | `titleHash` 已存进库 + 建了索引 | **没有任何查询用它** —— 同一新闻被 HN/机器之心/量子位转载会重复出现 3 次 |
-| 语义层 | 无 | 同一论文用不同标题转写 → 完全无法识别 |
+| URL 层 | `normalizeUrl` 砍追踪参数;arXiv 去 `vN` 后缀、`pdf→abs`、统一 https/主域 → SHA-1 → unique key;同 URL 被第二个源提到时并入原行(signals 取 max + 记 crossPosts) | 不识别 301 重定向的最终 URL |
+| 标题层 | `titleHash` 3 天窗口内命中 → 视为转载:signals 逐项取 max、`crossPosts` 记录 `{source,url,publishedAt}`(封顶 10 条),**不新建行**;归一化标题 <8 字符的不参与(防"每周讨论帖"误合并) | 标题被改写(翻译/编辑)就撞不上 |
+| 语义层 | 无 | 同一论文用不同标题转写 → 无法识别(SimHash 是 3.3 方案 B,未做) |
 
 ## 1.5 AI 流水线状态
 
 | 接入点 | 模型 | 触发 | 频率 | 用途 |
 |---|---|---|---|---|
-| `enrich.ts` | `LLM_MODEL_FAST` | fetcher cycle 末尾 | **每篇新文,软上限 30/cycle** | 摘要 + 主题 + 类型 + 重要度 |
+| `enrich.ts` | `LLM_MODEL_FAST` | fetcher cycle 末尾 | 每篇新文,软上限 30/cycle,**10 篇合并成 1 次调用** | 摘要 + 主题 + 类型 + 重要度(重要度回写 score) |
 | `digest.ts` | `LLM_MODEL_SMART` | fetcher cycle 末尾 | 每天 ≤4 次刷新 | 当日 headline + bullets |
-| `/api/ask` | `LLM_MODEL_FAST` (流式) | 用户每问一次 | 按访客量 | 基于过去 48h 的问答 |
+| `/api/ask` | `LLM_MODEL_FAST` (流式) | 用户每问一次 | IP 限流 5/60s;同问题 24h 走 AskCache;日 token 配额 | 基于过去 48h 的问答 |
 
 **字段写入:** `Article.aiSummaryEn/Zh`、`aiTopics[]`、`aiSentiment`、`aiImportance`、`aiAnalyzedAt`、`aiModel`。每个 AI 路径都先查 `AI_ENABLED`,key 没配就静默跳过。
 
@@ -164,7 +171,7 @@ score = (sourceWeight + signalBoost + keywordBoost) × decay + sourceWeight × 0
 | `/category/{slug}` | RSC + ISR + SSG params | `revalidate=600` | DB,filter by category |
 | `/source/{slug}` | RSC + ISR | `revalidate=600` | DB,filter by source |
 | `/search` | RSC | `force-dynamic` | DB `ILIKE` |
-| `/api/ask` | Node runtime | 无(亟需限流) | DB + 流式 LLM (SSE) |
+| `/api/ask` | Node runtime | AskCache 24h + IP 限流 + 日配额 | DB + 流式 LLM (SSE) |
 | `/api/digest` | RSC | `revalidate=600` | DB |
 | `/feed.xml` | RSC | `revalidate=600` | DB,RSS 2.0 输出 |
 
@@ -172,20 +179,20 @@ score = (sourceWeight + signalBoost + keywordBoost) × decay + sourceWeight × 0
 
 # 二 · 当前痛点
 
-按严重程度排:
+按严重程度排(~~删除线~~ = 已在 2026-07 重构中解决,见文末更新日志):
 
 | 级别 | 痛点 | 后果 |
 |---|---|---|
-| 🔴 高 | **`aiImportance` 没进打分公式** | LLM 评估的"重要度"白算了,首页排序没用上 |
-| 🔴 高 | **跨源转载不去重** | 一条 OpenAI 新闻在首页可能占 3-5 个坑;digest 也会被拉低质量 |
-| 🔴 高 | **AI 单篇调用** | 30 篇 = 30 次 API call;批量化能砍 50-75% 成本 |
-| 🔴 高 | **`/api/ask` 无任何限流** | 公开访问,有人按住 enter 就是真金白银 |
-| 🟠 中 | **失效源静默死亡** | RSS 改 URL / 站点改版,日志里报错但没人看,源消失若干天 |
-| 🟠 中 | **没有任何测试** | 改 scoring / dedupe / parser 都靠手感 |
-| 🟠 中 | **中文媒体抓取脆弱** | 选择器写死,36kr 改版就归零 |
-| 🟠 中 | **HF papers 没拿到 abstract** | 摘要为 null,AI 拿不到上下文,质量差 |
-| 🟠 中 | **`aiTopics` 没建索引** | 按主题查会全表扫(主题页落地后必须建) |
-| 🟡 低 | **arxiv 三个 feed 实际重叠很大** | 同一篇论文出现在 cs.AI + cs.CL + cs.LG |
+| 🔴 高 | ~~**`aiImportance` 没进打分公式**~~ | ~~LLM 评估的"重要度"白算了,首页排序没用上~~ |
+| 🔴 高 | ~~**跨源转载不去重**~~ | ~~一条 OpenAI 新闻在首页可能占 3-5 个坑;digest 也会被拉低质量~~(标题精确层已做,SimHash 模糊层仍缺) |
+| 🔴 高 | ~~**AI 单篇调用**~~ | ~~30 篇 = 30 次 API call;批量化能砍 50-75% 成本~~ |
+| 🔴 高 | ~~**`/api/ask` 无任何限流**~~ | ~~公开访问,有人按住 enter 就是真金白银~~ |
+| 🟠 中 | ~~**失效源静默死亡**~~ | ~~RSS 改 URL / 站点改版,日志里报错但没人看,源消失若干天~~(自动停用已做,admin 页面未做) |
+| 🟠 中 | ~~**没有任何测试**~~ | ~~改 scoring / dedupe / parser 都靠手感~~(scoring/dedupe/merge/parseJson 已覆盖) |
+| 🟠 中 | **中文媒体抓取脆弱** | 选择器写死,36kr 改版就归零(现在至少会计入源健康并自动停用) |
+| 🟠 中 | ~~**HF papers 没拿到 abstract**~~ | ~~摘要为 null,AI 拿不到上下文,质量差~~ |
+| 🟠 中 | ~~**`aiTopics` 没建索引**~~ | ~~按主题查会全表扫~~(GIN 索引已加,主题页本身仍未做) |
+| 🟡 低 | ~~**arxiv 三个 feed 实际重叠很大**~~ | ~~同一篇论文出现在 cs.AI + cs.CL + cs.LG~~ |
 | 🟡 低 | **没有 admin UI** | 启用/停用源、调权重要进 Prisma Studio |
 
 ---
@@ -458,20 +465,20 @@ ASK_RATE_PER_IP=5/60
 
 | 阶段 | 任务 | 工时 | 收益 |
 |---|---|---|---|
-| **Sprint 1 · 救命 + 主线** | 把 `aiImportance` 接入 score(3.1) | 3h | 排序终于符合"最重要" ★★★★★ |
-| | `/api/ask` 限流 + 总配额阀(3.4) | 2h | 防账单爆炸 ★★★★★ |
-| | AI 调用批量化(3.2) | 4h | 砍 50%+ AI 成本 ★★★★★ |
-| | 标题哈希精确去重(3.3 方案 A) | 3h | 首页质量肉眼可见提升 ★★★★ |
-| | 失效源监控 + 自动停用(3.5) | 3h | 长期不掉链子 ★★★★ |
-| **Sprint 2 · 信噪比** | arxiv URL 归一化(3.6) | 1h | 论文不重复 ★★★ |
-| | HF papers 拿 abstract(3.8) | 2h | AI 摘要质量翻倍 ★★★★ |
-| | `aiTopics` GIN 索引 + 主题页 `/topic/{slug}`(4.1) | 1d | 暴露已有 AI 资产,SEO ★★★★ |
+| **Sprint 1 · 救命 + 主线** | ~~把 `aiImportance` 接入 score(3.1)~~ ✅ | 3h | 排序终于符合"最重要" ★★★★★ |
+| | ~~`/api/ask` 限流 + 总配额阀(3.4)~~ ✅ | 2h | 防账单爆炸 ★★★★★ |
+| | ~~AI 调用批量化(3.2)~~ ✅ | 4h | 砍 50%+ AI 成本 ★★★★★ |
+| | ~~标题哈希精确去重(3.3 方案 A)~~ ✅ | 3h | 首页质量肉眼可见提升 ★★★★ |
+| | ~~失效源监控 + 自动停用(3.5)~~ ✅(admin 页未做) | 3h | 长期不掉链子 ★★★★ |
+| **Sprint 2 · 信噪比** | ~~arxiv URL 归一化(3.6)~~ ✅ | 1h | 论文不重复 ★★★ |
+| | ~~HF papers 拿 abstract(3.8)~~ ✅ | 2h | AI 摘要质量翻倍 ★★★★ |
+| | `aiTopics` GIN 索引 ✅ + 主题页 `/topic/{slug}`(4.1,页面未做) | 1d | 暴露已有 AI 资产,SEO ★★★★ |
 | | 中文媒体改 readability(3.7) | 1d | 中文摘要质量翻倍 ★★★ |
 | **Sprint 3 · 推送通道 + UX** | RSS 参数化 + Webhook(4.3) | 1d | 真正"推送出去" ★★★★ |
 | | 文章详情页 + 相关推荐(4.2) | 1.5d | 留存提升 ★★★★ |
 | | SimHash 模糊去重(3.3 方案 B) | 1d | 转载文聚合 ★★★ |
 | | 首页 sparkline(4.4) | 0.5d | 视觉差异化 ★★ |
-| **Sprint 4 · 运维收口** | vitest 4 个核心测试(5.2) | 0.5d | 改 scoring 不抖 ★★★ |
+| **Sprint 4 · 运维收口** | ~~vitest 核心测试(5.2)~~ ✅(scoring/dedupe/merge/parseJson;purge 未测) | 0.5d | 改 scoring 不抖 ★★★ |
 | | Sentry + 关键指标(5.1) | 0.5d | 出事看得见 ★★★★ |
 | | `Digest` 备份脚本(5.3) | 0.5d | 防 LLM 产出丢失 ★★★ |
 | **Sprint 5+ · 拓展面** | 论文专区 `/papers`(4.5) | 1.5d | 内容差异化 |
@@ -500,3 +507,31 @@ ASK_RATE_PER_IP=5/60
 ---
 
 > 文档维护约定:每完成一个 Sprint 任务,在对应行打 `~~删除线~~` 并在文末追加一段"更新日志"。修改项目宗旨(本文档最上面那张表)是重大决策,需在 commit message 里单独说明。
+
+---
+
+# 更新日志
+
+## 2026-07-12 · 核心逻辑重构(Sprint 1 全部 + Sprint 2 部分)
+
+一次性完成 3.1 / 3.2 / 3.3A / 3.4 / 3.5 / 3.6 / 3.8 + 核心纯函数测试。项目宗旨(14d / 无用户 / 无个性化)不变。
+
+**排序(3.1)** — `aiImportance × AI_IMPORTANCE_WEIGHT`(默认 2.0)进入打分公式;enrich 成功时在同一个 update 里回写重算后的 score;后续 upsert 刷新会带上行内已有的 aiImportance,不会因刷新丢失。`computeScore` 改为可注入配置的纯函数。
+
+**AI 批量化(3.2)** — `packages/ai` 新增 `enrichArticles()`:一次调用处理 `AI_BATCH_SIZE`(默认 10)篇,输出数组严格按长度对齐,对不齐/传输失败整批降级为单篇 `enrichArticle()`。JSON 解析拆到 `packages/ai/src/json.ts`(直接解析 → fence → 括号平衡扫描三级容错)。
+
+**跨源去重(3.3 方案 A)** — `store.ts` 重写为 `persistItems()` 三级阶梯:urlHash 命中→刷新(signals 逐项取 max);titleHash 3 天窗口命中→转载合并进原行的 `crossPosts Json`(封顶 10 条,归一化标题 <8 字符不参与,防"每周讨论帖"误合并);否则新建。同 URL 被第二个源提到同样记 crossPost。前端卡片显示"⇄ N 源转载"。SimHash(方案 B)未做。
+
+**/api/ask 防护(3.4)** — 三重防护:IP token bucket(`ASK_RATE_PER_IP`,默认 5/60s)→ `AskCache` 表按归一化问题 hash 缓存 24h(命中免 LLM、免配额)→ 日 token 阀门(`ASK_DAILY_TOKEN_LIMIT`,默认 50 万,0=不限)。限流/配额计数在内存(单进程 PM2,重启清零可接受)。SSE wire format 不变。
+
+**失效源监控(3.5)** — `Source` 加 `consecutiveFails / lastError / lastErrorAt`;失败递增、成功清零;连续 ≥`SOURCE_FAIL_THRESHOLD`(默认 5)自动 `enabled=false`。dispatch 对未知源、scrape 抓到 0 条也按失败计。admin 页面未做(Prisma Studio 手动 re-enable)。
+
+**arXiv 归一化(3.6)** — `normalizeUrl` 对 arxiv.org 强制 https、去 `vN` 版本后缀、`/pdf/x(.pdf)` 归到 `/abs/x`。注意:已入库的旧 hash 不迁移,新旧文章会短暂并存,14 天保留期内自然冲掉。
+
+**HF papers(3.8)** — 改走 `https://huggingface.co/api/daily_papers`(seed 里源 url 已更新,需重跑 `pnpm db:seed`),abstract 直接入库,AI 摘要有了上下文。
+
+**结构调整** — fetcher:`index.ts` 只做启动/cron,编排逻辑拆到 `cycle.ts`,健康跟踪在 `sourceHealth.ts`,纯合并函数在 `merge.ts`;web:页面内联 Prisma 查询收敛到 `lib/queries.ts`(读)/`lib/digest.ts`(digest 兜底生成)/`lib/ask-guard.ts`(限流配额)。
+
+**测试(5.2 部分)** — 根级 vitest(`pnpm test`),36 个纯函数用例覆盖 scoring / dedupe(含 arxiv)/ merge / parseJson,不依赖 DB。purge 未测。
+
+**Schema 变更(需在服务器上跑迁移)** — `Source` +3 健康字段、`Article.crossPosts Json?`、`aiTopics` GIN 索引、新表 `AskCache`。部署时先 `pnpm --filter @hotai/db migrate:dev --name v0_3_logic_refactor`(或 `prisma db push`),再 `pnpm db:seed`。

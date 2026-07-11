@@ -21,6 +21,13 @@ model Source {
   lastFetch DateTime?
   articles  Article[]
 
+  // ===== fetch health (maintained by apps/fetcher) =====
+  // consecutiveFails reaching SOURCE_FAIL_THRESHOLD flips enabled=false so a
+  // dead feed stops burning cycles; re-enable manually via Prisma Studio.
+  consecutiveFails Int       @default(0)
+  lastError        String?
+  lastErrorAt      DateTime?
+
   @@index([category, enabled])
 }
 
@@ -40,8 +47,11 @@ model Article {
   category    String
   tags        String[] @default([])
   score       Float    @default(0)
-  signals     Json?    // e.g. { comments: 120, stars: 340 }
+  signals     Json?    // e.g. { comments: 120, stars: 340 } — cross-source merges keep the max per key
   raw         Json?
+  // Reposts of the same story folded into this canonical row (cross-source
+  // title-hash / url dedupe): [{ source, url, publishedAt }]
+  crossPosts  Json?
 
   // ===== AI enrichment (filled by background analyzer) =====
   aiSummaryEn   String?   // 1-2 sentence English summary
@@ -58,6 +68,7 @@ model Article {
   @@index([publishedAt(sort: Desc)])
   @@index([titleHash])
   @@index([aiAnalyzedAt])
+  @@index([aiTopics(ops: ArrayOps)], type: Gin)
 }
 
 model Digest {
@@ -72,4 +83,20 @@ model Digest {
   createdAt   DateTime @default(now())
 
   @@index([date(sort: Desc)])
+}
+
+// Answer cache for the public /api/ask endpoint. Same question (normalized,
+// hashed) within the TTL is served from here instead of hitting the LLM.
+// Written by apps/web; stale rows are purged by the fetcher's retention pass.
+// This is a request cache, not user state — no identity attached.
+model AskCache {
+  id        Int      @id @default(autoincrement())
+  hash      String   @unique // sha1(question.trim().toLowerCase())
+  question  String
+  answer    String
+  model     String?
+  hits      Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

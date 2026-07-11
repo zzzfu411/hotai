@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { getTodayDigestRow } from "@/lib/queries";
 
 export const revalidate = 600;
 
 /** GET /api/digest — JSON payload of today's brief (if any). */
 export async function GET() {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const d = await prisma.digest.findUnique({ where: { date: today } });
+  const d = await getTodayDigestRow();
   if (!d) return NextResponse.json({ ok: false, reason: "not-yet" }, { status: 404 });
   return NextResponse.json({
     ok: true,

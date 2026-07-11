@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
-import { prisma } from "@/lib/db";
+import { getEnabledSourceSlugs } from "@/lib/queries";
 import { CATEGORIES, SITE } from "@/lib/constants";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = SITE.url;
-  const sources = await prisma.source.findMany({ where: { enabled: true }, select: { slug: true } });
+  const sources = await getEnabledSourceSlugs();
   const now = new Date();
   return [
     { url: `${base}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },

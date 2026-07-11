@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
 import { HotList } from "@/components/HotList";
-import { CATEGORIES, type CategorySlug } from "@/lib/constants";
+import { CATEGORIES } from "@/lib/constants";
 import { toCard } from "@/lib/article";
+import { getCategoryArticles } from "@/lib/queries";
 import type { Metadata } from "next";
 
 export const revalidate = 600;
@@ -21,12 +21,7 @@ export default async function CategoryPage({ params }: { params: { slug: string 
   const cat = CATEGORIES.find((c) => c.slug === params.slug);
   if (!cat) notFound();
 
-  const rows = await prisma.article.findMany({
-    where: { category: cat.slug as CategorySlug },
-    orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
-    take: 80,
-    include: { source: { select: { slug: true, name: true } } },
-  });
+  const rows = await getCategoryArticles(cat.slug);
 
   const articles = rows.map(toCard);
 

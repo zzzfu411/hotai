@@ -22,6 +22,8 @@ export type ArticleCardData = {
   aiTopics?: string[];
   aiSentiment?: string | null;
   aiImportance?: number | null;
+  // How many other feeds reposted the same story (cross-source dedupe)
+  crossPostCount?: number;
 };
 
 const SENTIMENT_LABEL: Record<string, { en: string; zh: string; cls: string }> = {
@@ -133,6 +135,15 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
             <span className="text-accent" aria-hidden>🔥</span>
             <span className="tabular-nums font-medium">{formatScore(a.score)}</span>
           </span>
+          {(a.crossPostCount ?? 0) > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 text-ink-500 dark:text-ink-400"
+              title={lang === "zh" ? "其他来源转载了同一新闻" : "Also reported by other sources"}
+            >
+              <span aria-hidden>⇄</span>
+              {lang === "zh" ? `${a.crossPostCount} 源转载` : `+${a.crossPostCount} source${a.crossPostCount === 1 ? "" : "s"}`}
+            </span>
+          )}
           {sentiment && (
             <span className={`chip gap-1 ${sentiment.cls}`}>
               <span

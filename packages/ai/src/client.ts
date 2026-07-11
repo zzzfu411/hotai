@@ -60,17 +60,3 @@ export function textOf(msg: Anthropic.Messages.Message): string {
     .map((b) => b.text)
     .join("");
 }
-
-/** Best-effort JSON extraction — tolerates ``` fences and stray prose. */
-export function parseJson<T = unknown>(raw: string): T {
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  const body = fenced ? fenced[1]! : trimmed;
-  const start = Math.min(
-    ...["{", "["]
-      .map((c) => body.indexOf(c))
-      .filter((i) => i >= 0),
-  );
-  const slice = Number.isFinite(start) ? body.slice(start) : body;
-  return JSON.parse(slice) as T;
-}
