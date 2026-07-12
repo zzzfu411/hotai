@@ -4,7 +4,10 @@ module.exports = {
       name: "hotai-web",
       cwd: "./apps/web",
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3000",
+      // Port is env-driven so multi-tenant servers can avoid collisions:
+      //   HOTAI_WEB_PORT=3100 pm2 start ecosystem.config.js
+      // (pm2 save stores the resolved args, so resurrect keeps the port.)
+      args: `start -p ${process.env.HOTAI_WEB_PORT || 3000}`,
       instances: 1,
       exec_mode: "fork",
       env: {
