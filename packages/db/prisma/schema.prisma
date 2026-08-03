@@ -120,6 +120,19 @@ model CuratedBlog {
   featured    Boolean  @default(false)
   sortOrder   Int      @default(100) // lower = higher on the list
   enabled     Boolean  @default(true)
+
+  // ===== 食用指南 / reading guide (editorial, bilingual) =====
+  // How often posts land, how to approach the archive, era map, and
+  // "start here" pieces. Seeded only — not LLM-generated.
+  guideCadenceEn  String? // "1–2 long surveys / year"
+  guideCadenceZh  String?
+  guideHowEn      String? // how to read / subscribe / skim
+  guideHowZh      String?
+  guideTimelineEn String? // content eras over the years
+  guideTimelineZh String?
+  // [{ title, url?, noteEn?, noteZh? }] — recommended entry points
+  guideStartHere  Json?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

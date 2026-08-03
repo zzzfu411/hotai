@@ -44,6 +44,13 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
         b.bioEn,
         b.bioZh,
         b.tags.join(" "),
+        b.guideHowEn ?? "",
+        b.guideHowZh ?? "",
+        b.guideTimelineEn ?? "",
+        b.guideTimelineZh ?? "",
+        b.guideCadenceEn ?? "",
+        b.guideCadenceZh ?? "",
+        ...b.guideStartHere.map((s) => `${s.title} ${s.noteEn ?? ""} ${s.noteZh ?? ""}`),
       ]
         .join(" ")
         .toLowerCase();

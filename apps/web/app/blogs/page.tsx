@@ -17,6 +17,23 @@ export const metadata: Metadata = {
   },
 };
 
+function parseStartHere(raw: unknown) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const o = item as Record<string, unknown>;
+      if (typeof o.title !== "string" || !o.title.trim()) return null;
+      return {
+        title: o.title,
+        url: typeof o.url === "string" ? o.url : undefined,
+        noteEn: typeof o.noteEn === "string" ? o.noteEn : undefined,
+        noteZh: typeof o.noteZh === "string" ? o.noteZh : undefined,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+}
+
 export default async function BlogsPage() {
   const rows = await getCuratedBlogs();
   const blogs = rows.map((b) => ({
@@ -31,6 +48,13 @@ export default async function BlogsPage() {
     tags: b.tags,
     lang: b.lang,
     featured: b.featured,
+    guideCadenceEn: b.guideCadenceEn,
+    guideCadenceZh: b.guideCadenceZh,
+    guideHowEn: b.guideHowEn,
+    guideHowZh: b.guideHowZh,
+    guideTimelineEn: b.guideTimelineEn,
+    guideTimelineZh: b.guideTimelineZh,
+    guideStartHere: parseStartHere(b.guideStartHere),
   }));
   const featured = blogs.filter((b) => b.featured).length;
 

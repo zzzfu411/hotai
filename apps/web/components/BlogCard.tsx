@@ -1,6 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useLang } from "./LangContext";
+
+export type GuideStartHereItem = {
+  title: string;
+  url?: string;
+  noteEn?: string;
+  noteZh?: string;
+};
 
 export type BlogCardData = {
   slug: string;
@@ -14,6 +22,13 @@ export type BlogCardData = {
   tags: string[];
   lang: string;
   featured: boolean;
+  guideCadenceEn: string | null;
+  guideCadenceZh: string | null;
+  guideHowEn: string | null;
+  guideHowZh: string | null;
+  guideTimelineEn: string | null;
+  guideTimelineZh: string | null;
+  guideStartHere: GuideStartHereItem[];
 };
 
 function faviconFor(url: string) {
@@ -52,11 +67,29 @@ const TAG_LABEL: Record<string, { en: string; zh: string }> = {
   robotics: { en: "Robotics", zh: "机器人" },
 };
 
+function hasGuide(blog: BlogCardData) {
+  return Boolean(
+    blog.guideHowEn ||
+      blog.guideHowZh ||
+      blog.guideTimelineEn ||
+      blog.guideTimelineZh ||
+      blog.guideCadenceEn ||
+      blog.guideCadenceZh ||
+      blog.guideStartHere.length > 0,
+  );
+}
+
 export function BlogCard({ blog, index = 0 }: { blog: BlogCardData; index?: number }) {
   const { lang } = useLang();
+  const [open, setOpen] = useState(false);
   const fav = faviconFor(blog.url);
   const bio = lang === "zh" ? blog.bioZh : blog.bioEn;
   const host = hostnameOf(blog.url);
+  const guide = hasGuide(blog);
+
+  const cadence = lang === "zh" ? blog.guideCadenceZh : blog.guideCadenceEn;
+  const how = lang === "zh" ? blog.guideHowZh : blog.guideHowEn;
+  const timeline = lang === "zh" ? blog.guideTimelineZh : blog.guideTimelineEn;
 
   return (
     <article
@@ -116,7 +149,7 @@ export function BlogCard({ blog, index = 0 }: { blog: BlogCardData; index?: numb
         )}
       </div>
 
-      <p className="mt-3 text-sm text-ink-600 dark:text-ink-300 leading-relaxed line-clamp-3 flex-1">
+      <p className="mt-3 text-sm text-ink-600 dark:text-ink-300 leading-relaxed line-clamp-3">
         {bio}
       </p>
 
@@ -133,7 +166,123 @@ export function BlogCard({ blog, index = 0 }: { blog: BlogCardData; index?: numb
         </div>
       )}
 
-      <div className="mt-4 pt-3 border-t border-ink-200/60 dark:border-ink-800/60 flex items-center justify-between gap-2">
+      {/* 食用指南 */}
+      {guide && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-semibold border transition ${
+              open
+                ? "border-violet-400/60 bg-violet-50/80 dark:bg-violet-900/25 text-violet-800 dark:text-violet-200"
+                : "border-ink-200 dark:border-ink-700 text-ink-700 dark:text-ink-200 hover:border-violet-400/50 hover:text-violet-700 dark:hover:text-violet-200"
+            }`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden>📖</span>
+              {lang === "zh" ? "食用指南" : "Reading guide"}
+            </span>
+            <span
+              aria-hidden
+              className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}
+            >
+              ▾
+            </span>
+          </button>
+
+          {open && (
+            <div className="mt-3 space-y-3.5 rounded-xl border border-violet-200/60 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20 p-3.5 sm:p-4 text-sm leading-relaxed animate-fade-up">
+              {cadence && (
+                <section>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                    {lang === "zh" ? "更新节奏" : "Cadence"}
+                  </h4>
+                  <p className="mt-1 text-ink-700 dark:text-ink-200">{cadence}</p>
+                </section>
+              )}
+
+              {how && (
+                <section>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                    {lang === "zh" ? "怎么看" : "How to read"}
+                  </h4>
+                  <p className="mt-1 text-ink-700 dark:text-ink-200">{how}</p>
+                </section>
+              )}
+
+              {timeline && (
+                <section>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                    {lang === "zh" ? "内容时间线" : "Timeline"}
+                  </h4>
+                  <p className="mt-1 text-ink-700 dark:text-ink-200">{timeline}</p>
+                </section>
+              )}
+
+              {blog.guideStartHere.length > 0 && (
+                <section>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                    {lang === "zh" ? "推荐从这里开始" : "Start here"}
+                  </h4>
+                  <ol className="mt-2 space-y-2">
+                    {blog.guideStartHere.map((item, i) => {
+                      const note = lang === "zh" ? item.noteZh : item.noteEn;
+                      const inner = (
+                        <>
+                          <span className="font-semibold text-ink-900 dark:text-ink-100">
+                            {i + 1}. {item.title}
+                          </span>
+                          {note && (
+                            <span className="block mt-0.5 text-xs text-ink-500 dark:text-ink-400">
+                              {note}
+                            </span>
+                          )}
+                        </>
+                      );
+                      return (
+                        <li key={`${item.title}-${i}`}>
+                          {item.url ? (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block rounded-lg px-2.5 py-2 -mx-1 border border-transparent hover:border-violet-300/50 hover:bg-white/60 dark:hover:bg-ink-900/40 transition"
+                            >
+                              {inner}
+                              <span className="mt-0.5 inline-block text-[11px] text-violet-600 dark:text-violet-300">
+                                {lang === "zh" ? "打开 ↗" : "Open ↗"}
+                              </span>
+                            </a>
+                          ) : (
+                            <div className="px-2.5 py-2 -mx-1">{inner}</div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              )}
+
+              {blog.feedUrl && (
+                <p className="pt-1 border-t border-violet-200/50 dark:border-violet-800/40 text-xs text-ink-500 dark:text-ink-400">
+                  {lang === "zh" ? "订阅：" : "Subscribe: "}
+                  <a
+                    href={blog.feedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-violet-700 dark:text-violet-300 hover:underline break-all"
+                  >
+                    RSS
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-4 pt-3 border-t border-ink-200/60 dark:border-ink-800/60 flex items-center justify-between gap-2 mt-auto">
         <a
           href={blog.url}
           target="_blank"
@@ -141,7 +290,9 @@ export function BlogCard({ blog, index = 0 }: { blog: BlogCardData; index?: numb
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-ember-700 dark:text-ember-200 group-hover:text-accent transition"
         >
           {lang === "zh" ? "打开博客" : "Visit blog"}
-          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">↗</span>
+          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+            ↗
+          </span>
         </a>
         <span className="text-[11px] text-ink-400 dark:text-ink-500 font-mono truncate max-w-[45%]">
           {host}

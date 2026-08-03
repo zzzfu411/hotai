@@ -37,8 +37,8 @@ export function BlogHero({ total, featured }: { total: number; featured: number 
 
       <p className="relative mt-3 text-sm sm:text-base text-ink-600 dark:text-ink-300 max-w-2xl leading-relaxed">
         {lang === "zh"
-          ? "不是新闻热榜，而是编辑精选的研究员与从业者博客 —— Lil's Log、colah's blog、科学空间 这类写完还能读三年的长文来源。与 14 天热度文章分开，这里永久收录。"
-          : "Not the hourly heat list — an editorial shortlist of researcher and practitioner blogs. Lil's Log, colah's blog, and peers whose essays still repay a re-read years later. Permanent; outside the 14-day news window."}
+          ? "不是新闻热榜，而是编辑精选的研究员与从业者博客。每张卡片都有「食用指南」：更新节奏、怎么读、内容时间线、推荐从哪篇开始。与 14 天热度文章分开，这里永久收录。"
+          : "Not the hourly heat list — an editorial shortlist of researcher and practitioner blogs. Every card has a reading guide: cadence, how to read, content timeline, and where to start. Permanent; outside the 14-day news window."}
       </p>
 
       <dl className="relative mt-5 flex flex-wrap gap-3">
