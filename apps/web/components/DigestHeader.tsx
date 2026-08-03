@@ -25,8 +25,8 @@ export function DigestHeader({ digest, aiEnabled }: { digest: Loaded; aiEnabled:
               ? "至少需要 5 篇当日入库文章。等下一次抓取后回来再看看。"
               : "We need at least 5 articles from today to draft a brief. Check back after the next fetch cycle."
             : lang === "zh"
-              ? "未配置 ANTHROPIC_API_KEY,AI 简报功能未启用。"
-              : "AI brief is disabled — set ANTHROPIC_API_KEY to enable it."}
+              ? "未配置 AI 鉴权信息，AI 简报功能未启用。"
+              : "AI brief is disabled — configure ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY."}
         </p>
       </div>
     );

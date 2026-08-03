@@ -32,21 +32,22 @@ Output STRICT JSON (no markdown):
 
 {
   "headline": string,        // <=80 chars, the single most newsworthy thread of the day
-  "overview": string,        // 3-5 sentences, plain prose, scannable; cover the 2-3 biggest stories
-  "themes": string[],        // 2-5 themes, lowercase short tags (e.g. "open-source models", "agentic ai", "regulation")
-  "bullets": [               // 4-6 entries, ordered by importance — NOT just the input order
+  "overview": string,        // 2-3 short sentences, <=360 chars; cover the 2-3 biggest stories
+  "themes": string[],        // 2-4 themes, lowercase short tags (e.g. "open-source models", "agentic ai", "regulation")
+  "bullets": [               // EXACTLY 4 entries, ordered by importance — NOT just the input order
     {
-      "title": string,       // <=80 chars, what happened
-      "takeaway": string,    // <=180 chars, why it matters in one sentence
-      "urls": string[]       // 1-3 of the most relevant source URLs from the input
+      "title": string,       // <=70 chars, what happened
+      "takeaway": string,    // <=120 chars, why it matters in one sentence
+      "urls": string[]       // 1-2 of the most relevant source URLs from the input
     }
   ]
 }
 
 Rules:
 - Cluster duplicates: if multiple articles cover the same story, fold them into one bullet with multiple urls.
-- Skip filler. Prefer 4 strong bullets over 6 weak ones.
-- Never invent URLs; use only those present in the input.`;
+- Skip filler and return exactly 4 strong bullets.
+- Never invent URLs; use only those present in the input.
+- Return minified JSON on one line and keep the entire response under 1800 characters.`;
 
 export async function generateDigest(
   articles: DigestArticleInput[],
@@ -69,7 +70,9 @@ export async function generateDigest(
   try {
     const msg = await createMessage({
       model,
-      max_tokens: 1200,
+      // Reasoning-capable relays may spend part of the output budget before
+      // emitting the JSON. Keep enough headroom to avoid truncated digests.
+      max_tokens: 3000,
       temperature: 0.3,
       system: systemBlock(SYSTEM_PROMPT),
       messages: [

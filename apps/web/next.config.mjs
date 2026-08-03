@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Production data queries can be slow while the small VPS is also serving
+  // traffic. Give ISR page generation enough time during deploy builds.
+  staticPageGenerationTimeout: 180,
   transpilePackages: ["@hotai/db", "@hotai/ai"],
   experimental: {
     serverComponentsExternalPackages: ["@prisma/client", "@anthropic-ai/sdk"],

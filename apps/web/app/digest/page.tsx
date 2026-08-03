@@ -7,7 +7,9 @@ import { loadDigest } from "@/lib/digest";
 import { getArticlesSince, startOfUtcDay } from "@/lib/queries";
 import type { Metadata } from "next";
 
-export const revalidate = 1800; // 30 min — first visitor of each window may trigger an on-demand generate
+// AI credentials are runtime-only secrets. Rendering this page dynamically
+// prevents a build-time AI_DISABLED value from being baked into static HTML.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Today's AI Brief",

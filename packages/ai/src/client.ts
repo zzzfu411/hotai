@@ -12,7 +12,10 @@ export const AI_MODELS = {
 
 export type AIModel = string;
 
-export const AI_ENABLED = Boolean(process.env.ANTHROPIC_API_KEY);
+const anthropicAuthToken = process.env.ANTHROPIC_AUTH_TOKEN;
+const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+export const AI_ENABLED = Boolean(anthropicAuthToken || anthropicApiKey);
 
 /**
  * Many relays (one-api / new-api / oneapi-style proxies) don't implement
@@ -26,11 +29,16 @@ let _client: Anthropic | null = null;
 
 export function client(): Anthropic {
   if (!AI_ENABLED) {
-    throw new Error("ANTHROPIC_API_KEY not set — AI features are disabled");
+    throw new Error(
+      "ANTHROPIC_AUTH_TOKEN or ANTHROPIC_API_KEY not set — AI features are disabled",
+    );
   }
   if (!_client) {
     _client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      // Bearer-only relays use ANTHROPIC_AUTH_TOKEN; direct Anthropic uses
+      // ANTHROPIC_API_KEY. Prefer the token when both are present.
+      authToken: anthropicAuthToken || null,
+      apiKey: anthropicAuthToken ? null : anthropicApiKey,
       // Point at a relay that speaks /v1/messages. e.g. "https://api.your-relay.com"
       baseURL: process.env.ANTHROPIC_BASE_URL || undefined,
     });
