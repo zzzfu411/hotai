@@ -101,6 +101,22 @@ export function getEnabledSourceSlugs() {
   return prisma.source.findMany({ where: { enabled: true }, select: { slug: true } });
 }
 
+/** Curated AI researcher/practitioner blogs — permanent editorial directory. */
+export function getCuratedBlogs() {
+  return prisma.curatedBlog.findMany({
+    where: { enabled: true },
+    orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
+  });
+}
+
+/** Enabled curated-blog slugs — sitemap entries. */
+export function getCuratedBlogSlugs() {
+  return prisma.curatedBlog.findMany({
+    where: { enabled: true },
+    select: { slug: true, updatedAt: true },
+  });
+}
+
 /** Grounding corpus for /api/ask — hottest articles of the last `hours`. */
 export function getAskCorpus(hours = 48, limit = 25) {
   const since = new Date(Date.now() - hours * 3600 * 1000);

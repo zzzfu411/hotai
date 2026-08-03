@@ -27,6 +27,7 @@ export function Footer() {
           <ul className="mt-2 space-y-1">
             <li><Link href="/" className="hover:text-accent">{lang === "zh" ? "热度榜" : "Hot list"}</Link></li>
             <li><Link href="/digest" className="hover:text-accent">{lang === "zh" ? "今日简报" : "Today's brief"}</Link></li>
+            <li><Link href="/blogs" className="hover:text-accent">{lang === "zh" ? "精选博客" : "AI Blogs"}</Link></li>
             <li><Link href="/search" className="hover:text-accent">{lang === "zh" ? "搜索" : "Search"}</Link></li>
             <li><a href="/feed.xml" className="hover:text-accent">RSS</a></li>
           </ul>

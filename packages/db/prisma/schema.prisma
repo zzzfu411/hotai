@@ -100,3 +100,30 @@ model AskCache {
 
   @@index([createdAt])
 }
+
+// Curated directory of high-quality AI researcher / practitioner blogs
+// (Lil's Log, colah's blog, …). Permanent editorial list — NOT subject to
+// the 14-day Article retention purge. Seeded via packages/db/src/seed.ts;
+// no user submissions, no accounts.
+model CuratedBlog {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String   // "Lil's Log"
+  author      String   // "Lilian Weng"
+  url         String   // homepage
+  feedUrl     String?  // optional RSS/Atom
+  affiliation String?  // "OpenAI" | "Independent" | lab/company
+  bioEn       String
+  bioZh       String
+  tags        String[] @default([]) // focus areas: interpretability, llm, systems…
+  lang        String   @default("en") // primary writing language
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(100) // lower = higher on the list
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+  @@index([featured, sortOrder])
+  @@index([tags(ops: ArrayOps)], type: Gin)
+}

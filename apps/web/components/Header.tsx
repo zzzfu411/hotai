@@ -28,6 +28,13 @@ export function Header() {
         <CategoryNav categories={CATEGORIES} />
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           <Link
+            href="/blogs"
+            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md text-violet-700 dark:text-violet-200 bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700/60 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition"
+            title="Curated AI researcher & practitioner blogs"
+          >
+            <span aria-hidden>✎</span> Blog
+          </Link>
+          <Link
             href="/digest"
             className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md text-ember-700 dark:text-ember-200 bg-ember-50 dark:bg-ember-900/30 border border-ember-200 dark:border-ember-700/60 hover:bg-ember-100 dark:hover:bg-ember-900/50 transition"
             title="Today's AI-generated brief"

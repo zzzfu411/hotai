@@ -70,13 +70,20 @@ export function Hero({ stats }: { stats?: Stat[] }) {
         </dl>
       )}
 
-      <div className="relative mt-5 flex items-center gap-2 text-xs">
+      <div className="relative mt-5 flex flex-wrap items-center gap-2 text-xs">
         <a
           href={`/digest`}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full fire-gradient text-white font-semibold shadow-sm hover:shadow-md hover:shadow-ember-500/30 transition"
         >
           <span aria-hidden>✶</span>
           {lang === "zh" ? "今日 AI 简报" : "Today's AI Brief"}
+        </a>
+        <a
+          href={`/blogs`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-violet-200 dark:border-violet-700/60 bg-violet-50/80 dark:bg-violet-900/20 text-violet-800 dark:text-violet-200 font-semibold hover:border-violet-400 transition"
+        >
+          <span aria-hidden>✎</span>
+          {lang === "zh" ? "精选博客" : "AI Blogs"}
         </a>
         <a
           href={`/search`}
