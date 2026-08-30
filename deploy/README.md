@@ -158,13 +158,14 @@ sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d hotai.yeuxark.com
 ```
 
-访问 `https://hotai.yeuxark.com/`,应该看到首页热度榜。
+访问 `https://hotai.yeuxark.com/`,应该看到首页速闻瀑布流；热榜在 `/hot`。
 
 公开路由（Nginx 全部反代到 `:3000`；静态走 `/_next/static/` 长缓存）:
 
 | 路径 | 说明 |
 |---|---|
-| `/` | 今日热榜 |
+| `/` | 速闻：多源 RSS 时间线 |
+| `/hot` | Hot AI 打分热榜 + 今日脉搏 |
 | `/digest` | 今日简报 + Ask |
 | `/a/[id]` | 站内阅读器 |
 | `/subscribe` | 本机自定义源 + OPML 导入导出（不入库） |
@@ -183,7 +184,8 @@ sudo certbot --nginx -d hotai.yeuxark.com
 |---|---|---|
 | Web 进程 | `pm2 status hotai-web` | online |
 | Fetcher 进程 | `pm2 status hotai-fetcher` | online |
-| 首页有内容 | `https://hotai.yeuxark.com/` | 热榜列表非空 |
+| 首页有内容 | `https://hotai.yeuxark.com/` | 速闻瀑布流非空 |
+| 热榜有内容 | `https://hotai.yeuxark.com/hot` | 打分热榜列表非空 |
 | 站内阅读器 | `https://hotai.yeuxark.com/a/<id>` | AI 摘要先出，再出正文或降级到原文链接 |
 | 本机订阅 | `https://hotai.yeuxark.com/subscribe` | OPML 导入导出；**不写入** `Article` |
 | AI 简报已生成 | `https://hotai.yeuxark.com/digest` | 看到 headline + bullets |

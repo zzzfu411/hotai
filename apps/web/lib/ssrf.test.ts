@@ -6,6 +6,7 @@ import {
   isBlockedHostname,
   isBlockedResolvedAddress,
   parsePublicHttpUrl,
+  pinnedLookup,
 } from "./ssrf";
 
 function rejects(raw: string) {
@@ -93,5 +94,28 @@ describe("isBlockedAddress / isBlockedHostname", () => {
     expect(isBlockedHostname("foo.localhost")).toBe(true);
     expect(isBlockedHostname("printer.local")).toBe(true);
     expect(isBlockedHostname("example.com")).toBe(false);
+  });
+});
+
+describe("pinnedLookup", () => {
+  it("returns a single-address list when Node asks for all:true", () => {
+    const lookup = pinnedLookup("1.2.3.4", 4);
+    let got: unknown;
+    lookup("example.com", { all: true }, (_err, address) => {
+      got = address;
+    });
+    expect(got).toEqual([{ address: "1.2.3.4", family: 4 }]);
+  });
+
+  it("keeps the 3-arg form when all is not set", () => {
+    const lookup = pinnedLookup("1.2.3.4", 4);
+    let addr: unknown;
+    let family: unknown;
+    lookup("example.com", {}, (_err, address, fam) => {
+      addr = address;
+      family = fam;
+    });
+    expect(addr).toBe("1.2.3.4");
+    expect(family).toBe(4);
   });
 });

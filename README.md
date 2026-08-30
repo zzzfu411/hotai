@@ -6,32 +6,32 @@ NewsNook 式多源速闻阅读器；Hot AI（打分热榜 / 简报 / 问答）�
 
 ## 产品预览
 
-截图来自一次真实的本地抓取 + 前端运行。首页已改为 NewsNook 式「速闻」时间线，热榜移到 `/hot`；下面几张是改版前的热榜 / 博客 / 搜索界面。
+截图来自当前产品（本地跑通的速闻 live RSS + 一次真实抓取）。首页是 NewsNook 式「速闻」瀑布流；Hot AI 打分热榜在 `/hot`。
 
 <p align="center">
-  <img src="docs/screenshots/home.png" alt="Hot AI 热榜" />
+  <img src="docs/screenshots/home.png" alt="速闻瀑布流首页" />
 </p>
-<p align="center"><sub>热榜（现入口 `/hot`）：来源权重 × 时间衰减 × 信号 × AI 重要度</sub></p>
+<p align="center"><sub>首页「速闻」：多源 RSS 按时间混排，分类轨，可一次刷上百篇</sub></p>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/home-dark.png" alt="暗色模式热榜" />
-      <br /><sub>暗色模式</sub>
+      <img src="docs/screenshots/hot.png" alt="Hot AI 热榜" />
+      <br /><sub>`/hot` 热榜：来源权重 × 时间衰减 × 信号 × AI 重要度</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/blogs.png" alt="精选博客目录" />
-      <br /><sub>精选博客目录，卡片可展开阅读指南</sub>
+      <img src="docs/screenshots/home-dark.png" alt="暗色模式速闻" />
+      <br /><sub>暗色模式的速闻瀑布流</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/search.png" alt="搜索" />
-      <br /><sub>全文搜索（标题 / 摘要 / 标签）</sub>
+      <img src="docs/screenshots/blogs.png" alt="精选博客目录" />
+      <br /><sub>精选博客目录，卡片可展开阅读指南</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/category-industry.png" alt="产业分类" />
-      <br /><sub>按分类浏览：OpenAI、DeepMind 等产业动态</sub>
+      <img src="docs/screenshots/reader.png" alt="站内阅读器" />
+      <br /><sub>站内阅读：Readability 抽正文，外链是次要操作</sub>
     </td>
   </tr>
 </table>

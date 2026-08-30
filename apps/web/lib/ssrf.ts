@@ -267,13 +267,33 @@ export async function assertPublicHostname(hostname: string): Promise<void> {
   await resolvePublicHostname(hostname);
 }
 
+type PinLookupOpts = { all?: boolean };
+type PinLookupCb = (
+  err: Error | null,
+  address?: string | { address: string; family: number }[],
+  family?: number,
+) => void;
+
+/**
+ * Node 22 happy-eyeballs calls custom `lookup` with `{ all: true }` and
+ * expects an address list. The 3-arg form leaves `address` undefined and
+ * every catalog pull dies with ERR_INVALID_IP_ADDRESS.
+ */
+export function pinnedLookup(address: string, family: number) {
+  return (_hostname: string, opts: PinLookupOpts, cb: PinLookupCb) => {
+    if (opts?.all) {
+      cb(null, [{ address, family }]);
+      return;
+    }
+    cb(null, address, family);
+  };
+}
+
 function pinnedAgent(servername: string, address: string, family: number): Agent {
   return new Agent({
     connect: {
       servername,
-      lookup: (_hostname, _opts, cb) => {
-        cb(null, address, family);
-      },
+      lookup: pinnedLookup(address, family),
     },
   });
 }
