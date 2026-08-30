@@ -2,6 +2,38 @@
 
 每日自动聚合 + Claude 实时分析的 AI 行业热度榜。数据源涵盖英文 RSS、中文科技媒体、GitHub Trending、HuggingFace。
 
+## 产品预览
+
+截图来自一次真实的本地抓取 + 前端运行（未配置 AI key，故无 Claude 摘要 / 简报；热度榜与博客目录本身可完整使用）。
+
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Hot AI 首页热度榜" />
+</p>
+<p align="center"><sub>首页：今日热度榜，按来源权重 × 时间衰减 × 信号实时排序</sub></p>
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/home-dark.png" alt="暗色模式首页" />
+      <br /><sub>暗色模式</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/blogs.png" alt="精选博客目录" />
+      <br /><sub>精选博客目录，卡片可展开阅读指南</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/search.png" alt="搜索 Claude" />
+      <br /><sub>全文搜索（标题 / 摘要 / 标签）</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/category-industry.png" alt="产业分类" />
+      <br /><sub>按分类浏览：OpenAI、DeepMind 等产业动态</sub>
+    </td>
+  </tr>
+</table>
+
 ## 架构
 
 ```
