@@ -31,7 +31,7 @@ Web 版没有 App 内 SOCKS 隧道，国际源依赖 Functions 代理。Hot AI �
 
 | 优点来源 | 具体能力 | 合并后落点 |
 |---|---|---|
-| Hot AI | 全局打分（源权重 × 衰减 × 信号 × aiImportance） | 默认场景 **「今日热榜」**，SSR 首页 |
+| Hot AI | 全局打分（源权重 × 衰减 × 信号 × aiImportance） | **`/hot` 热榜页**（不再是默认首页） |
 | Hot AI | 每篇 LLM 双语摘要 / topics / 情感 / 重要度 | 列表卡 + 站内阅读器顶部 |
 | Hot AI | 每日 digest + `/api/ask` | 桌面左侧「今日脉搏」+ `/digest` 全页 |
 | Hot AI | 14 天硬删除、无账号、无个性化推荐 | **不变**（见 §3） |
@@ -94,9 +94,11 @@ Web 版没有 App 内 SOCKS 隧道，国际源依赖 Functions 代理。Hot AI �
 
 | 路径 | 角色 |
 |---|---|
-| `/` | 默认「今日热榜」。SSR 出 top 50；客户端可切场景 |
+| `/` | 默认「速闻」live RSS 瀑布流（不入库） |
+| `/hot` | Hot AI 打分热榜。SSR 出 top 50 + 今日脉搏 |
 | `/digest` | 今日简报全页 + AskBox |
-| `/a/[id]` | **新** 站内阅读器 |
+| `/a/[id]` | 热榜条目站内阅读器 |
+| `/r` | 速闻条目站内阅读（Readability） |
 | `/category/[slug]` | 分类时间线（publishedAt） |
 | `/source/[slug]` | 单源时间线 |
 | `/blogs` | 精选博客目录 |
@@ -116,7 +118,7 @@ Web 版没有 App 内 SOCKS 隧道，国际源依赖 Functions 代理。Hot AI �
 | id | 名称 | 数据 | 排序 |
 |---|---|---|---|
 | `hot` | 今日热榜 | `getTopArticles` | score |
-| `digest` | 今日简报 | Digest 行 + 今日 top | n/a（跳 `/digest` 或首页左栏） |
+| `digest` | 今日简报 | Digest 行 + 今日 top | n/a（跳 `/digest` 或 `/hot` 脉搏栏） |
 | `research` / `industry` / `opensource` / `media` | 四分类 | `getCategoryArticles` | publishedAt |
 | `blogs` | 研究者 | CuratedBlog 目录 | sortOrder |
 | `mine` | 我的订阅 | localStorage 自定义源，经 `/api/proxy/feed` | publishedAt |

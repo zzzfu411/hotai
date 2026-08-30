@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     default: `${SITE.name} — ${SITE.tagline_zh}`,
     template: `%s · ${SITE.name}`,
   },
-  description: "每日 AI 新闻、研究与开源热度榜 — 按热度排序，Claude 摘要。",
+  description: "NewsNook 式速闻时间线；Hot AI 热榜、简报与问答在独立模块。",
   metadataBase: new URL(SITE.url),
   icons: {
     icon: [
