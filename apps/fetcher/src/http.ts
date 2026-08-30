@@ -16,6 +16,7 @@ export async function httpGet(url: string, init: { headers?: Record<string, stri
       maxRedirections: 5,
     });
     if (res.statusCode >= 400) {
+      res.body.resume();
       throw new Error(`HTTP ${res.statusCode} for ${url}`);
     }
     return res;

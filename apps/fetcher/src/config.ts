@@ -8,7 +8,7 @@ function num(env: string | undefined, fallback: number): number {
 export const config = {
   userAgent:
     process.env.FETCHER_USER_AGENT ||
-    "HotAI-Bot/0.1 (+https://hotai.example.com)",
+    "HotAI-Bot/0.1 (+https://hotai.yeuxark.com)",
   cron: process.env.FETCHER_CRON || "7 * * * *",
   halfLifeHours: num(process.env.SCORING_HALFLIFE_HOURS, 24),
   // Stored lowercased — scoring matches against lowercased text.
@@ -21,8 +21,11 @@ export const config = {
     .filter(Boolean),
   revalidateUrl: process.env.REVALIDATE_URL || "",
   revalidateSecret: process.env.REVALIDATE_SECRET || "",
-  fetchTimeoutMs: 20_000,
-  perSourceLimit: 40,
+  fetchTimeoutMs: num(process.env.FETCH_TIMEOUT_MS, 20_000),
+  perSourceLimit: Math.max(1, num(process.env.PER_SOURCE_LIMIT, 40)),
+  // Parallel upstream fetches; persist stays sequential so urlHash/titleHash
+  // dedupe sees rows written by earlier sources in the same cycle.
+  fetchConcurrency: Math.max(1, Math.min(8, num(process.env.FETCH_CONCURRENCY, 4))),
   // Hard retention — articles older than this are wiped each cycle.
   // Project policy: keep 2 weeks; the homepage focus is "today's hot", not archive.
   retentionDays: num(process.env.ARTICLE_RETENTION_DAYS, 14),

@@ -22,7 +22,16 @@ export async function ensureTodayDigest(opts: { force?: boolean } = {}): Promise
     where: { publishedAt: { gte: today } },
     orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
     take: 40,
-    include: { source: { select: { name: true } } },
+    select: {
+      id: true,
+      title: true,
+      url: true,
+      score: true,
+      summary: true,
+      aiSummaryEn: true,
+      aiTopics: true,
+      source: { select: { name: true } },
+    },
   });
   if (articles.length < 5) {
     console.log(`[ai] digest skipped — only ${articles.length} article(s) since ${today.toISOString()}`);

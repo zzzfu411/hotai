@@ -16,7 +16,7 @@ export function CategoryNav({ categories }: { categories: readonly Item[] }) {
   const pathname = usePathname();
   const { lang } = useLang();
   return (
-    <nav className="hidden sm:flex items-center gap-1 text-sm">
+    <nav className="kz-tabs" aria-label={lang === "zh" ? "分类" : "Categories"}>
       {categories.map((c) => {
         const href = `/category/${c.slug}`;
         const active = pathname === href;
@@ -24,13 +24,10 @@ export function CategoryNav({ categories }: { categories: readonly Item[] }) {
           <Link
             key={c.slug}
             href={href}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md transition ${
-              active
-                ? "bg-accent/10 text-accent-deep dark:text-accent"
-                : "text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800"
-            }`}
+            className={active ? "kz-tab active" : "kz-tab"}
+            aria-current={active ? "page" : undefined}
           >
-            <span className="h-4 w-4 bg-current opacity-85" style={iconMask(c.slug)} aria-hidden />
+            <span className="kz-sentiment-icon" style={iconMask(c.slug)} aria-hidden />
             {lang === "zh" ? c.label_zh : c.label_en}
           </Link>
         );

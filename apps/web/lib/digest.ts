@@ -17,6 +17,8 @@ export type LoadedDigest = {
  * fetcher's next cycle — generate one on the fly and persist it. This is the
  * one deliberate web-side write to content data.
  */
+const g = globalThis as typeof globalThis & { __hotai_digest_gen?: Promise<LoadedDigest | null> };
+
 export async function loadDigest(): Promise<LoadedDigest | null> {
   const today = startOfUtcDay();
   const existing = await getTodayDigestRow();
@@ -32,6 +34,9 @@ export async function loadDigest(): Promise<LoadedDigest | null> {
   }
 
   if (!AI_ENABLED) return null;
+  if (g.__hotai_digest_gen) return g.__hotai_digest_gen;
+
+  const job = (async (): Promise<LoadedDigest | null> => {
   const articles = await getArticlesSince(today, 40);
   if (articles.length < 5) return null;
   const result = await generateDigest(
@@ -74,4 +79,12 @@ export async function loadDigest(): Promise<LoadedDigest | null> {
     model: result.model,
     createdAt: saved.createdAt,
   };
+  })();
+
+  g.__hotai_digest_gen = job;
+  try {
+    return await job;
+  } finally {
+    if (g.__hotai_digest_gen === job) g.__hotai_digest_gen = undefined;
+  }
 }

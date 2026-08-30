@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "./db";
 
 /**
@@ -35,18 +36,19 @@ export function getArticlesSince(since: Date, limit = 20) {
   });
 }
 
+/** Category timeline — chronological (NewsNook), not the hot-list score. */
 export function getCategoryArticles(category: string, limit = 80) {
   return prisma.article.findMany({
     where: { category },
-    orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
+    orderBy: [{ publishedAt: "desc" }],
     take: limit,
     include: WITH_SOURCE,
   });
 }
 
-export function getSourceBySlug(slug: string) {
+export const getSourceBySlug = cache(function getSourceBySlug(slug: string) {
   return prisma.source.findUnique({ where: { slug } });
-}
+});
 
 export function getArticlesBySource(sourceId: number, limit = 80) {
   return prisma.article.findMany({
@@ -58,15 +60,17 @@ export function getArticlesBySource(sourceId: number, limit = 80) {
 }
 
 export function searchArticles(q: string, sort: "hot" | "recent", limit = 60) {
+  const needle = q.trim().slice(0, 80);
+  if (needle.length < 2) return Promise.resolve([]);
   return prisma.article.findMany({
     where: {
       OR: [
-        { title: { contains: q, mode: "insensitive" } },
-        { summary: { contains: q, mode: "insensitive" } },
-        { aiSummaryEn: { contains: q, mode: "insensitive" } },
-        { aiSummaryZh: { contains: q } },
-        { aiTopics: { has: q.toLowerCase() } },
-        { tags: { has: q.toLowerCase() } },
+        { title: { contains: needle, mode: "insensitive" } },
+        { summary: { contains: needle, mode: "insensitive" } },
+        { aiSummaryEn: { contains: needle, mode: "insensitive" } },
+        { aiSummaryZh: { contains: needle } },
+        { aiTopics: { has: needle.toLowerCase() } },
+        { tags: { has: needle.toLowerCase() } },
       ],
     },
     orderBy:
@@ -96,9 +100,101 @@ export function getTodayDigestRow() {
   return prisma.digest.findUnique({ where: { date: startOfUtcDay() } });
 }
 
+/** Single article for the in-site reader (`/a/[id]`). */
+export const getArticleById = cache(function getArticleById(id: number) {
+  return prisma.article.findUnique({
+    where: { id },
+    include: WITH_SOURCE,
+  });
+});
+
+export function getArticlesByIds(ids: number[]) {
+  if (ids.length === 0) return Promise.resolve([]);
+  return prisma.article.findMany({
+    where: { id: { in: ids } },
+    include: WITH_SOURCE,
+  });
+}
+
+const ENABLED_SOURCE_SELECT = {
+  slug: true,
+  name: true,
+  category: true,
+  homepage: true,
+  url: true,
+  type: true,
+  lang: true,
+  weight: true,
+} as const;
+
+/** Enabled sources — OPML / subscribe catalog. */
+export function getEnabledSources() {
+  return prisma.source.findMany({
+    where: { enabled: true },
+    select: ENABLED_SOURCE_SELECT,
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+  });
+}
+
 /** Enabled source slugs — sitemap entries. */
 export function getEnabledSourceSlugs() {
   return prisma.source.findMany({ where: { enabled: true }, select: { slug: true } });
+}
+
+/**
+ * Related stories by `aiTopics` overlap (`hasSome` → Postgres `&&`, GIN).
+ * Extra rows are fetched then ranked by overlap count so the GIN hit stays
+ * cheap and the reader still sees the closest matches.
+ */
+export async function getRelatedArticles(topics: string[], excludeId: number, limit = 5) {
+  const tags = [
+    ...new Set(topics.map((t) => t.trim().toLowerCase()).filter(Boolean)),
+  ];
+  if (tags.length === 0 || limit <= 0) return [];
+
+  const rows = await prisma.article.findMany({
+    where: {
+      id: { not: excludeId },
+      aiTopics: { hasSome: tags },
+    },
+    orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
+    take: Math.min(80, Math.max(limit * 6, 20)),
+    include: WITH_SOURCE,
+  });
+
+  const tagSet = new Set(tags);
+  return rows
+    .map((a) => ({
+      a,
+      overlap: a.aiTopics.reduce(
+        (n, t) => n + (tagSet.has(t.trim().toLowerCase()) ? 1 : 0),
+        0,
+      ),
+    }))
+    .filter((x) => x.overlap > 0)
+    .sort((x, y) => y.overlap - x.overlap || y.a.score - x.a.score)
+    .slice(0, limit)
+    .map((x) => x.a);
+}
+
+export type FeedArticleQuery = {
+  category?: string;
+  minImportance?: number;
+};
+
+/** Hot-list feed rows, optionally filtered by category / AI importance. */
+export function getFeedArticles(query: FeedArticleQuery = {}, limit = 50) {
+  return prisma.article.findMany({
+    where: {
+      ...(query.category ? { category: query.category } : {}),
+      ...(query.minImportance != null
+        ? { aiImportance: { gte: query.minImportance } }
+        : {}),
+    },
+    orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
+    take: limit,
+    include: WITH_SOURCE,
+  });
 }
 
 /** Curated AI researcher/practitioner blogs — permanent editorial directory. */

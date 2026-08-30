@@ -25,5 +25,5 @@ export const SITE = {
   name: "Hot AI",
   tagline_en: "The pulse of AI, every hour.",
   tagline_zh: "每小时,一份 AI 脉搏。",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://hotai.example.com",
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://hotai.yeuxark.com",
 };

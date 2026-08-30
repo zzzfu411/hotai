@@ -1,4 +1,4 @@
-import { HotList } from "@/components/HotList";
+import { FeedList } from "@/components/FeedList";
 import { SearchBox } from "@/components/SearchBox";
 import { toCard } from "@/lib/article";
 import { searchArticles } from "@/lib/queries";
@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Search",
+  title: "搜索",
 };
 
 export default async function SearchPage({
@@ -18,32 +18,16 @@ export default async function SearchPage({
   const q = (searchParams.q ?? "").trim();
   const sort = searchParams.sort === "recent" ? "recent" : "hot";
 
-  const articles = q.length > 0 ? await searchArticles(q, sort) : [];
+  const articles = q.length >= 2 ? await searchArticles(q, sort) : [];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-      <header className="flex flex-col gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-ember-700 dark:text-ember-200 font-semibold">
-            Search
-          </p>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight">
-            What are you looking for?
-          </h1>
-        </div>
-        <SearchBox initialQuery={q} initialSort={sort} />
-      </header>
-
-      {q.length > 0 && (
-        <p className="mt-6 text-sm text-ink-500">
-          {articles.length} result{articles.length === 1 ? "" : "s"} for{" "}
-          <span className="font-semibold text-ink-700 dark:text-ink-200">&ldquo;{q}&rdquo;</span>
-        </p>
-      )}
-
-      <section className="mt-4 card-surface px-4 sm:px-6 py-2 sm:py-3">
-        <HotList articles={articles.map(toCard)} showRank={false} />
-      </section>
+    <div className="kz-page">
+      <SearchBox
+        initialQuery={q}
+        initialSort={sort}
+        resultCount={q.length > 0 ? articles.length : null}
+      />
+      {q.length > 0 && <FeedList articles={articles.map(toCard)} />}
     </div>
   );
 }

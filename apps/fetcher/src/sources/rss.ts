@@ -2,17 +2,23 @@ import Parser from "rss-parser";
 import type { Source } from "@hotai/db";
 import type { RawItem } from "../types.js";
 import { config } from "../config.js";
+import { httpText } from "../http.js";
 
 const parser = new Parser({
   timeout: config.fetchTimeoutMs,
-  headers: { "User-Agent": config.userAgent, Accept: "application/rss+xml, application/xml, text/xml, */*" },
+  customFields: {
+    item: [["content:encoded", "contentEncoded"]],
+  },
 });
 
 const HN_POINTS_RE = /Points:\s*(\d+)/i;
 const HN_COMMENTS_RE = /Comments:\s*(\d+)/i;
 
 export async function fetchRss(source: Source): Promise<RawItem[]> {
-  const feed = await parser.parseURL(source.url);
+  const xml = await httpText(source.url, {
+    headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
+  });
+  const feed = await parser.parseString(xml);
   const items: RawItem[] = [];
   for (const it of feed.items ?? []) {
     const link = it.link ?? it.guid;

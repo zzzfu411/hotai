@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang } from "./LangContext";
 
-export function AskBox() {
+export function AskBox({ compact = false }: { compact?: boolean }) {
   const { lang } = useLang();
   const [q, setQ] = useState("");
   const [answer, setAnswer] = useState("");
@@ -15,7 +15,16 @@ export function AskBox() {
       ? ["今天最值得关注的开源模型?", "OpenAI / Anthropic 这两天有什么动静?", "学术圈在讨论哪些新论文?"]
       : ["What's the biggest open-source release today?", "Any major news from OpenAI or Anthropic?", "Which new papers is the community talking about?"];
 
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   const ask = async (question: string) => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     setQ(question);
     setAnswer("");
     setError(null);
@@ -25,6 +34,7 @@ export function AskBox() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ question }),
+        signal: ac.signal,
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -57,21 +67,60 @@ export function AskBox() {
         }
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (ac.signal.aborted) return;
       setError((err as Error).message);
     } finally {
-      setBusy(false);
+      if (!ac.signal.aborted) setBusy(false);
     }
   };
 
-  return (
-    <div className="card-surface p-5 sm:p-6">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-semibold text-ember-700 dark:text-ember-200">
-        <span aria-hidden>✶</span>
-        {lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}
+  if (compact) {
+    return (
+      <div className="kz-ask-compact">
+        <p className="kz-pulse-kicker">{lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (q.trim()) ask(q.trim());
+          }}
+          className="kz-search kz-ask-form"
+        >
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={lang === "zh" ? "提个问题…" : "Ask a question…"}
+            disabled={busy}
+            className="kz-input"
+            aria-label={lang === "zh" ? "提问" : "Ask"}
+          />
+          <button
+            type="submit"
+            disabled={busy || !q.trim()}
+            className="kz-search-go"
+            aria-label={lang === "zh" ? "发送" : "Send"}
+          >
+            {busy ? "…" : "→"}
+          </button>
+        </form>
+        {(answer || error) && (
+          <div className="kz-ask-answer">
+            {answer}
+            {busy && <span className="kz-ask-caret" />}
+            {error && <p className="kz-ask-error">⚠ {error}</p>}
+          </div>
+        )}
       </div>
-      <p className="mt-1 text-sm text-ink-500">
+    );
+  }
+
+  return (
+    <div className="kz-card kz-ask">
+      <p className="kz-ask-kicker">{lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}</p>
+      <p className="kz-ask-hint">
         {lang === "zh"
-          ? "基于过去 48 小时的头条文章,由 Claude 实时回答。"
+          ? "基于过去 48 小时的头条文章，由 Claude 实时回答。"
           : "Streamed by Claude, grounded in the last 48 hours of headlines."}
       </p>
       <form
@@ -79,7 +128,7 @@ export function AskBox() {
           e.preventDefault();
           if (q.trim()) ask(q.trim());
         }}
-        className="mt-3 flex gap-2"
+        className="kz-search kz-ask-form"
       >
         <input
           type="text"
@@ -87,25 +136,27 @@ export function AskBox() {
           onChange={(e) => setQ(e.target.value)}
           placeholder={lang === "zh" ? "提个问题…" : "Ask a question…"}
           disabled={busy}
-          className="flex-1 px-3 py-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white/70 dark:bg-ink-900/40 focus:border-accent focus:ring-2 focus:ring-accent/30 outline-none transition disabled:opacity-60"
+          className="kz-input"
+          aria-label={lang === "zh" ? "提问" : "Ask"}
         />
         <button
           type="submit"
           disabled={busy || !q.trim()}
-          className="px-4 py-2 rounded-xl fire-gradient text-white font-semibold disabled:opacity-50"
+          className="kz-search-go"
+          aria-label={lang === "zh" ? "发送" : "Send"}
         >
-          {busy ? "…" : lang === "zh" ? "发送" : "Send"}
+          {busy ? "…" : "→"}
         </button>
       </form>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="kz-ask-suggestions">
         {suggestions.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => ask(s)}
             disabled={busy}
-            className="chip-soft hover:border-accent hover:text-accent transition disabled:opacity-50"
+            className="kz-chip"
           >
             {s}
           </button>
@@ -113,12 +164,10 @@ export function AskBox() {
       </div>
 
       {(answer || error) && (
-        <div className="mt-4 p-4 rounded-xl bg-ink-50/70 dark:bg-ink-900/60 border border-ink-200/60 dark:border-ink-800/60 text-sm leading-relaxed whitespace-pre-wrap">
+        <div className="kz-ask-answer">
           {answer}
-          {busy && <span className="inline-block w-2 h-4 ml-0.5 align-middle bg-accent animate-pulse" />}
-          {error && (
-            <p className="mt-2 text-red-500 text-xs">⚠ {error}</p>
-          )}
+          {busy && <span className="kz-ask-caret" />}
+          {error && <p className="kz-ask-error">⚠ {error}</p>}
         </div>
       )}
     </div>

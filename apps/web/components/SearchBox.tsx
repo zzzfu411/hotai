@@ -2,14 +2,19 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useLang } from "./LangContext";
 
 export function SearchBox({
   initialQuery,
   initialSort,
+  resultCount = null,
 }: {
   initialQuery: string;
   initialSort: "hot" | "recent";
+  resultCount?: number | null;
 }) {
+  const { lang } = useLang();
+  const zh = lang === "zh";
   const router = useRouter();
   const sp = useSearchParams();
   const [q, setQ] = useState(initialQuery);
@@ -39,57 +44,61 @@ export function SearchBox({
   };
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit(q, sort);
-      }}
-      className="flex flex-col sm:flex-row gap-2"
-    >
-      <div className="relative flex-1">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
-          width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden
-        >
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
-        <input
-          ref={inputRef}
-          autoFocus
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search titles, summaries, topics…   (⌘K)"
-          className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white/70 dark:bg-ink-900/40 focus:border-accent focus:ring-2 focus:ring-accent/30 outline-none transition"
-        />
+    <header className="kz-page-head">
+      <div>
+        <p className="kz-page-kicker">{zh ? "搜索" : "Search"}</p>
+        <h1 className="kz-page-title">{zh ? "搜标题、摘要、主题" : "Titles, summaries, topics"}</h1>
       </div>
-      <div className="flex gap-1 p-1 rounded-xl border border-ink-200 dark:border-ink-700 bg-white/60 dark:bg-ink-900/40 self-stretch sm:self-auto">
-        {(["hot", "recent"] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => {
-              setSort(s);
-              submit(q, s);
-            }}
-            className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${
-              sort === s
-                ? "bg-accent text-white"
-                : "text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800"
-            }`}
-          >
-            {s === "hot" ? "🔥 Hot" : "🕒 Recent"}
-          </button>
-        ))}
-      </div>
-      <button
-        type="submit"
-        className="px-4 py-2.5 rounded-xl fire-gradient text-white font-semibold shadow hover:shadow-md transition"
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit(q, sort);
+        }}
+        className="kz-search-form"
+        role="search"
       >
-        Search
-      </button>
-    </form>
+        <div className="kz-search kz-search-wide">
+          <input
+            ref={inputRef}
+            autoFocus
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={zh ? "搜索标题、摘要、主题…  (⌘K)" : "Search titles, summaries, topics…  (⌘K)"}
+            className="kz-input"
+            aria-label={zh ? "搜索" : "Search"}
+          />
+          <button type="submit" className="kz-search-go" aria-label={zh ? "搜索" : "Search"}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </button>
+        </div>
+        <div className="kz-sort" role="group" aria-label={zh ? "排序" : "Sort"}>
+          {(["hot", "recent"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setSort(s);
+                submit(q, s);
+              }}
+              className={sort === s ? "kz-tab active" : "kz-tab"}
+              aria-pressed={sort === s}
+            >
+              {s === "hot" ? (zh ? "热度" : "Hot") : zh ? "最新" : "Recent"}
+            </button>
+          ))}
+        </div>
+      </form>
+      {resultCount != null && (
+        <p className="kz-search-count">
+          {zh
+            ? `${resultCount} 条结果 · 「${initialQuery}」`
+            : `${resultCount} result${resultCount === 1 ? "" : "s"} for “${initialQuery}”`}
+        </p>
+      )}
+    </header>
   );
 }

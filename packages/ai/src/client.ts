@@ -41,6 +41,8 @@ export function client(): Anthropic {
       apiKey: anthropicAuthToken ? null : anthropicApiKey,
       // Point at a relay that speaks /v1/messages. e.g. "https://api.your-relay.com"
       baseURL: process.env.ANTHROPIC_BASE_URL || undefined,
+      timeout: 90_000,
+      maxRetries: 1,
     });
   }
   return _client;

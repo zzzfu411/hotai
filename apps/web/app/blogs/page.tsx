@@ -7,13 +7,11 @@ import { getCuratedBlogs } from "@/lib/queries";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "AI Blogs",
-  description:
-    "Curated high-signal blogs from AI researchers and practitioners — Lil's Log, colah's blog, and more.",
+  title: "精选博客",
+  description: "AI 研究者与从业者高质量博客目录，含阅读指南。",
   openGraph: {
-    title: "AI Blogs · Hot AI",
-    description:
-      "An editorial shortlist of researcher and practitioner blogs worth long-term reading.",
+    title: "精选博客 · Hot AI",
+    description: "编辑精选的研究员与从业者博客，含更新节奏与推荐入口。",
   },
 };
 
@@ -59,11 +57,9 @@ export default async function BlogsPage() {
   const featured = blogs.filter((b) => b.featured).length;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+    <div className="kz-page kz-page-wide">
       <BlogHero total={blogs.length} featured={featured} />
-      <section className="mt-8">
-        <BlogDirectory blogs={blogs} />
-      </section>
+      <BlogDirectory blogs={blogs} />
     </div>
   );
 }

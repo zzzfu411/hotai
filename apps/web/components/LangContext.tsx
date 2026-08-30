@@ -9,22 +9,20 @@ type Ctx = {
   setLang: (l: Lang) => void;
 };
 
-const LangCtx = createContext<Ctx>({ lang: "en", setLang: () => {} });
+const LangCtx = createContext<Ctx>({ lang: "zh", setLang: () => {} });
 
 export function LangProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("en");
+  const [lang, setLangState] = useState<Lang>("zh");
 
   useEffect(() => {
-    const stored = (typeof window !== "undefined" && localStorage.getItem("hotai-lang")) as Lang | null;
+    const stored = typeof window !== "undefined" ? localStorage.getItem("hotai-lang") : null;
     if (stored === "en" || stored === "zh") {
       setLangState(stored);
       document.documentElement.lang = stored;
       return;
     }
-    const browser = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "en";
-    const initial: Lang = browser.startsWith("zh") ? "zh" : "en";
-    setLangState(initial);
-    document.documentElement.lang = initial;
+    setLangState("zh");
+    document.documentElement.lang = "zh";
   }, []);
 
   const setLang = (l: Lang) => {

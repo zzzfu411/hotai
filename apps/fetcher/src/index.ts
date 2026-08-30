@@ -4,6 +4,21 @@ import { prisma } from "@hotai/db";
 import { runCycle } from "./cycle.js";
 import { config } from "./config.js";
 
+let running = false;
+
+async function guardedCycle(label: string): Promise<void> {
+  if (running) {
+    console.warn(`[fetcher] skip overlapping cycle (${label})`);
+    return;
+  }
+  running = true;
+  try {
+    await runCycle();
+  } finally {
+    running = false;
+  }
+}
+
 async function main(): Promise<void> {
   const once = process.argv.includes("--once");
   if (once) {
@@ -12,9 +27,9 @@ async function main(): Promise<void> {
     return;
   }
   console.log(`[fetcher] scheduler started, cron="${config.cron}"`);
-  await runCycle().catch((e) => console.error("[fetcher] initial run failed:", e));
+  await guardedCycle("startup").catch((e) => console.error("[fetcher] initial run failed:", e));
   cron.schedule(config.cron, () => {
-    runCycle().catch((e) => console.error("[fetcher] scheduled run failed:", e));
+    guardedCycle("cron").catch((e) => console.error("[fetcher] scheduled run failed:", e));
   });
 }
 

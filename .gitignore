@@ -22,3 +22,6 @@ prisma/migrations/dev.db*
 
 # TS incremental build cache
 *.tsbuildinfo
+
+# Local agent / session files
+.grok/

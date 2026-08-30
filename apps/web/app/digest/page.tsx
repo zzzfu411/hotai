@@ -1,8 +1,8 @@
 import { AI_ENABLED, type DigestBullet } from "@hotai/ai";
-import { HotList } from "@/components/HotList";
-import { toCard } from "@/lib/article";
-import { DigestHeader } from "@/components/DigestHeader";
 import { AskBox } from "@/components/AskBox";
+import { DigestHeader } from "@/components/DigestHeader";
+import { FeedList } from "@/components/FeedList";
+import { toCard } from "@/lib/article";
 import { loadDigest } from "@/lib/digest";
 import { getArticlesSince, startOfUtcDay } from "@/lib/queries";
 import type { Metadata } from "next";
@@ -12,38 +12,36 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Today's AI Brief",
-  description: "AI-generated daily brief of the biggest stories in AI.",
+  title: "今日简报",
+  description: "今日 AI 要闻简报，附 Ask 问答。",
 };
 
 export default async function DigestPage() {
-  const [digest, todaysTop] = await Promise.all([
-    loadDigest(),
-    getArticlesSince(startOfUtcDay(), 20),
-  ]);
+  let digest: Awaited<ReturnType<typeof loadDigest>> = null;
+  let todaysTop: Awaited<ReturnType<typeof getArticlesSince>> = [];
+  try {
+    [digest, todaysTop] = await Promise.all([
+      loadDigest(),
+      getArticlesSince(startOfUtcDay(), 20),
+    ]);
+  } catch (err) {
+    console.warn("[digest] db unavailable:", err instanceof Error ? err.message : err);
+  }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+    <div className="kz-page">
       <DigestHeader digest={digest} aiEnabled={AI_ENABLED} />
 
       {digest && (
-        <ol className="mt-8 space-y-4">
+        <ol className="kz-digest-bullets">
           {digest.bullets.map((b: DigestBullet, i: number) => (
-            <li
-              key={i}
-              className="card-surface p-5 sm:p-6 flex gap-4 hover:border-accent/60 transition animate-fade-up"
-              style={{ animationDelay: `${i * 40}ms` }}
-            >
-              <div className="text-2xl font-black tabular-nums leading-none text-ember-500 w-10 shrink-0">
-                {String(i + 1).padStart(2, "0")}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-lg leading-snug">{b.title}</h3>
-                <p className="mt-1.5 text-sm text-ink-600 dark:text-ink-300 leading-relaxed">
-                  {b.takeaway}
-                </p>
+            <li key={i} className="kz-card kz-digest-item">
+              <div className="kz-digest-num">{String(i + 1).padStart(2, "0")}</div>
+              <div>
+                <h3>{b.title}</h3>
+                <p>{b.takeaway}</p>
                 {b.urls?.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
+                  <div className="kz-digest-hosts">
                     {b.urls.map((u) => {
                       let host = "";
                       try {
@@ -57,7 +55,7 @@ export default async function DigestPage() {
                           href={u}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="chip-soft hover:border-accent hover:text-accent transition"
+                          className="kz-chip"
                         >
                           {host} ↗
                         </a>
@@ -71,17 +69,18 @@ export default async function DigestPage() {
         </ol>
       )}
 
-      <section className="mt-10">
-        <h2 className="text-sm uppercase tracking-widest font-semibold text-ink-500 dark:text-ink-400">
-          Today&apos;s hottest
-        </h2>
-        <div className="mt-3 card-surface px-4 sm:px-6 py-2 sm:py-3">
-          <HotList articles={todaysTop.map(toCard)} />
-        </div>
+      <section className="kz-digest-hot">
+        <FeedList
+          articles={todaysTop.map(toCard)}
+          ranked
+          titleAs="h2"
+          titleZh="今日最热"
+          titleEn="Today's hottest"
+        />
       </section>
 
       {AI_ENABLED && (
-        <section className="mt-10">
+        <section className="kz-digest-ask">
           <AskBox />
         </section>
       )}

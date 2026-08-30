@@ -31,3 +31,17 @@ export function hostname(url: string): string {
     return url;
   }
 }
+
+/** Language-neutral clock for SSR reader metadata (`2026-08-23 12:00 UTC`). */
+export function formatUtcDateTime(date: Date): string {
+  const stamp = new Intl.DateTimeFormat("sv-SE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+  }).format(date);
+  return `${stamp} UTC`;
+}

@@ -79,183 +79,122 @@ function hasGuide(blog: BlogCardData) {
   );
 }
 
-export function BlogCard({ blog, index = 0 }: { blog: BlogCardData; index?: number }) {
+export function BlogCard({ blog }: { blog: BlogCardData }) {
   const { lang } = useLang();
+  const zh = lang === "zh";
   const [open, setOpen] = useState(false);
   const fav = faviconFor(blog.url);
-  const bio = lang === "zh" ? blog.bioZh : blog.bioEn;
+  const bio = zh ? blog.bioZh : blog.bioEn;
   const host = hostnameOf(blog.url);
   const guide = hasGuide(blog);
 
-  const cadence = lang === "zh" ? blog.guideCadenceZh : blog.guideCadenceEn;
-  const how = lang === "zh" ? blog.guideHowZh : blog.guideHowEn;
-  const timeline = lang === "zh" ? blog.guideTimelineZh : blog.guideTimelineEn;
+  const cadence = zh ? blog.guideCadenceZh : blog.guideCadenceEn;
+  const how = zh ? blog.guideHowZh : blog.guideHowEn;
+  const timeline = zh ? blog.guideTimelineZh : blog.guideTimelineEn;
 
   return (
-    <article
-      id={blog.slug}
-      className={`group relative flex flex-col h-full card-surface p-5 sm:p-6 transition hover:border-accent/50 hover:shadow-md hover:shadow-ember-500/5 animate-fade-up ${
-        blog.featured ? "ring-1 ring-ember-500/20" : ""
-      }`}
-      style={{ animationDelay: `${Math.min(index, 12) * 35}ms` }}
-    >
-      {blog.featured && (
-        <span className="absolute -top-2.5 left-4 chip-accent shadow-sm">
-          <span aria-hidden>✶</span>
-          {lang === "zh" ? "精选" : "Featured"}
-        </span>
-      )}
-
-      <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
-          <div className="w-11 h-11 rounded-xl border border-ink-200/80 dark:border-ink-700/80 bg-ink-50 dark:bg-ink-800/60 flex items-center justify-center overflow-hidden">
-            {fav ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={fav} alt="" width={28} height={28} className="w-7 h-7" loading="lazy" />
-            ) : (
-              <span className="text-sm font-bold text-ember-600">
-                {blog.author.slice(0, 1).toUpperCase()}
-              </span>
-            )}
-          </div>
+    <article id={blog.slug} className="kz-card kz-blog-card">
+      <div className="kz-blog-top">
+        <div className="kz-blog-fav">
+          {fav ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fav} alt="" width={28} height={28} loading="lazy" />
+          ) : (
+            <span aria-hidden>{blog.author.slice(0, 1).toUpperCase()}</span>
+          )}
         </div>
-
         <div className="min-w-0 flex-1">
-          <h3 className="font-bold text-base sm:text-lg leading-snug tracking-tight">
-            <a
-              href={blog.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-accent transition"
-            >
+          <h3 className="kz-blog-name">
+            <a href={blog.url} target="_blank" rel="noopener noreferrer">
               {blog.name}
             </a>
           </h3>
-          <p className="mt-0.5 text-sm text-ink-600 dark:text-ink-300">
-            <span className="font-medium text-ink-800 dark:text-ink-100">{blog.author}</span>
-            {blog.affiliation && (
-              <>
-                <span className="mx-1.5 text-ink-300 dark:text-ink-600">·</span>
-                <span>{blog.affiliation}</span>
-              </>
-            )}
+          <p className="kz-blog-by">
+            <strong>{blog.author}</strong>
+            {blog.affiliation ? ` · ${blog.affiliation}` : ""}
           </p>
         </div>
-
+        {blog.featured && <span className="kz-chip kz-chip-yellow">{zh ? "精选" : "Featured"}</span>}
         {blog.lang === "zh" && (
-          <span className="chip-soft shrink-0" title="Primarily Chinese">
+          <span className="kz-chip" title="Primarily Chinese">
             中
           </span>
         )}
       </div>
 
-      <p className="mt-3 text-sm text-ink-600 dark:text-ink-300 leading-relaxed line-clamp-3">
-        {bio}
-      </p>
+      <p className="kz-blog-bio">{bio}</p>
 
       {blog.tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="kz-blog-tags">
           {blog.tags.slice(0, 5).map((t) => {
             const label = TAG_LABEL[t];
             return (
-              <span key={t} className="chip-soft">
-                {label ? (lang === "zh" ? label.zh : label.en) : t}
+              <span key={t} className="kz-chip">
+                {label ? (zh ? label.zh : label.en) : t}
               </span>
             );
           })}
         </div>
       )}
 
-      {/* 食用指南 */}
       {guide && (
-        <div className="mt-4">
+        <div className="kz-blog-guide">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-semibold border transition ${
-              open
-                ? "border-violet-400/60 bg-violet-50/80 dark:bg-violet-900/25 text-violet-800 dark:text-violet-200"
-                : "border-ink-200 dark:border-ink-700 text-ink-700 dark:text-ink-200 hover:border-violet-400/50 hover:text-violet-700 dark:hover:text-violet-200"
-            }`}
+            className={open ? "kz-btn kz-blog-guide-toggle active" : "kz-btn kz-blog-guide-toggle"}
           >
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden>📖</span>
-              {lang === "zh" ? "食用指南" : "Reading guide"}
-            </span>
-            <span
-              aria-hidden
-              className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}
-            >
-              ▾
-            </span>
+            <span>{zh ? "食用指南" : "Reading guide"}</span>
+            <span aria-hidden>{open ? "▴" : "▾"}</span>
           </button>
 
           {open && (
-            <div className="mt-3 space-y-3.5 rounded-xl border border-violet-200/60 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20 p-3.5 sm:p-4 text-sm leading-relaxed animate-fade-up">
+            <div className="kz-blog-guide-panel">
               {cadence && (
                 <section>
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                    {lang === "zh" ? "更新节奏" : "Cadence"}
-                  </h4>
-                  <p className="mt-1 text-ink-700 dark:text-ink-200">{cadence}</p>
+                  <h4>{zh ? "更新节奏" : "Cadence"}</h4>
+                  <p>{cadence}</p>
                 </section>
               )}
 
               {how && (
                 <section>
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                    {lang === "zh" ? "怎么看" : "How to read"}
-                  </h4>
-                  <p className="mt-1 text-ink-700 dark:text-ink-200">{how}</p>
+                  <h4>{zh ? "怎么看" : "How to read"}</h4>
+                  <p>{how}</p>
                 </section>
               )}
 
               {timeline && (
                 <section>
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                    {lang === "zh" ? "内容时间线" : "Timeline"}
-                  </h4>
-                  <p className="mt-1 text-ink-700 dark:text-ink-200">{timeline}</p>
+                  <h4>{zh ? "内容时间线" : "Timeline"}</h4>
+                  <p>{timeline}</p>
                 </section>
               )}
 
               {blog.guideStartHere.length > 0 && (
                 <section>
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                    {lang === "zh" ? "推荐从这里开始" : "Start here"}
-                  </h4>
-                  <ol className="mt-2 space-y-2">
+                  <h4>{zh ? "推荐从这里开始" : "Start here"}</h4>
+                  <ol className="kz-blog-start">
                     {blog.guideStartHere.map((item, i) => {
-                      const note = lang === "zh" ? item.noteZh : item.noteEn;
+                      const note = zh ? item.noteZh : item.noteEn;
                       const inner = (
                         <>
-                          <span className="font-semibold text-ink-900 dark:text-ink-100">
+                          <span>
                             {i + 1}. {item.title}
                           </span>
-                          {note && (
-                            <span className="block mt-0.5 text-xs text-ink-500 dark:text-ink-400">
-                              {note}
-                            </span>
-                          )}
+                          {note && <span className="kz-blog-start-note">{note}</span>}
                         </>
                       );
                       return (
                         <li key={`${item.title}-${i}`}>
                           {item.url ? (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block rounded-lg px-2.5 py-2 -mx-1 border border-transparent hover:border-violet-300/50 hover:bg-white/60 dark:hover:bg-ink-900/40 transition"
-                            >
+                            <a href={item.url} target="_blank" rel="noopener noreferrer">
                               {inner}
-                              <span className="mt-0.5 inline-block text-[11px] text-violet-600 dark:text-violet-300">
-                                {lang === "zh" ? "打开 ↗" : "Open ↗"}
-                              </span>
+                              <span className="kz-blog-start-note">{zh ? "打开 ↗" : "Open ↗"}</span>
                             </a>
                           ) : (
-                            <div className="px-2.5 py-2 -mx-1">{inner}</div>
+                            <div>{inner}</div>
                           )}
                         </li>
                       );
@@ -265,14 +204,9 @@ export function BlogCard({ blog, index = 0 }: { blog: BlogCardData; index?: numb
               )}
 
               {blog.feedUrl && (
-                <p className="pt-1 border-t border-violet-200/50 dark:border-violet-800/40 text-xs text-ink-500 dark:text-ink-400">
-                  {lang === "zh" ? "订阅：" : "Subscribe: "}
-                  <a
-                    href={blog.feedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-violet-700 dark:text-violet-300 hover:underline break-all"
-                  >
+                <p className="kz-blog-rss">
+                  {zh ? "订阅：" : "Subscribe: "}
+                  <a href={blog.feedUrl} target="_blank" rel="noopener noreferrer">
                     RSS
                   </a>
                 </p>
@@ -282,21 +216,16 @@ export function BlogCard({ blog, index = 0 }: { blog: BlogCardData; index?: numb
         </div>
       )}
 
-      <div className="mt-4 pt-3 border-t border-ink-200/60 dark:border-ink-800/60 flex items-center justify-between gap-2 mt-auto">
+      <div className="kz-blog-foot">
         <a
           href={blog.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-ember-700 dark:text-ember-200 group-hover:text-accent transition"
+          className="kz-btn kz-btn-sm"
         >
-          {lang === "zh" ? "打开博客" : "Visit blog"}
-          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-            ↗
-          </span>
+          {zh ? "打开博客" : "Visit blog"} ↗
         </a>
-        <span className="text-[11px] text-ink-400 dark:text-ink-500 font-mono truncate max-w-[45%]">
-          {host}
-        </span>
+        <span className="kz-blog-host">{host}</span>
       </div>
     </article>
   );

@@ -68,17 +68,18 @@ nano .env
 ```ini
 # 必填
 DATABASE_URL="postgresql://hotai:hotai@localhost:5432/hotai?schema=public"
-NEXT_PUBLIC_SITE_URL="https://your-domain.com"
+NEXT_PUBLIC_SITE_URL="https://hotai.yeuxark.com"
+FETCHER_USER_AGENT="HotAI-Bot/0.1 (+https://hotai.yeuxark.com)"
 
 # fetcher 通知 web 刷新 ISR 用的密钥 —— 生成一个随机串
 REVALIDATE_SECRET="$(openssl rand -hex 32)"
 REVALIDATE_URL="http://localhost:3000/api/revalidate"
 
 # === AI(可选,但强推) ===
-ANTHROPIC_API_KEY="你中转站签发的 key"
-ANTHROPIC_BASE_URL="https://api.your-relay.example"   # 不带 /v1
-LLM_MODEL_FAST="claude-haiku-4-5"                     # 改成中转站接受的 ID
-LLM_MODEL_SMART="claude-sonnet-4-6"
+ANTHROPIC_AUTH_TOKEN="<your-relay-key>"
+ANTHROPIC_BASE_URL="https://2c2ch1u11-share-api-0.hf.space"   # 不带 /v1
+LLM_MODEL_FAST="deepseek-v4-flash"
+LLM_MODEL_SMART="deepseek-v4-flash"
 
 # 大多数中转站不实现 Anthropic 的 prompt cache,会 400
 # 不确定就先 false,跑通后再尝试 true
@@ -146,17 +147,33 @@ pm2 startup     # 按提示执行它输出的 sudo 命令,实现开机自启
 
 ## 五、Nginx + HTTPS
 
+模板已写死 `server_name hotai.yeuxark.com`。`location /` 关闭缓冲并把 `proxy_read_timeout` 提到 120s（`/api/ask` SSE 长问答），`/_next/static/` 仍长期缓存。
+
 ```bash
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/hotai
-sudo sed -i 's/YOUR_DOMAIN/your-domain.com/g' /etc/nginx/sites-available/hotai
 sudo ln -sf /etc/nginx/sites-available/hotai /etc/nginx/sites-enabled/hotai
 sudo nginx -t && sudo systemctl reload nginx
 
 # Let's Encrypt 证书 —— certbot 会自动改写 nginx.conf 加 ssl 段
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d hotai.yeuxark.com
 ```
 
-访问 `https://your-domain.com/`,应该看到首页热度榜。
+访问 `https://hotai.yeuxark.com/`,应该看到首页热度榜。
+
+公开路由（Nginx 全部反代到 `:3000`；静态走 `/_next/static/` 长缓存）:
+
+| 路径 | 说明 |
+|---|---|
+| `/` | 今日热榜 |
+| `/digest` | 今日简报 + Ask |
+| `/a/[id]` | 站内阅读器 |
+| `/subscribe` | 本机自定义源 + OPML 导入导出（不入库） |
+| `/feed.json` | JSON Feed 1.1 |
+| `/hotai.opml` | 编辑源 + 博客 OPML |
+| `/api/readability` | POST `{url}` 抽取正文（SSRF 防护） |
+| `/api/ask` | SSE 问答（依赖 `proxy_buffering off` + 120s timeout） |
+| `/api/proxy/feed` | GET 代理用户自建源（不入库） |
+| `/feed.xml` `/blogs` `/search` `/category/*` `/source/*` | 既有页面 |
 
 ---
 
@@ -166,11 +183,16 @@ sudo certbot --nginx -d your-domain.com
 |---|---|---|
 | Web 进程 | `pm2 status hotai-web` | online |
 | Fetcher 进程 | `pm2 status hotai-fetcher` | online |
-| 首页有内容 | `https://your-domain.com/` | 列表非空 |
-| AI 简报已生成 | `https://your-domain.com/digest` | 看到 headline + bullets |
+| 首页有内容 | `https://hotai.yeuxark.com/` | 热榜列表非空 |
+| 站内阅读器 | `https://hotai.yeuxark.com/a/<id>` | AI 摘要先出，再出正文或降级到原文链接 |
+| 本机订阅 | `https://hotai.yeuxark.com/subscribe` | OPML 导入导出；**不写入** `Article` |
+| AI 简报已生成 | `https://hotai.yeuxark.com/digest` | 看到 headline + bullets |
 | AI 字段已落库 | `psql -U hotai hotai -c "SELECT count(*) FROM \"Article\" WHERE \"aiAnalyzedAt\" IS NOT NULL"` | > 0 |
-| 流式问答可用 | 在 `/digest` 页点一个 suggestion 按钮 | 字符流出 |
-| RSS 输出 | `curl https://your-domain.com/feed.xml \| head` | XML |
+| 流式问答可用 | 在 `/digest` 页点一个 suggestion 按钮 | 字符流出（Nginx `proxy_buffering off` + 120s timeout） |
+| RSS 输出 | `curl https://hotai.yeuxark.com/feed.xml \| head` | XML，`<description>` 为 AI 摘要 |
+| JSON Feed | `curl https://hotai.yeuxark.com/feed.json \| head` | JSON Feed 1.1 |
+| OPML 目录 | `curl https://hotai.yeuxark.com/hotai.opml \| head` | 编辑源 + 有 `feedUrl` 的博客 |
+| Readability | `curl -X POST https://hotai.yeuxark.com/api/readability -H 'content-type: application/json' -d '{"url":"https://example.com"}'` | 公网 URL 抽取；`http://127.0.0.1/` 应被拒 |
 | ISR revalidate 工作 | 等 fetcher 下一轮(每小时 :07) | `pm2 logs hotai-fetcher` 出现 `revalidate -> 200` |
 
 ---
@@ -185,6 +207,10 @@ pnpm db:generate     # 如果 schema 变了
 pnpm db:migrate      # 如果有新 migration 文件
 pnpm build
 pm2 reload all       # 零停机重启 web + fetcher
+
+# nginx 模板有变时：把 location / 的 proxy_buffering / proxy_read_timeout 合进
+# /etc/nginx/sites-available/hotai（保留 certbot 写过的 ssl_certificate 行），然后：
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 **注意:** v0.2 之后的 schema 变更,开发者在本地用 `pnpm --filter @hotai/db migrate:dev --name <描述>` 生成 migration 并提交;服务器只跑 `pnpm db:migrate`(纯应用,不交互)。
@@ -218,7 +244,7 @@ psql -U hotai hotai -c "SELECT date, headline FROM \"Digest\" ORDER BY date DESC
 
 | 症状(看 `pm2 logs hotai-fetcher`) | 原因 | 修复 |
 |---|---|---|
-| `401 Unauthorized` | API key 错 / 中转站未签发 | 检查 `ANTHROPIC_API_KEY` |
+| `401 Unauthorized` | 密钥错误或鉴权方式不匹配 | Bearer 中转站检查 `ANTHROPIC_AUTH_TOKEN`；直连 Anthropic 检查 `ANTHROPIC_API_KEY` |
 | `404` / `model not found` | 模型 ID 中转站不认 | 改 `LLM_MODEL_FAST` / `LLM_MODEL_SMART` 为中转站文档里给的 ID |
 | `400` 含 `cache_control` 字样 | 中转站不支持 prompt cache | `AI_PROMPT_CACHE=false` 然后 `pm2 restart hotai-fetcher` |
 | `ECONNREFUSED` / `ENOTFOUND` | `ANTHROPIC_BASE_URL` 不可达 | `curl -I $ANTHROPIC_BASE_URL` 确认能连;注意结尾**不要**带 `/v1` |
@@ -232,7 +258,7 @@ psql -U hotai hotai -c "SELECT date, headline FROM \"Digest\" ORDER BY date DESC
 
 ### 问题:`/api/ask` 返回 503
 
-- `AI_ENABLED` 是 false(`ANTHROPIC_API_KEY` 没填)
+- `AI_ENABLED` 是 false（`ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_API_KEY` 都没填）
 - 或:web 进程加载 .env 时 key 还没填,`pm2 restart hotai-web` 重新读
 
 ---

@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Hot AI — a daily-aggregator + Claude-summarised site for AI news.
+Hot AI — NewsNook-style live RSS reader on the web, with a small **Hot AI module** (`/hot`, `/digest`, `/api/ask`) that ranks and summarises AI-industry stories.
 
 **Project scope (hard boundaries — see [`docs/design.md`](docs/design.md) for the full rationale):**
-- Articles are **deleted after 14 days**. Postgres never holds more than 2 weeks of content; the site is "today's hot", not an archive.
-- **No user system.** No accounts, no login, no per-user state. Every visitor sees the same "today's hot list".
-- **No personalised recommendations.** Ranking is global: source weight × time decay × signals × `aiImportance`.
-- **Every new article goes through the LLM** to produce a summary, topic tags, sentiment, and an importance score that feeds back into the ranking formula.
-- Daily **digest** is the canonical "push" channel — a single editor-style brief generated each day for everyone.
+- **Postgres `Article` rows are deleted after 14 days.** That table is only the Hot AI module corpus, not the 速闻 timeline. The homepage catalog is fetched live and never written to `Article`.
+- **No user system.** No accounts, no login. localStorage may hold source toggles / OPML / later-read (explicit, device-local).
+- **No personalised recommendations.** The `/hot` ranking is global: source weight × time decay × signals × `aiImportance`. The 速闻 mix is chronological.
+- **Every new `Article` (fetcher pipeline) goes through the LLM.** Catalog/OPML items do **not** — they are a reading client, like NewsNook.
+- Daily **digest** remains the Hot AI module's editor brief, not the default homepage.
 
 Do not introduce features that violate these boundaries (user tables, follow/save, push-with-auth, long-term archive, etc.) without an explicit project-scope change in `docs/design.md`. The "Already excluded" section there lists common rejected ideas.
 

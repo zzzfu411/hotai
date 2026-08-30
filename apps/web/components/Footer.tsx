@@ -11,7 +11,6 @@ export function Footer() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 grid sm:grid-cols-3 gap-6 text-xs text-ink-600 dark:text-ink-300">
         <div>
           <div className="flex items-center gap-2 font-bold text-base text-ink-900 dark:text-ink-100">
-            <span className="inline-block w-5 h-5 rounded fire-gradient" aria-hidden />
             {SITE.name}
           </div>
           <p className="mt-2 text-ink-500 dark:text-ink-400">

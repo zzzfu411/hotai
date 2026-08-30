@@ -1,28 +1,14 @@
-import { ArticleCard, type ArticleCardData } from "./ArticleCard";
+import { FeedList } from "./FeedList";
+import type { ArticleCardData } from "./ArticleCard";
 
 export function HotList({
   articles,
-  showRank = true,
+  showRank = false,
 }: {
   articles: ArticleCardData[];
   showRank?: boolean;
 }) {
-  if (articles.length === 0) {
-    return (
-      <div className="card-surface py-12 text-center text-sm text-ink-600 dark:text-ink-300">
-        <div className="inline-block mb-3 w-10 h-10 rounded-full fire-gradient opacity-60 animate-pulse-flame" />
-        <p className="font-medium">No articles yet</p>
-        <p className="mt-1 text-xs text-ink-500">The fetcher may still be warming up. Refresh in a minute.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="divide-y divide-transparent">
-      {articles.map((a, i) => (
-        <ArticleCard key={a.id} a={{ ...a, rank: showRank ? i + 1 : undefined }} />
-      ))}
-    </div>
-  );
+  return <FeedList articles={articles} ranked={showRank} />;
 }
 
 export function HotListSkeleton({ rows = 6 }: { rows?: number }) {

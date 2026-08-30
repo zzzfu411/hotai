@@ -7,6 +7,7 @@ import { BlogCard, type BlogCardData } from "./BlogCard";
 
 export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
   const { lang } = useLang();
+  const zh = lang === "zh";
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [featuredOnly, setFeaturedOnly] = useState(false);
@@ -16,7 +17,6 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
     for (const b of blogs) {
       for (const t of b.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
     }
-    // Prefer canonical order from BLOG_TAGS; append any extras.
     const knownOrder = BLOG_TAGS.map((t) => t.slug as string);
     const known = knownOrder.filter((s) => counts.has(s));
     const extra = [...counts.keys()].filter((s) => !known.includes(s)).sort();
@@ -61,65 +61,43 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
   const featuredCount = blogs.filter((b) => b.featured).length;
 
   return (
-    <div>
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-        <div className="relative flex-1">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
+    <div className="kz-blog-dir">
+      <div className="kz-filters-row">
+        <div className="kz-search kz-search-wide">
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              lang === "zh"
-                ? "搜索作者、博客或主题…"
-                : "Search authors, blogs, or topics…"
-            }
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white/70 dark:bg-ink-900/50 text-sm placeholder:text-ink-400 focus:border-accent focus:ring-1 focus:ring-accent/40 outline-none transition"
-            aria-label={lang === "zh" ? "搜索博客" : "Search blogs"}
+            placeholder={zh ? "搜索作者、博客或主题…" : "Search authors, blogs, or topics…"}
+            className="kz-input"
+            aria-label={zh ? "搜索博客" : "Search blogs"}
           />
+          <span className="kz-search-go" aria-hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </span>
         </div>
         <button
           type="button"
           onClick={() => setFeaturedOnly((v) => !v)}
-          className={`inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold border transition shrink-0 ${
-            featuredOnly
-              ? "border-ember-500/50 bg-ember-50 dark:bg-ember-900/30 text-ember-700 dark:text-ember-200"
-              : "border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-300 hover:border-accent hover:text-accent"
-          }`}
+          className={featuredOnly ? "kz-btn active" : "kz-btn"}
+          aria-pressed={featuredOnly}
         >
-          <span aria-hidden>✶</span>
-          {lang === "zh" ? `仅精选 · ${featuredCount}` : `Featured · ${featuredCount}`}
+          {zh ? `仅精选 · ${featuredCount}` : `Featured · ${featuredCount}`}
         </button>
       </div>
 
-      {/* Tag chips */}
-      <div className="mt-4 flex flex-wrap gap-1.5">
+      <div className="kz-filter-tags">
         <button
           type="button"
           onClick={() => setActiveTag(null)}
-          className={`px-2.5 py-1 rounded-full text-xs font-medium border transition ${
-            activeTag === null
-              ? "border-accent/50 bg-accent/10 text-accent-deep dark:text-accent"
-              : "border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-300 hover:border-accent hover:text-accent"
-          }`}
+          className={activeTag === null ? "kz-chip active" : "kz-chip"}
+          aria-pressed={activeTag === null}
         >
-          {lang === "zh" ? "全部" : "All"}
-          <span className="ml-1 tabular-nums opacity-70">{blogs.length}</span>
+          {zh ? "全部" : "All"}
+          <span>{blogs.length}</span>
         </button>
         {availableTags.map((t) => {
           const active = activeTag === t.slug;
@@ -128,32 +106,26 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
               key={t.slug}
               type="button"
               onClick={() => setActiveTag(active ? null : t.slug)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition ${
-                active
-                  ? "border-accent/50 bg-accent/10 text-accent-deep dark:text-accent"
-                  : "border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-300 hover:border-accent hover:text-accent"
-              }`}
+              className={active ? "kz-chip active" : "kz-chip"}
+              aria-pressed={active}
             >
-              {lang === "zh" ? t.label_zh : t.label_en}
-              <span className="ml-1 tabular-nums opacity-70">{t.count}</span>
+              {zh ? t.label_zh : t.label_en}
+              <span>{t.count}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Result meta */}
-      <p className="mt-4 text-xs text-ink-500 dark:text-ink-400 tabular-nums">
-        {lang === "zh"
+      <p className="kz-blog-meta">
+        {zh
           ? `显示 ${filtered.length} / ${blogs.length} 个博客`
           : `Showing ${filtered.length} of ${blogs.length} blogs`}
       </p>
 
-      {/* Grid */}
       {filtered.length === 0 ? (
-        <div className="mt-8 card-surface p-10 text-center">
-          <p className="text-ink-500 dark:text-ink-400">
-            {lang === "zh" ? "没有匹配的博客，试试换个关键词。" : "No blogs match — try another filter."}
-          </p>
+        <div className="kz-card kz-feed-empty kz-blog-empty">
+          <p className="font-bold">{zh ? "没有匹配的博客" : "No blogs match"}</p>
+          <p>{zh ? "试试换个关键词。" : "Try another filter."}</p>
           <button
             type="button"
             onClick={() => {
@@ -161,15 +133,15 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
               setActiveTag(null);
               setFeaturedOnly(false);
             }}
-            className="mt-3 text-sm font-semibold text-accent hover:underline"
+            className="kz-btn"
           >
-            {lang === "zh" ? "清除筛选" : "Clear filters"}
+            {zh ? "清除筛选" : "Clear filters"}
           </button>
         </div>
       ) : (
-        <div className="mt-5 grid sm:grid-cols-2 gap-4">
-          {filtered.map((b, i) => (
-            <BlogCard key={b.slug} blog={b} index={i} />
+        <div className="kz-blog-grid">
+          {filtered.map((b) => (
+            <BlogCard key={b.slug} blog={b} />
           ))}
         </div>
       )}

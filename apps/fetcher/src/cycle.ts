@@ -1,3 +1,4 @@
+import type { Source } from "@hotai/db";
 import { prisma } from "@hotai/db";
 import { AI_ENABLED } from "@hotai/ai";
 import { fetchSource } from "./dispatch.js";
@@ -5,14 +6,18 @@ import { persistItems, type PersistStats } from "./store.js";
 import { enrichPendingArticles } from "./enrich.js";
 import { ensureTodayDigest } from "./digest.js";
 import { purgeOldArticles, purgeStaleAskCache } from "./purge.js";
+import { rescoreAllArticles } from "./rescore.js";
 import { recordFetchSuccess, recordFetchFailure } from "./sourceHealth.js";
 import { config } from "./config.js";
+import { mapPool } from "./pool.js";
+import type { RawItem } from "./types.js";
 
 export type CycleReport = {
   sources: { ok: number; failed: number; disabled: number };
   articles: PersistStats;
   enrich: { analyzed: number; skipped: number };
   purged: number;
+  rescored: number;
   ms: number;
 };
 
@@ -33,6 +38,7 @@ export async function runCycle(): Promise<CycleReport> {
     articles: { created: 0, refreshed: 0, merged: 0, failed: 0 },
     enrich: { analyzed: 0, skipped: 0 },
     purged: 0,
+    rescored: 0,
     ms: 0,
   };
 
@@ -46,9 +52,15 @@ export async function runCycle(): Promise<CycleReport> {
   );
 
   const sources = await prisma.source.findMany({ where: { enabled: true } });
-  console.log(`[fetcher] cycle start — ${sources.length} sources, ai=${AI_ENABLED ? "on" : "off"}`);
+  console.log(
+    `[fetcher] cycle start — ${sources.length} sources, concurrency=${config.fetchConcurrency}, ai=${AI_ENABLED ? "on" : "off"}`,
+  );
 
-  for (const src of sources) {
+  type FetchOutcome =
+    | { src: Source; ok: true; items: RawItem[] }
+    | { src: Source; ok: false; err: Error };
+
+  const outcomes = await mapPool(sources, config.fetchConcurrency, async (src): Promise<FetchOutcome> => {
     try {
       console.log(`  → ${src.slug} (${src.type})`);
       const items = await fetchSource(src);
@@ -57,26 +69,51 @@ export async function runCycle(): Promise<CycleReport> {
         // selectors rotted — treat it as a failure so health tracking sees it.
         throw new Error("scraper returned 0 items — selectors may be stale");
       }
-      const stats = await persistItems(src, items);
+      return { src, ok: true, items };
+    } catch (err) {
+      return { src, ok: false, err: err as Error };
+    }
+  });
+
+  for (const out of outcomes) {
+    if (!out.ok) {
+      report.sources.failed++;
+      const { fails, disabled } = await recordFetchFailure(out.src, out.err);
+      if (disabled) {
+        report.sources.disabled++;
+        console.error(
+          `    ✗ ${out.src.slug}: ${out.err.message} — ${fails} consecutive fails, SOURCE AUTO-DISABLED`,
+        );
+      } else {
+        console.error(
+          `    ✗ ${out.src.slug}: ${out.err.message} (fail ${fails}/${config.sourceFailThreshold})`,
+        );
+      }
+      continue;
+    }
+    try {
+      const stats = await persistItems(out.src, out.items);
       report.articles.created += stats.created;
       report.articles.refreshed += stats.refreshed;
       report.articles.merged += stats.merged;
       report.articles.failed += stats.failed;
       report.sources.ok++;
-      await recordFetchSuccess(src);
+      await recordFetchSuccess(out.src);
       console.log(
-        `    ✓ ${items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged`,
+        `    ✓ ${out.src.slug}: ${out.items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged`,
       );
     } catch (err) {
       report.sources.failed++;
-      const { fails, disabled } = await recordFetchFailure(src, err as Error);
+      const { fails, disabled } = await recordFetchFailure(out.src, err as Error);
       if (disabled) {
         report.sources.disabled++;
         console.error(
-          `    ✗ ${src.slug}: ${(err as Error).message} — ${fails} consecutive fails, SOURCE AUTO-DISABLED`,
+          `    ✗ ${out.src.slug}: ${(err as Error).message} — ${fails} consecutive fails, SOURCE AUTO-DISABLED`,
         );
       } else {
-        console.error(`    ✗ ${src.slug}: ${(err as Error).message} (fail ${fails}/${config.sourceFailThreshold})`);
+        console.error(
+          `    ✗ ${out.src.slug}: ${(err as Error).message} (fail ${fails}/${config.sourceFailThreshold})`,
+        );
       }
     }
   }
@@ -86,6 +123,12 @@ export async function runCycle(): Promise<CycleReport> {
     `[fetcher] fetch done — ${report.sources.ok} ok, ${report.sources.failed} failed; ` +
       `${a.created} new, ${a.refreshed} refreshed, ${a.merged} merged, ${Date.now() - started}ms`,
   );
+
+  report.rescored = await rescoreAllArticles().catch((e) => {
+    console.warn("[rescore] failed:", (e as Error).message);
+    return 0;
+  });
+  if (report.rescored) console.log(`[fetcher] rescored ${report.rescored} articles`);
 
   // AI pipeline runs AFTER fetch so we score with full signal first.
   if (AI_ENABLED) {
@@ -112,7 +155,8 @@ async function notifyRevalidate(): Promise<void> {
         "content-type": "application/json",
         "x-revalidate-secret": config.revalidateSecret,
       },
-      body: JSON.stringify({ paths: ["/", "/digest"] }),
+      body: JSON.stringify({ paths: ["/", "/hot", "/digest", "/feed.xml", "/feed.json"] }),
+      signal: AbortSignal.timeout(8_000),
     });
     console.log(`[fetcher] revalidate -> ${res.status}`);
   } catch (err) {

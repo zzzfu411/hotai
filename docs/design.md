@@ -7,7 +7,9 @@
 
 ## 项目宗旨(范围声明)
 
-**Hot AI 是一个面向 AI 行业的"今日热门聚合站",目标是把每一天最重要、最热门的新闻 / 论文 / 开源项目推到用户眼前。**
+**站点默认是 NewsNook 式「速闻」阅读器（多源 RSS 按时间混排）。Hot AI（打分热榜 / LLM 摘要 / digest / ask）是其中一块模块，入口在 `/hot` 与 `/digest`。**
+
+Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇过 LLM、全局同一份热榜。速闻时间线直连上游 Feed，**不入库、不过 LLM。**
 
 围绕这个目标的硬性边界:
 
@@ -20,6 +22,8 @@
 | **AI 编辑产出** | 每日 **digest** —— 一份给所有人看的"今天发生了什么"简报 | digest 就是"推送"的主体 |
 
 下面所有的优化和扩展方案都必须服务于上面这些边界。**任何引入"用户态"或"长期归档"的方案默认不做。**
+
+**阅读壳升级（2026-08 · NewsNook 交互 + KAZAM 视觉）：** 站点仍是「今日 AI 热榜」，不是综合新闻 App。交互改成分类轨 / 场景 / 站内阅读 / 本机 OPML 订阅（localStorage，不进 Postgres）；视觉对齐 [music.yeuxark.com](https://music.yeuxark.com)。规格见 [`nook-merge.md`](./nook-merge.md)。这不改变上表四条硬边界——本机偏好不是账号系统，自定义源不进入全局排名。
 
 ---
 
@@ -194,6 +198,8 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 | 🟠 中 | ~~**`aiTopics` 没建索引**~~ | ~~按主题查会全表扫~~(GIN 索引已加,主题页本身仍未做) |
 | 🟡 低 | ~~**arxiv 三个 feed 实际重叠很大**~~ | ~~同一篇论文出现在 cs.AI + cs.CL + cs.LG~~ |
 | 🟡 低 | **没有 admin UI** | 启用/停用源、调权重要进 Prisma Studio |
+| 🟠 中 | ~~**速闻每次实拉 15–20 路 RSS、无缓存**~~ | ~~首页首屏等最慢源、重复访客打爆上游~~（已做：进程内 per-URL 缓存 8min + ETag/304 + in-flight 合并 + 客户端 3min SWR；`/feed.json` 走内部查询不再 SSRF） |
+| 🟠 中 | ~~**fetcher 源串行抓取**~~ | ~~一轮 cycle 被最慢的 RSS 线性拉长~~（已做：`FETCH_CONCURRENCY` 并行 fetch，persist 仍串行保去重） |
 
 ---
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "hotai-theme";
+const THEME_COLOR = { light: "#facc15", dark: "#000000" } as const;
 
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";
@@ -13,10 +14,28 @@ function readTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+function setThemeColor(theme: Theme) {
+  const color = THEME_COLOR[theme];
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  if (metas.length === 0) {
+    const meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    meta.setAttribute("content", color);
+    document.head.appendChild(meta);
+    return;
+  }
+  metas.forEach((m) => {
+    m.setAttribute("content", color);
+    m.removeAttribute("media");
+  });
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");
+  root.setAttribute("data-theme", theme);
   root.style.colorScheme = theme;
+  setThemeColor(theme);
 }
 
 export function ThemeToggle() {
@@ -40,17 +59,17 @@ export function ThemeToggle() {
         applyTheme(next);
         window.localStorage.setItem(STORAGE_KEY, next);
       }}
-      className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-ink-200 dark:border-ink-700 hover:bg-ink-100 dark:hover:bg-ink-800 transition"
-      aria-label={`Switch to ${next} mode`}
-      title={`Switch to ${next} mode`}
+      className="kz-btn kz-btn-icon"
+      aria-label={next === "dark" ? "Switch to dark mode" : "Switch to light mode"}
+      title={next === "dark" ? "Dark" : "Light"}
     >
       {mounted && theme === "dark" ? (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <circle cx="12" cy="12" r="4" />
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
         </svg>
       ) : (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
         </svg>
       )}
@@ -58,7 +77,7 @@ export function ThemeToggle() {
   );
 }
 
-/** Renders an inline script that sets the theme class before paint to avoid FOUC. */
+/** Renders an inline script that sets theme class + data-theme + theme-color before paint. */
 export function ThemeNoFlashScript() {
   const src = `
     (function() {
@@ -66,8 +85,24 @@ export function ThemeNoFlashScript() {
         var k = '${STORAGE_KEY}';
         var s = localStorage.getItem(k);
         var d = s ? s === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.classList.toggle('dark', d);
-        document.documentElement.style.colorScheme = d ? 'dark' : 'light';
+        var t = d ? 'dark' : 'light';
+        var root = document.documentElement;
+        root.classList.toggle('dark', d);
+        root.setAttribute('data-theme', t);
+        root.style.colorScheme = t;
+        var color = d ? '${THEME_COLOR.dark}' : '${THEME_COLOR.light}';
+        var metas = document.querySelectorAll('meta[name="theme-color"]');
+        if (metas.length === 0) {
+          var m = document.createElement('meta');
+          m.setAttribute('name', 'theme-color');
+          m.setAttribute('content', color);
+          document.head.appendChild(m);
+        } else {
+          metas.forEach(function(el) {
+            el.setAttribute('content', color);
+            el.removeAttribute('media');
+          });
+        }
       } catch (_) {}
     })();
   `;
