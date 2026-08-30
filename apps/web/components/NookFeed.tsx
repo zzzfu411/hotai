@@ -137,11 +137,19 @@ function mergeSources(sources: PullSource[]): Omit<PullSnapshot, "at"> {
 }
 
 const Cover = memo(function Cover({ src, alt }: { src: string; alt: string }) {
-  const [ok, setOk] = useState(true);
-  if (!ok) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img className="kz-nook-cover" src={src} alt={alt} loading="lazy" onError={() => setOk(false)} />
+    <img
+      className="kz-nook-cover"
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onError={(e) => {
+        // Hide in place. Unmounting the <img> while Next is swapping the
+        // waterfall (category change) trips removeChild NotFoundError.
+        e.currentTarget.hidden = true;
+      }}
+    />
   );
 });
 
@@ -362,7 +370,7 @@ export function NookFeed() {
         </div>
       ) : null}
 
-      <ul className="kz-nook-list">
+      <ul className="kz-nook-list" key={category}>
         {visible.map((it) => (
           <NookCard key={`${it.sourceId}:${it.url}`} item={it} lang={lang} />
         ))}
