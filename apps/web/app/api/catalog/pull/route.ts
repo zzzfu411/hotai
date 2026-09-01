@@ -26,6 +26,11 @@ export const maxDuration = 30;
  * POST /api/catalog/pull  { ids: string[] }
  * Live-fetch allowlisted catalog feeds. Never writes Article/Source.
  * Per-URL memory cache + coalescing lives in lib/feed-cache.ts.
+ *
+ * Response is a stream of newline-delimited JSON (NDJSON): one `{ t: "s",
+ * source }` line per source as it settles, then a final `{ t: "done",
+ * okCount, failCount }`. This lets the timeline render each source the moment
+ * it arrives instead of blocking on the slowest feed in the batch.
  */
 
 function slimItems(items: RemoteFeedItem[]): RemoteFeedItem[] {
@@ -84,6 +89,27 @@ export type CatalogPullSource = {
   error?: string;
 };
 
+async function fetchCatalogSource(src: CatalogSource): Promise<CatalogPullSource> {
+  try {
+    const parsed = await loadCatalogFeed(src);
+    if (!parsed) {
+      return { id: src.id, name: src.name, ok: false, items: [], error: "unrecognized feed" };
+    }
+    return {
+      id: src.id,
+      name: src.name,
+      ok: true,
+      title: parsed.title,
+      items: slimItems(parsed.items),
+    };
+  } catch (err) {
+    if (err instanceof UnsafeUrlError) {
+      return { id: src.id, name: src.name, ok: false, items: [], error: "blocked url" };
+    }
+    return { id: src.id, name: src.name, ok: false, items: [], error: "fetch failed" };
+  }
+}
+
 export async function POST(req: Request) {
   const limited = await limitIp("catalog-pull", clientIp(req), { limit: 40, windowMs: 60_000 });
   if (!limited.ok) {
@@ -110,26 +136,45 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "no catalog ids" }, { status: 400 });
   }
 
-  const results = await mapPool(sources, CATALOG_CONCURRENCY, async (src): Promise<CatalogPullSource> => {
-    try {
-      const parsed = await loadCatalogFeed(src);
-      if (!parsed) {
-        return { id: src.id, name: src.name, ok: false, items: [], error: "unrecognized feed" };
-      }
-      return {
-        id: src.id,
-        name: src.name,
-        ok: true,
-        title: parsed.title,
-        items: slimItems(parsed.items),
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let closed = false;
+      let okCount = 0;
+      let failCount = 0;
+      const send = (obj: unknown): void => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
+        } catch {
+          closed = true;
+        }
       };
-    } catch (err) {
-      if (err instanceof UnsafeUrlError) {
-        return { id: src.id, name: src.name, ok: false, items: [], error: "blocked url" };
+      try {
+        // mapPool bounds concurrency; each source is emitted the moment it
+        // settles, so the client never waits on the slowest feed.
+        await mapPool(sources, CATALOG_CONCURRENCY, async (src) => {
+          const source = await fetchCatalogSource(src);
+          if (closed || req.signal.aborted) return;
+          if (source.ok) okCount++;
+          else failCount++;
+          send({ t: "s", source });
+        });
+        send({ t: "done", okCount, failCount });
+      } finally {
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
       }
-      return { id: src.id, name: src.name, ok: false, items: [], error: "fetch failed" };
-    }
+    },
   });
 
-  return NextResponse.json({ ok: true, sources: results });
+  return new Response(stream, {
+    headers: {
+      "content-type": "application/x-ndjson; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+    },
+  });
 }
