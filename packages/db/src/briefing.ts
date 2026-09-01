@@ -5,8 +5,8 @@
  * while web queries use it to prevent retained rows from disabled/legacy
  * sources (for example Hacker News) leaking into the briefing.
  *
- * Default ON: HF Daily Papers, arXiv cs.LG/AI, OpenAI / Hugging Face / 橘鸦,
- * plus lab changelog feeds that already exist in seed.
+ * Default ON: HF Daily Papers, arXiv cs.LG/AI, OpenAI / Hugging Face / 橘鸦
+ * changelogs. Everything else stays in seed but enabled=false.
  */
 export const BRIEFING_SOURCE_SLUGS = [
   "huggingface-papers",
@@ -15,10 +15,6 @@ export const BRIEFING_SOURCE_SLUGS = [
   "openai-blog",
   "huggingface-blog",
   "juya-daily",
-  "anthropic-news",
-  "google-research",
-  "deepmind-blog",
-  "meta-ai",
 ] as const;
 
 export type BriefingSourceSlug = (typeof BRIEFING_SOURCE_SLUGS)[number];
