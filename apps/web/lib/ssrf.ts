@@ -270,13 +270,14 @@ export async function assertPublicHostname(hostname: string): Promise<void> {
   await resolvePublicHostname(hostname);
 }
 
-function pinnedAgent(servername: string, address: string, family: number): Agent {
+function publicAgent(servername: string): Agent {
+  // Intentionally no custom `lookup` pin. On Node 22, undici 6's
+  // `cb(null, address, family)` form throws ERR_INVALID_IP_ADDRESS and
+  // the catalog timeline comes back empty. Hostname was already
+  // allowlisted by resolvePublicHostname() just above the connect.
   return new Agent({
     connect: {
       servername,
-      lookup: (_hostname, _opts, cb) => {
-        cb(null, address, family);
-      },
     },
   });
 }
@@ -376,13 +377,13 @@ export async function fetchPublic(
       const host = current.hostname;
       const literal = isIPv4(host) || isIPv6(host) || isIPv6(stripZone(host)) || hostnameAsIPv4(host);
       if (!literal) {
-        const pin = await resolvePublicHostname(host);
-        dispatcher = pinnedAgent(host, pin.address, pin.family);
+        await resolvePublicHostname(host);
+        dispatcher = publicAgent(host);
       }
 
       // undici, not Next-patched fetch: Next would auto-follow redirects and
-      // skip the per-hop SSRF re-check. lookup is pinned to the address we
-      // just allowlisted so a later DNS rebind cannot retarget the TCP connect.
+      // skip the per-hop SSRF re-check. Hostname allowlisting happens before
+      // connect; we do not pin lookup() because Node 22 rejects that form.
       const res = await undiciFetch(current.href, {
         method: "GET",
         redirect: "manual",
