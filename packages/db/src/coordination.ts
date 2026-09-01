@@ -11,7 +11,7 @@ export type CoordinationLeaseClaim =
   | { acquired: true; name: string; ownerId: string; leaseUntil: Date }
   | { acquired: false; name: string; leaseUntil: Date; ownerId: string };
 
-export type CoordinationLeaseStatus = "success" | "failed";
+export type CoordinationLeaseStatus = "success" | "degraded" | "failed";
 
 function normalizedLeaseMs(ttlMs: number): number {
   if (!Number.isFinite(ttlMs)) return MIN_LEASE_MS;
@@ -103,7 +103,14 @@ export async function renewCoordinationLease(
 ): Promise<boolean> {
   const leaseUntil = new Date(now.getTime() + normalizedLeaseMs(ttlMs));
   const result = await prisma.coordinationLease.updateMany({
-    where: { name: lease.name, ownerId: lease.ownerId, lastStatus: "running" },
+    where: {
+      name: lease.name,
+      ownerId: lease.ownerId,
+      lastStatus: "running",
+      // A worker that was paused longer than its TTL must not resurrect an
+      // expired lease (and potentially block the replacement owner).
+      leaseUntil: { gt: now },
+    },
     data: { leaseUntil, heartbeatAt: now },
   });
   return result.count === 1;
@@ -126,7 +133,7 @@ export async function finishCoordinationLease(
       heartbeatAt: now,
       lastFinishedAt: now,
       lastStatus: status,
-      lastError: status === "failed" ? safeError(error) : null,
+      lastError: status === "success" ? null : safeError(error),
     },
   });
   return result.count === 1;

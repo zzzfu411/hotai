@@ -4,6 +4,7 @@ import { escXml } from "@/lib/feed";
 import { safeShareableHttpUrl } from "@/lib/safe-url";
 
 export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 const GROUPS: { key: string; title: string }[] = [
   { key: "industry", title: "Industry" },
@@ -17,7 +18,21 @@ function outline(text: string, xmlUrl: string, htmlUrl: string): string {
 }
 
 export async function GET() {
-  const [sources, blogs] = await Promise.all([getEnabledSources(), getCuratedBlogs()]);
+  let sources: Awaited<ReturnType<typeof getEnabledSources>> = [];
+  let blogs: Awaited<ReturnType<typeof getCuratedBlogs>> = [];
+  try {
+    [sources, blogs] = await Promise.all([getEnabledSources(), getCuratedBlogs()]);
+  } catch (error) {
+    console.warn("[opml] database unavailable:", error instanceof Error ? error.message : error);
+    return new Response("OPML temporarily unavailable", {
+      status: 503,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store",
+        "retry-after": "30",
+      },
+    });
+  }
 
   const groups = GROUPS.map((g) => {
     const children = sources

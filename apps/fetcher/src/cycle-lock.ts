@@ -3,6 +3,7 @@ import {
   finishCoordinationLease,
   renewCoordinationLease,
   type CoordinationLeaseClaim,
+  type CoordinationLeaseStatus,
 } from "@hotai/db";
 import { config } from "./config.js";
 
@@ -19,13 +20,22 @@ export type SingletonJobResult<T> =
  */
 export async function runWithFetcherCycleLease<T>(
   work: () => Promise<T>,
-  options: { name?: string; ttlMs?: number; heartbeatMs?: number } = {},
+  options: {
+    name?: string;
+    ttlMs?: number;
+    heartbeatMs?: number;
+    status?: (value: T) => CoordinationLeaseStatus;
+  } = {},
 ): Promise<SingletonJobResult<T>> {
   const name = options.name ?? FETCHER_CYCLE_LEASE_NAME;
-  const ttlMs = options.ttlMs ?? config.cycleLeaseMs;
+  const ttlMs = normalizedTtlMs(options.ttlMs ?? config.cycleLeaseMs);
+  const requestedHeartbeatMs = options.heartbeatMs ?? Math.floor(ttlMs / 3);
   const heartbeatMs = Math.max(
     5_000,
-    Math.min(options.heartbeatMs ?? Math.floor(ttlMs / 3), 60_000),
+    Math.min(
+      Number.isFinite(requestedHeartbeatMs) ? Math.trunc(requestedHeartbeatMs) : Math.floor(ttlMs / 3),
+      60_000,
+    ),
   );
   const lease = await acquireCoordinationLease(name, ttlMs);
   if (!lease.acquired) return { acquired: false, leaseUntil: lease.leaseUntil };
@@ -56,7 +66,12 @@ export async function runWithFetcherCycleLease<T>(
     const value = await work();
     clearInterval(timer);
     if (renewal) await renewal;
-    const settled = await finishQuietly(lease, "success");
+    const status = options.status?.(value) ?? "success";
+    const settled = await finishQuietly(
+      lease,
+      status,
+      status === "success" ? undefined : `job completed with ${status} status`,
+    );
     return { acquired: true, value, leaseHealthy: leaseHealthy && settled };
   } catch (error) {
     clearInterval(timer);
@@ -68,9 +83,14 @@ export async function runWithFetcherCycleLease<T>(
   }
 }
 
+function normalizedTtlMs(value: number): number {
+  if (!Number.isFinite(value)) return config.cycleLeaseMs;
+  return Math.min(24 * 60 * 60 * 1000, Math.max(30_000, Math.trunc(value)));
+}
+
 async function finishQuietly(
   lease: Extract<CoordinationLeaseClaim, { acquired: true }>,
-  status: "success" | "failed",
+  status: CoordinationLeaseStatus,
   error?: unknown,
 ): Promise<boolean> {
   try {

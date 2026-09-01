@@ -47,12 +47,30 @@ export async function purgeExpiredRateLimitBuckets(now = new Date()): Promise<nu
   return count;
 }
 
-/** Keep the singleton fetcher record, but trim old per-day digest lease history. */
+const DIGEST_LEASE_RETENTION_MS = 32 * 24 * 3600 * 1000;
+const ASK_LEASE_RETENTION_MS = 60 * 60 * 1000;
+
+export function coordinationLeasePurgeWhere(now = new Date()) {
+  return {
+    OR: [
+      {
+        name: { startsWith: "digest:" },
+        updatedAt: { lt: new Date(now.getTime() - DIGEST_LEASE_RETENTION_MS) },
+      },
+      {
+        name: { startsWith: "ask:" },
+        leaseUntil: { lte: now },
+        updatedAt: { lt: new Date(now.getTime() - ASK_LEASE_RETENTION_MS) },
+      },
+    ],
+  };
+}
+
+/** Keep the singleton fetcher record, but trim bounded-job lease history. */
 export async function purgeOldCoordinationLeases(now = new Date()): Promise<number> {
-  const cutoff = new Date(now.getTime() - 32 * 24 * 3600 * 1000);
   const { count } = await prisma.coordinationLease.deleteMany({
-    where: { name: { startsWith: "digest:" }, updatedAt: { lt: cutoff } },
+    where: coordinationLeasePurgeWhere(now),
   });
-  if (count > 0) console.log(`[purge] removed ${count} old digest coordination lease(s)`);
+  if (count > 0) console.log(`[purge] removed ${count} old coordination lease(s)`);
   return count;
 }

@@ -7,7 +7,12 @@ import {
 } from "./index.js";
 
 const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
-const names = ["test:coordination:race", "test:coordination:recovery"];
+const names = [
+  "test:coordination:race",
+  "test:coordination:recovery",
+  "test:coordination:degraded",
+  "test:coordination:expired-renew",
+];
 
 describeDb("coordination leases (PostgreSQL)", () => {
   beforeEach(async () => {
@@ -67,5 +72,39 @@ describeDb("coordination leases (PostgreSQL)", () => {
     expect(row.lastStatus).toBe("failed");
     expect(row.lastError).toContain("provider timeout");
     expect(row.attempts).toBe(2);
+  });
+
+  it("records a degraded completion without treating it as a running lease", async () => {
+    const claim = await acquireCoordinationLease(names[2]!, 30_000, {
+      ownerId: "degraded-worker",
+      now: new Date("2026-08-31T12:00:00.000Z"),
+    });
+    expect(claim.acquired).toBe(true);
+    if (!claim.acquired) return;
+    expect(
+      await finishCoordinationLease(claim, "degraded", "one source returned only stale items"),
+    ).toBe(true);
+    const row = await prisma.coordinationLease.findUniqueOrThrow({ where: { name: names[2]! } });
+    expect(row.lastStatus).toBe("degraded");
+    expect(row.lastError).toContain("stale items");
+  });
+
+  it("rejects renewal after the lease has expired", async () => {
+    const now = new Date("2026-08-31T12:00:00.000Z");
+    const claim = await acquireCoordinationLease(names[3]!, 30_000, {
+      ownerId: "paused-worker",
+      now,
+    });
+    expect(claim.acquired).toBe(true);
+    if (!claim.acquired) return;
+
+    expect(
+      await renewCoordinationLease(claim, 30_000, new Date(now.getTime() + 30_001)),
+    ).toBe(false);
+    const replacement = await acquireCoordinationLease(names[3]!, 30_000, {
+      ownerId: "replacement-worker",
+      now: new Date(now.getTime() + 30_001),
+    });
+    expect(replacement.acquired).toBe(true);
   });
 });

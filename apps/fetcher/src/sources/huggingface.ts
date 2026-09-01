@@ -1,5 +1,6 @@
 import type { Source } from "@hotai/db";
 import type { RawItem } from "../types.js";
+import { config } from "../config.js";
 import { httpJson } from "../http.js";
 
 type HFModel = {
@@ -15,11 +16,12 @@ type HFModel = {
 
 export async function fetchHuggingFaceTrending(source: Source): Promise<RawItem[]> {
   const models = await httpJson<HFModel[]>(source.url);
+  if (!Array.isArray(models)) throw new Error("Hugging Face trending response is not an array");
   const now = Date.now();
   // "Trending now" snapshot — we don't want lastModified=2022 to tank the time-decay score.
   // Clamp publishedAt to "now" when the model's lastModified is older than 30 days.
   const STALE_MS = 30 * 24 * 3600 * 1000;
-  return models.map((m) => {
+  return models.slice(0, config.perSourceLimit).map((m) => {
     const id = m.modelId ?? m.id;
     const published = m.lastModified ?? m.createdAt;
     const rawDate = published ? new Date(published) : new Date();
@@ -59,6 +61,7 @@ const HF_DAILY_PAPERS_API = "https://huggingface.co/api/daily_papers?limit=50";
 export async function fetchHuggingFacePapers(source: Source): Promise<RawItem[]> {
   const apiUrl = source.url.includes("/api/daily_papers") ? source.url : HF_DAILY_PAPERS_API;
   const entries = await httpJson<HFDailyPaperEntry[]>(apiUrl);
+  if (!Array.isArray(entries)) throw new Error("Hugging Face papers response is not an array");
   const items: RawItem[] = [];
   for (const entry of entries) {
     const paper = entry.paper;
@@ -74,6 +77,7 @@ export async function fetchHuggingFacePapers(source: Source): Promise<RawItem[]>
       tags: ["paper"],
       signals: { points: paper.upvotes ?? 0 },
     });
+    if (items.length >= config.perSourceLimit) break;
   }
   return items;
 }

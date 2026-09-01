@@ -48,6 +48,9 @@ type PullError = "rate" | "fail";
 const PAGE_SIZE = 24;
 const ENABLED_KEY = "hotai.nook.enabled";
 const CLIENT_TTL_MS = 3 * 60 * 1000;
+const MAX_REMOTE_ITEMS = 80;
+const MAX_REMOTE_TITLE = 300;
+const MAX_REMOTE_SUMMARY = 400;
 
 const CATEGORY_DECK: Record<CatalogCategoryId, { zh: string; en: string }> = {
   mix: { zh: "跨来源实时混排，用最短路径看见今天正在发生什么。", en: "A live cross-source desk for what is moving right now." },
@@ -76,17 +79,17 @@ function sameIds(a: string[], b: string[]): boolean {
 function readItems(raw: unknown): RemoteItem[] {
   if (!Array.isArray(raw)) return [];
   const out: RemoteItem[] = [];
-  for (const item of raw) {
+  for (const item of raw.slice(0, MAX_REMOTE_ITEMS)) {
     if (!item || typeof item !== "object") continue;
     const rec = item as Record<string, unknown>;
-    const title = typeof rec.title === "string" ? rec.title.trim() : "";
+    const title = typeof rec.title === "string" ? rec.title.trim().slice(0, MAX_REMOTE_TITLE) : "";
     const url = safeHttpUrl(typeof rec.url === "string" ? rec.url : null) ?? "";
     if (!title || !url) continue;
     const image = safeHttpUrl(typeof rec.image === "string" ? rec.image : null);
     out.push({
       title,
       url,
-      summary: typeof rec.summary === "string" ? rec.summary : "",
+      summary: typeof rec.summary === "string" ? rec.summary.slice(0, MAX_REMOTE_SUMMARY) : "",
       publishedAt: typeof rec.publishedAt === "string" ? rec.publishedAt : null,
       image,
     });
@@ -116,6 +119,7 @@ function readerHref(item: TimelineItem): string {
   const q = new URLSearchParams();
   q.set("url", item.url);
   q.set("title", item.title);
+  if (item.summary) q.set("summary", item.summary);
   q.set("src", item.sourceId);
   return `/r?${q.toString()}`;
 }
@@ -302,7 +306,9 @@ export function NookFeed() {
       if (id === "mix") next.delete("c");
       else next.set("c", id);
       const q = next.toString();
-      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+      // Channel changes are navigations: keep them in browser history so Back
+      // returns to the previous lane instead of silently skipping it.
+      router.push(q ? `${pathname}?${q}` : pathname, { scroll: false });
     },
     [params, pathname, router],
   );

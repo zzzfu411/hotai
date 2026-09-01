@@ -13,14 +13,17 @@ import {
   purgeStaleAskCache,
 } from "./purge.js";
 import { rescoreAllArticles } from "./rescore.js";
-import { recordFetchSuccess, recordFetchFailure } from "./sourceHealth.js";
+import { recordFetchSuccess, recordFetchDegraded, recordFetchFailure } from "./sourceHealth.js";
 import { config } from "./config.js";
 import { mapPool } from "./pool.js";
 import type { RawItem } from "./types.js";
 import { runWithFetcherCycleLease } from "./cycle-lock.js";
+import { assessEnabledSources, assessSourceContent } from "./content-quality.js";
 
 export type CycleReport = {
-  sources: { ok: number; failed: number; disabled: number };
+  status: "ok" | "degraded";
+  errors: string[];
+  sources: { ok: number; degraded: number; failed: number; disabled: number };
   articles: PersistStats;
   enrich: { analyzed: number; skipped: number };
   purged: number;
@@ -39,7 +42,9 @@ export type CycleReport = {
  * scored with the fullest signal set of the cycle.
  */
 export async function runCycle(): Promise<CycleReport | null> {
-  const result = await runWithFetcherCycleLease(runCycleUnlocked);
+  const result = await runWithFetcherCycleLease(runCycleUnlocked, {
+    status: (report) => (report.status === "ok" ? "success" : "degraded"),
+  });
   if (!result.acquired) {
     console.warn(
       `[fetcher] skip cross-process overlap — lease held until ${result.leaseUntil.toISOString()}`,
@@ -55,8 +60,20 @@ export async function runCycle(): Promise<CycleReport | null> {
 async function runCycleUnlocked(): Promise<CycleReport> {
   const started = Date.now();
   const report: CycleReport = {
-    sources: { ok: 0, failed: 0, disabled: 0 },
-    articles: { created: 0, refreshed: 0, merged: 0, failed: 0 },
+    status: "ok",
+    errors: [],
+    sources: { ok: 0, degraded: 0, failed: 0, disabled: 0 },
+    articles: {
+      created: 0,
+      refreshed: 0,
+      merged: 0,
+      accepted: 0,
+      discarded: 0,
+      discardedInvalid: 0,
+      discardedOutsideWindow: 0,
+      discardedDuplicate: 0,
+      failed: 0,
+    },
     enrich: { analyzed: 0, skipped: 0 },
     purged: 0,
     rescored: 0,
@@ -65,23 +82,25 @@ async function runCycleUnlocked(): Promise<CycleReport> {
 
   // Retention pass first — never waste AI calls on content we're about to delete.
   report.purged = await purgeOldArticles().catch((e) => {
-    console.warn("[purge] articles failed:", (e as Error).message);
+    note(report, "purge articles", e);
     return 0;
   });
   await purgeStaleAskCache().catch((e) =>
-    console.warn("[purge] ask-cache failed:", (e as Error).message),
+    note(report, "purge ask-cache", e),
   );
   await purgeOldAskQuota().catch((e) =>
-    console.warn("[purge] ask-quota failed:", (e as Error).message),
+    note(report, "purge ask-quota", e),
   );
   await purgeExpiredRateLimitBuckets().catch((e) =>
-    console.warn("[purge] rate-limit buckets failed:", (e as Error).message),
+    note(report, "purge rate-limit buckets", e),
   );
   await purgeOldCoordinationLeases().catch((e) =>
-    console.warn("[purge] coordination leases failed:", (e as Error).message),
+    note(report, "purge coordination leases", e),
   );
 
   const sources = await prisma.source.findMany({ where: { enabled: true } });
+  const sourceSet = assessEnabledSources(sources.length);
+  if (sourceSet.status === "degraded") note(report, "sources", sourceSet.reason);
   console.log(
     `[fetcher] cycle start — ${sources.length} sources, concurrency=${config.fetchConcurrency}, ai=${AI_ENABLED ? "on" : "off"}`,
   );
@@ -94,10 +113,12 @@ async function runCycleUnlocked(): Promise<CycleReport> {
     try {
       console.log(`  → ${src.slug} (${src.type})`);
       const items = await fetchSource(src);
-      if (items.length === 0 && src.type === "scrape") {
-        // A list page that parses to zero items almost always means the
-        // selectors rotted — treat it as a failure so health tracking sees it.
-        throw new Error("scraper returned 0 items — selectors may be stale");
+      if (!Array.isArray(items)) throw new Error(`${src.type} source returned a non-array payload`);
+      if (items.length === 0) {
+        // An empty payload from any adapter is not evidence of a healthy feed:
+        // it can mean a broken selector, an API contract change, or an
+        // upstream outage returning an empty fallback.
+        throw new Error(`${src.type} source returned 0 items`);
       }
       return { src, ok: true, items };
     } catch (err) {
@@ -108,7 +129,8 @@ async function runCycleUnlocked(): Promise<CycleReport> {
   for (const out of outcomes) {
     if (!out.ok) {
       report.sources.failed++;
-      const { fails, disabled } = await recordFetchFailure(out.src, out.err);
+      note(report, `source ${out.src.slug}`, out.err);
+      const { fails, disabled } = await recordFailureHealth(report, out.src, out.err);
       if (disabled) {
         report.sources.disabled++;
         console.error(
@@ -126,36 +148,54 @@ async function runCycleUnlocked(): Promise<CycleReport> {
       report.articles.created += stats.created;
       report.articles.refreshed += stats.refreshed;
       report.articles.merged += stats.merged;
+      report.articles.accepted += stats.accepted;
+      report.articles.discarded += stats.discarded;
+      report.articles.discardedInvalid += stats.discardedInvalid;
+      report.articles.discardedOutsideWindow += stats.discardedOutsideWindow;
+      report.articles.discardedDuplicate += stats.discardedDuplicate;
       report.articles.failed += stats.failed;
-      if (stats.failed > 0) {
-        // A fetch that cannot persist one or more items is degraded, not
-        // healthy. Do not clear consecutive-failure state or make the source
+      const assessment = assessSourceContent(out.items.length, stats);
+      if (assessment.status === "failed") {
+        // A fetch that cannot persist one or more items is a hard source
+        // failure. Do not clear consecutive-failure state or make the source
         // look green when the database silently rejected part of its payload.
         report.sources.failed++;
-        const persistErr = new Error(`persist failed for ${stats.failed} item(s)`);
-        const { fails, disabled } = await recordFetchFailure(out.src, persistErr);
+        const persistErr = new Error(assessment.reason ?? "source content failed validation");
+        note(report, `source ${out.src.slug} persistence`, persistErr);
+        const { fails, disabled } = await recordFailureHealth(report, out.src, persistErr);
         if (disabled) report.sources.disabled++;
         console.warn(
-          `    ! ${out.src.slug}: ${out.items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged, ${stats.failed} failed (source fail ${fails}/${config.sourceFailThreshold})`,
+          `    ! ${out.src.slug}: ${out.items.length} items — ${assessment.reason} (source fail ${fails}/${config.sourceFailThreshold})`,
         );
       } else {
-        report.sources.ok++;
-        await recordFetchSuccess(out.src);
+        if (assessment.status === "degraded") {
+          report.sources.degraded++;
+          note(report, `source ${out.src.slug} content`, assessment.reason);
+          await recordFetchDegraded(out.src, assessment.reason ?? "source content degraded").catch((error) =>
+            note(report, `source ${out.src.slug} health`, error),
+          );
+        } else {
+          report.sources.ok++;
+          await recordFetchSuccess(out.src).catch((error) =>
+            note(report, `source ${out.src.slug} health`, error),
+          );
+        }
         console.log(
-          `    ✓ ${out.src.slug}: ${out.items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged`,
+          `    ✓ ${out.src.slug}: ${out.items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged, ${stats.discarded} discarded`,
         );
       }
     } catch (err) {
       report.sources.failed++;
-      const { fails, disabled } = await recordFetchFailure(out.src, err as Error);
+      note(report, `source ${out.src.slug} persistence`, err);
+      const { fails, disabled } = await recordFailureHealth(report, out.src, err);
       if (disabled) {
         report.sources.disabled++;
         console.error(
-          `    ✗ ${out.src.slug}: ${(err as Error).message} — ${fails} consecutive fails, SOURCE AUTO-DISABLED`,
+          `    ✗ ${out.src.slug}: ${errorMessage(err)} — ${fails} consecutive fails, SOURCE AUTO-DISABLED`,
         );
       } else {
         console.error(
-          `    ✗ ${out.src.slug}: ${(err as Error).message} (fail ${fails}/${config.sourceFailThreshold})`,
+          `    ✗ ${out.src.slug}: ${errorMessage(err)} (fail ${fails}/${config.sourceFailThreshold})`,
         );
       }
     }
@@ -163,12 +203,13 @@ async function runCycleUnlocked(): Promise<CycleReport> {
 
   const a = report.articles;
   console.log(
-    `[fetcher] fetch done — ${report.sources.ok} ok, ${report.sources.failed} failed; ` +
-      `${a.created} new, ${a.refreshed} refreshed, ${a.merged} merged, ${Date.now() - started}ms`,
+    `[fetcher] fetch done — ${report.sources.ok} ok, ${report.sources.degraded} degraded, ${report.sources.failed} failed; ` +
+      `${a.created} new, ${a.refreshed} refreshed, ${a.merged} merged, ` +
+      `${a.accepted} accepted, ${a.discarded} discarded (${a.failed} persist failures), ${Date.now() - started}ms`,
   );
 
   report.rescored = await rescoreAllArticles().catch((e) => {
-    console.warn("[rescore] failed:", (e as Error).message);
+    note(report, "rescore", e);
     return 0;
   });
   if (report.rescored) console.log(`[fetcher] rescored ${report.rescored} articles`);
@@ -179,18 +220,20 @@ async function runCycleUnlocked(): Promise<CycleReport> {
       report.enrich = await enrichPendingArticles();
       if (config.aiDigestEnabled) await ensureTodayDigest();
     } catch (err) {
-      console.warn(`[ai] pipeline error:`, (err as Error).message);
+      note(report, "ai pipeline", err);
     }
   }
 
-  await notifyRevalidate();
+  const revalidateError = await notifyRevalidate();
+  if (revalidateError) note(report, "revalidate", revalidateError);
+  if (report.sources.failed > 0 || report.sources.degraded > 0) report.status = "degraded";
   report.ms = Date.now() - started;
-  console.log(`[fetcher] cycle total ${report.ms}ms`);
+  console.log(`[fetcher] cycle total ${report.ms}ms (${report.status})`);
   return report;
 }
 
-async function notifyRevalidate(): Promise<void> {
-  if (!config.revalidateUrl || !config.revalidateSecret) return;
+async function notifyRevalidate(): Promise<string | null> {
+  if (!config.revalidateUrl || !config.revalidateSecret) return null;
   try {
     const res = await fetch(config.revalidateUrl, {
       method: "POST",
@@ -201,8 +244,32 @@ async function notifyRevalidate(): Promise<void> {
       body: JSON.stringify({ paths: ["/", "/hot", "/digest", "/feed.xml", "/feed.json"] }),
       signal: AbortSignal.timeout(8_000),
     });
+    if (!res.ok) return `revalidate endpoint returned HTTP ${res.status}`;
     console.log(`[fetcher] revalidate -> ${res.status}`);
+    return null;
   } catch (err) {
-    console.warn(`[fetcher] revalidate failed:`, (err as Error).message);
+    return errorMessage(err);
   }
+}
+
+function note(report: CycleReport, stage: string, error: unknown): void {
+  report.status = "degraded";
+  report.errors.push(`${stage}: ${errorMessage(error)}`);
+  console.warn(`[${stage}] failed:`, errorMessage(error));
+}
+
+async function recordFailureHealth(
+  report: CycleReport,
+  source: Source,
+  error: unknown,
+): Promise<{ fails: number; disabled: boolean }> {
+  const result = await recordFetchFailure(source, error);
+  if (!result.persisted) {
+    note(report, `source ${source.slug} health`, "health state was not fully persisted or confirmed");
+  }
+  return result;
+}
+
+function errorMessage(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error)).slice(0, 300);
 }

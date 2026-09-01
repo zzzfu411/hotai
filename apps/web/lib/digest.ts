@@ -7,6 +7,7 @@ import { prisma } from "./db";
 import { AI_DIGEST_ENABLED, AI_ENABLED, generateDigest, type DigestBullet } from "@hotai/ai";
 import { getArticlesSince, getTodayDigestRow, startOfUtcDay } from "./queries";
 import { safeHttpUrl } from "./safe-url";
+export { linkDigestBullets } from "./digest-links";
 
 export type LoadedDigest = {
   headline: string;
@@ -172,6 +173,13 @@ function sanitizeBullets(value: unknown): DigestBullet[] {
     .map((item) => ({
       title: typeof item.title === "string" ? item.title.trim().slice(0, 160) : "",
       takeaway: typeof item.takeaway === "string" ? item.takeaway.trim().slice(0, 360) : "",
+      articleIds: Array.isArray(item.articleIds)
+        ? [...new Set(
+            item.articleIds
+              .filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id > 0)
+              .slice(0, 4),
+          )]
+        : undefined,
       urls: Array.isArray(item.urls)
         ? item.urls
             .filter((url): url is string => typeof url === "string")

@@ -84,7 +84,7 @@ pnpm dev:web             # http://localhost:3000
 | 路径                 | 说明                                              |
 | -------------------- | ------------------------------------------------- |
 | `/`                  | 速闻：多源 RSS 按时间混排（分类轨，可一次刷上百篇） |
-| `/hot`               | Hot AI 模块：打分热榜 + 今日脉搏                    |
+| `/hot`               | Hot AI 模块：最近 14 天入库热榜 + 今日脉搏          |
 | `/digest`            | 今日 AI 简报 + AskBox                             |
 | `/juya`              | 橘鸦 AI 早报（daily.juya.uk RSS，不入库）         |
 | `/r`                 | 速闻条目的站内阅读（Readability，不入库）         |
@@ -97,7 +97,7 @@ pnpm dev:web             # http://localhost:3000
 | `/feed.xml`          | RSS 2.0（优先 AI 摘要，无 AI 时回退源摘要）       |
 | `/feed.json`         | JSON Feed 1.1                                     |
 | `/hotai.opml`        | 编辑源 + 博客 OPML                                |
-| `/api/ask`           | POST — Claude 流式问答 (SSE),基于过去 48h 文章 |
+| `/api/ask`           | POST — Claude 流式问答 (SSE),基于过去 48h 文章；引用可回到站内 |
 | `/api/digest`        | GET  — 今日简报 JSON                              |
 | `/api/readability`   | POST `{url}` — 抽取正文（SSRF 防护）              |
 | `/api/proxy/feed`    | GET `?url=` — 代理用户自建源（不入库）            |
@@ -120,9 +120,10 @@ pnpm dev:web             # http://localhost:3000
 
 调整 `AI_ENRICH_PER_RUN` / `AI_BATCH_SIZE` / `AI_CONCURRENCY` 控制成本与延迟。
 
-`/api/ask` 先使用单 IP 限流和答案缓存，再在 PostgreSQL 中原子预约每日 token 预算与
-全局并发槽。`ASK_DAILY_TOKEN_LIMIT`、`ASK_MAX_CONCURRENT` 和
-`ASK_RESERVATION_TTL_SECONDS` 分别控制日预算、跨 Web 进程并发和崩溃预约回收；数据库
+`/api/ask` 先使用单 IP 限流和答案缓存；相同问题的并发 miss 由 PostgreSQL 协调租约合并，
+再原子预约每日 token 预算与全局并发槽。答案缓存同时保存引用来源快照，避免热榜重排后
+`[n]` 指向另一篇文章。`ASK_DAILY_TOKEN_LIMIT`、`ASK_MAX_CONCURRENT` 和
+`ASK_RESERVATION_TTL_SECONDS`（低于 300 秒会被钳制）分别控制日预算、跨 Web 进程并发和崩溃预约回收；数据库
 不可用时该成本阀 fail-closed，不会绕过配额继续调用模型。
 
 `/api/proxy/feed`、`/api/readability`、`/api/catalog/pull` 的 IP 计数也保存在 PostgreSQL；

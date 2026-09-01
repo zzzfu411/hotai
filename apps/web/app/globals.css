@@ -539,8 +539,83 @@ button.kz-chip:disabled {
   font-size: 12px;
 }
 
+.kz-ask-cite {
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: var(--yellow);
+  text-decoration-thickness: 3px;
+}
+
+.kz-ask-sources {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  white-space: normal;
+}
+
+.kz-ask-sources-label {
+  margin: 0 0 6px;
+  color: var(--mild);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.kz-ask-source-list {
+  display: grid;
+  gap: 5px;
+}
+
+.kz-ask-source {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.kz-ask-source:hover .kz-ask-source-title {
+  text-decoration: underline;
+  text-decoration-color: var(--yellow);
+  text-decoration-thickness: 2px;
+}
+
+.kz-ask-source-index,
+.kz-ask-source-name {
+  color: var(--mild);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+}
+
+.kz-ask-source-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .kz-ask-source {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .kz-ask-source-name {
+    display: none;
+  }
+}
+
 .kz-home-feed {
   min-width: 0;
+}
+
+.kz-noscript-fallback {
+  margin: 16px var(--gutter);
+  padding: 16px 18px;
 }
 
 .kz-feed-head {

@@ -23,6 +23,7 @@ export type HealthSnapshot = {
     enabled: number;
     disabled: number;
     failing: number;
+    degraded: number;
     staleEnabled: number;
   };
   ai: {
@@ -152,7 +153,7 @@ export async function collectHealthSnapshot(now = new Date()): Promise<HealthSna
   ] = await Promise.all([
     prisma.article.count({ where: { publishedAt: { gte: since24h } } }),
     prisma.source.findMany({
-      select: { enabled: true, lastFetch: true, consecutiveFails: true },
+      select: { enabled: true, lastFetch: true, consecutiveFails: true, lastError: true },
     }),
     prisma.article.groupBy({ by: ["aiStatus"], _count: { _all: true } }),
     prisma.article.count({
@@ -215,9 +216,14 @@ export async function collectHealthSnapshot(now = new Date()): Promise<HealthSna
     fetcherLeaseExpired,
   });
   const warnings = [...readiness.warnings];
+  const degradedSources = enabledRows.filter(
+    (source) => source.consecutiveFails === 0 && Boolean(source.lastError),
+  ).length;
+  if (degradedSources > 0) warnings.push("degraded-sources");
   if (expiredAskReservations > 0) warnings.push("expired-ask-reservations");
   if (digestGenerationLeaseExpired) warnings.push("expired-digest-generation-lease");
   if (fetcherLease?.lastStatus === "failed") warnings.push("fetcher-last-cycle-failed");
+  else if (fetcherLease?.lastStatus === "degraded") warnings.push("fetcher-last-cycle-degraded");
   if (!digest && digestLease?.lastStatus === "failed") warnings.push("digest-generation-failed");
 
   return {
@@ -238,6 +244,7 @@ export async function collectHealthSnapshot(now = new Date()): Promise<HealthSna
       enabled: enabledRows.length,
       disabled: sourceRows.length - enabledRows.length,
       failing: enabledRows.filter((source) => source.consecutiveFails > 0).length,
+      degraded: degradedSources,
       staleEnabled,
     },
     ai: {
@@ -307,6 +314,7 @@ export function formatPrometheus(snapshot: HealthSnapshot): string {
     `hotai_sources{state="enabled"} ${snapshot.sources.enabled}`,
     `hotai_sources{state="disabled"} ${snapshot.sources.disabled}`,
     `hotai_sources{state="failing"} ${snapshot.sources.failing}`,
+    `hotai_sources{state="degraded"} ${snapshot.sources.degraded}`,
     `hotai_sources{state="stale"} ${snapshot.sources.staleEnabled}`,
     "# TYPE hotai_ai_articles gauge",
     ...AI_STATES.map((state) => `hotai_ai_articles{status="${state}"} ${snapshot.ai.articles[state]}`),

@@ -18,6 +18,10 @@ function num(env: string | undefined, fallback: number): number {
   return Number.isFinite(n) && env !== undefined && env !== "" ? n : fallback;
 }
 
+function bounded(env: string | undefined, fallback: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.trunc(num(env, fallback))));
+}
+
 function parseRate(spec: string): { limit: number; windowMs: number } {
   const m = spec.match(/^\s*(\d+)\s*\/\s*(\d+)\s*$/);
   if (!m) return { limit: 5, windowMs: 60_000 };
@@ -27,6 +31,10 @@ function parseRate(spec: string): { limit: number; windowMs: number } {
 const RATE = parseRate(process.env.ASK_RATE_PER_IP ?? "5/60");
 export const ASK_DAILY_TOKEN_LIMIT = num(process.env.ASK_DAILY_TOKEN_LIMIT, 500_000);
 export const ASK_CACHE_TTL_MS = num(process.env.ASK_CACHE_TTL_HOURS, 24) * 3600 * 1000;
+/** Short cross-process single-flight lease for identical cache misses. */
+export const ASK_INFLIGHT_LEASE_MS =
+  bounded(process.env.ASK_INFLIGHT_LEASE_SECONDS, 120, 30, 300) * 1000;
+export const ASK_INFLIGHT_WAIT_MS = bounded(process.env.ASK_INFLIGHT_WAIT_MS, 3_000, 0, 10_000);
 
 type Bucket = { count: number; resetAt: number };
 type AskGuardState = {

@@ -104,6 +104,10 @@ export function extractItemImage(
 
 export const DEFAULT_FEED_MAX_ITEMS = 80;
 export const DEFAULT_FEED_SUMMARY_LEN = 400;
+/** Keep untrusted feed fields bounded before they reach JSON/DOM consumers. */
+export const MAX_FEED_TITLE_LEN = 200;
+export const MAX_ITEM_TITLE_LEN = 300;
+export const MAX_ITEM_SUMMARY_LEN = 400;
 
 export type ParseFeedOptions = {
   maxItems?: number;
@@ -117,6 +121,11 @@ function stripHtml(s: string): string {
 function truncate(s: string, n: number): string {
   if (!s) return "";
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
+}
+
+function boundedOption(value: number | undefined, fallback: number, min: number, max: number): number {
+  const n = value == null || !Number.isFinite(value) ? fallback : Math.trunc(value);
+  return Math.min(max, Math.max(min, n));
 }
 
 function absUrl(maybe: string | undefined | null, base: string): string | null {
@@ -148,14 +157,16 @@ function parseJsonFeed(body: string, baseUrl: string, opts: ParseFeedOptions = {
   const rec = json as Record<string, unknown>;
   if (!Array.isArray(rec.items)) return null;
 
-  const maxItems = opts.maxItems ?? DEFAULT_FEED_MAX_ITEMS;
-  const summaryLen = opts.summaryLen ?? DEFAULT_FEED_SUMMARY_LEN;
-  const title = typeof rec.title === "string" && rec.title.trim() ? rec.title.trim() : "Feed";
+  const maxItems = boundedOption(opts.maxItems, DEFAULT_FEED_MAX_ITEMS, 0, DEFAULT_FEED_MAX_ITEMS);
+  const summaryLen = boundedOption(opts.summaryLen, DEFAULT_FEED_SUMMARY_LEN, 1, MAX_ITEM_SUMMARY_LEN);
+  const rawTitle = typeof rec.title === "string" ? rec.title.trim() : "";
+  const title = rawTitle ? truncate(rawTitle, MAX_FEED_TITLE_LEN) : "Feed";
   const items: RemoteFeedItem[] = [];
+  if (maxItems === 0) return { title, items };
   for (const raw of rec.items) {
     if (!raw || typeof raw !== "object") continue;
     const it = raw as Record<string, unknown>;
-    const itemTitle = typeof it.title === "string" ? it.title.trim() : "";
+    const itemTitle = typeof it.title === "string" ? truncate(it.title.trim(), MAX_ITEM_TITLE_LEN) : "";
     const href =
       absUrl(typeof it.url === "string" ? it.url : undefined, baseUrl) ||
       absUrl(typeof it.external_url === "string" ? it.external_url : undefined, baseUrl) ||
@@ -194,12 +205,13 @@ async function parseRssAtom(
   } catch {
     return null;
   }
-  const maxItems = opts.maxItems ?? DEFAULT_FEED_MAX_ITEMS;
-  const summaryLen = opts.summaryLen ?? DEFAULT_FEED_SUMMARY_LEN;
-  const title = (feed.title || "").trim() || "Feed";
+  const maxItems = boundedOption(opts.maxItems, DEFAULT_FEED_MAX_ITEMS, 0, DEFAULT_FEED_MAX_ITEMS);
+  const summaryLen = boundedOption(opts.summaryLen, DEFAULT_FEED_SUMMARY_LEN, 1, MAX_ITEM_SUMMARY_LEN);
+  const title = truncate((feed.title || "").trim(), MAX_FEED_TITLE_LEN) || "Feed";
   const items: RemoteFeedItem[] = [];
+  if (maxItems === 0) return { title, items };
   for (const it of feed.items ?? []) {
-    const itemTitle = (it.title || "").trim();
+    const itemTitle = truncate((it.title || "").trim(), MAX_ITEM_TITLE_LEN);
     const href = absUrl(it.link, baseUrl) || absUrl(it.guid, baseUrl);
     if (!itemTitle || !href) continue;
     const rec = it as unknown as Record<string, unknown>;

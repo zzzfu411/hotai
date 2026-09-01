@@ -16,7 +16,7 @@ type PageProps = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const id = parseArticleId((await params).id);
   if (id == null) return {};
-  const a = await getArticleById(id);
+  const a = await getArticleById(id).catch(() => null);
   if (!a) return {};
   const description = a.aiSummaryZh || a.aiSummaryEn || a.summary || a.title;
   const url = `${SITE.url}/a/${a.id}`;
@@ -38,12 +38,38 @@ export default async function ArticlePage({ params }: PageProps) {
   const id = parseArticleId((await params).id);
   if (id == null) notFound();
 
-  const article = await getArticleById(id);
+  let article: Awaited<ReturnType<typeof getArticleById>>;
+  try {
+    article = await getArticleById(id);
+  } catch (error) {
+    console.warn(
+      `[article:${id}] database unavailable:`,
+      error instanceof Error ? error.message : error,
+    );
+    return (
+      <div className="kz-page">
+        <div className="kz-card kz-feed-empty">
+          <p className="kz-feed-empty-title">文章暂时不可用 · Article unavailable</p>
+          <p className="kz-feed-empty-copy">数据库连接失败；请稍后重试。</p>
+        </div>
+      </div>
+    );
+  }
   if (!article) notFound();
   const articleUrl = safeHttpUrl(article.url);
   if (!articleUrl) notFound();
 
-  const related = await getRelatedArticles(article.aiTopics, article.id, 5);
+  let related: Awaited<ReturnType<typeof getRelatedArticles>> = [];
+  try {
+    related = await getRelatedArticles(article.aiTopics, article.id, 5);
+  } catch (err) {
+    // Related stories are an enhancement; a GIN/DB hiccup must not block the
+    // article body, summaries, or the original-source link.
+    console.warn(
+      `[article:${article.id}] related query unavailable:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   const crossPosts = parseCrossPosts(article.crossPosts);
   const publishedIso = article.publishedAt.toISOString();

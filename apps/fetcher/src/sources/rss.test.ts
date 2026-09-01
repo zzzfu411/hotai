@@ -11,4 +11,8 @@ describe("RSS summary selection", () => {
   it("skips whitespace-only fields and caps the clean text", () => {
     expect(selectSummary({ contentSnippet: "  ", contentEncoded: "<p>abcdef</p>" }, 5)).toBe("abcd…");
   });
+
+  it("keeps an oversized requested summary within the pipeline limit", () => {
+    expect(selectSummary({ contentSnippet: "x".repeat(2_000) }, 10_000)).toHaveLength(600);
+  });
 });

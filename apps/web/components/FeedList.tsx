@@ -13,6 +13,10 @@ export function FeedList({
   kickerEn,
   titleAs = "h1",
   action,
+  emptyTitleZh,
+  emptyTitleEn,
+  emptyCopyZh,
+  emptyCopyEn,
 }: {
   articles: ArticleCardData[];
   ranked?: boolean;
@@ -22,6 +26,10 @@ export function FeedList({
   kickerEn?: string;
   titleAs?: "h1" | "h2";
   action?: ReactNode;
+  emptyTitleZh?: string;
+  emptyTitleEn?: string;
+  emptyCopyZh?: string;
+  emptyCopyEn?: string;
 }) {
   const { lang } = useLang();
   const zh = lang === "zh";
@@ -29,6 +37,10 @@ export function FeedList({
   const kicker = zh ? kickerZh ?? kickerEn : kickerEn ?? kickerZh;
   const TitleTag = titleAs;
   const showHead = Boolean(title || kicker || action);
+  const emptyTitle = zh ? emptyTitleZh ?? "暂无文章" : emptyTitleEn ?? "No articles yet";
+  const emptyCopy = zh
+    ? emptyCopyZh ?? "抓取器可能还在预热，稍后再刷新。"
+    : emptyCopyEn ?? "The fetcher may still be warming up. Refresh in a minute.";
 
   return (
     <section className="kz-feed">
@@ -50,12 +62,8 @@ export function FeedList({
 
       {articles.length === 0 ? (
         <div className="kz-card kz-feed-empty">
-          <p className="font-bold">{zh ? "暂无文章" : "No articles yet"}</p>
-          <p>
-            {zh
-              ? "抓取器可能还在预热，稍后再刷新。"
-              : "The fetcher may still be warming up. Refresh in a minute."}
-          </p>
+          <p className="kz-feed-empty-title">{emptyTitle}</p>
+          <p className="kz-feed-empty-copy">{emptyCopy}</p>
         </div>
       ) : (
         <div className="kz-feed-list">

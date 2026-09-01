@@ -33,7 +33,14 @@ function parseStartHere(raw: unknown) {
 }
 
 export default async function BlogsPage() {
-  const rows = await getCuratedBlogs();
+  let rows: Awaited<ReturnType<typeof getCuratedBlogs>> = [];
+  let unavailable = false;
+  try {
+    rows = await getCuratedBlogs();
+  } catch (error) {
+    unavailable = true;
+    console.warn("[blogs] database unavailable:", error instanceof Error ? error.message : error);
+  }
   const blogs = rows.map((b) => ({
     slug: b.slug,
     name: b.name,
@@ -59,7 +66,14 @@ export default async function BlogsPage() {
   return (
     <div className="kz-page kz-page-wide">
       <BlogHero total={blogs.length} featured={featured} />
-      <BlogDirectory blogs={blogs} />
+      {unavailable ? (
+        <div className="kz-card kz-feed-empty kz-blog-empty">
+          <p className="kz-feed-empty-title">精选博客暂时不可用 · Directory unavailable</p>
+          <p className="kz-feed-empty-copy">数据库连接失败；请稍后重试。</p>
+        </div>
+      ) : (
+        <BlogDirectory blogs={blogs} />
+      )}
     </div>
   );
 }

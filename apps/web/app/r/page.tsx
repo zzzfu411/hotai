@@ -9,7 +9,7 @@ import { parsePublicHttpUrl, UnsafeUrlError } from "@/lib/ssrf";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<{ url?: string; title?: string; src?: string }>;
+  searchParams: Promise<{ url?: string; title?: string; summary?: string; src?: string }>;
 };
 
 function safeUrl(raw: string | undefined): URL | null {
@@ -35,6 +35,7 @@ export default async function RemoteReaderPage({ searchParams }: PageProps) {
   if (!url) notFound();
 
   const title = (resolved.title ?? "").trim() || hostname(url.href);
+  const fallbackSummary = (resolved.summary ?? "").trim().slice(0, 400);
   const src = resolved.src ? CATALOG_BY_ID.get(resolved.src) : undefined;
   const host = hostname(url.href);
 
@@ -50,7 +51,7 @@ export default async function RemoteReaderPage({ searchParams }: PageProps) {
         </p>
         <h1 className="kz-reader-title">{title}</h1>
       </header>
-      <ReaderBody url={url.href} fallbackSummary="" />
+      <ReaderBody url={url.href} fallbackSummary={fallbackSummary} />
     </article>
   );
 }

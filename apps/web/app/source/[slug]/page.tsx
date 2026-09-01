@@ -12,18 +12,44 @@ type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const s = await getSourceBySlug(slug);
+  const s = await getSourceBySlug(slug).catch(() => null);
   if (!s) return {};
   return { title: `${s.name} · Hot AI` };
 }
 
 export default async function SourcePage({ params }: PageProps) {
   const { slug } = await params;
-  const source = await getSourceBySlug(slug);
+  let source: Awaited<ReturnType<typeof getSourceBySlug>>;
+  try {
+    source = await getSourceBySlug(slug);
+  } catch (error) {
+    console.warn(
+      `[source:${slug}] database unavailable:`,
+      error instanceof Error ? error.message : error,
+    );
+    return (
+      <div className="kz-page">
+        <div className="kz-card kz-feed-empty">
+          <p className="kz-feed-empty-title">来源暂时不可用 · Source unavailable</p>
+          <p className="kz-feed-empty-copy">数据库连接失败；首页实时速闻仍可使用。</p>
+        </div>
+      </div>
+    );
+  }
   if (!source) notFound();
 
-  const rows = await getArticlesBySource(source.id);
-  const articles = rows.map(toCard);
+  let articles: ReturnType<typeof toCard>[] = [];
+  let unavailable = false;
+  try {
+    const rows = await getArticlesBySource(source.id);
+    articles = rows.map(toCard);
+  } catch (error) {
+    unavailable = true;
+    console.warn(
+      `[source:${slug}] article query unavailable:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
   const cat = CATEGORIES.find((c) => c.slug === source.category);
   const homepage = safeHttpUrl(source.homepage);
   const host = homepage
@@ -35,10 +61,14 @@ export default async function SourcePage({ params }: PageProps) {
       <FeedList
         articles={articles}
         ranked={false}
-        kickerZh={`${cat?.label_zh ?? source.category} · ${source.lang} · 权重 ${source.weight}`}
-        kickerEn={`${cat?.label_en ?? source.category} · ${source.lang} · weight ${source.weight}`}
+        kickerZh={`${cat?.label_zh ?? source.category} · 最近 14 天入库 · ${source.lang} · 权重 ${source.weight}`}
+        kickerEn={`${cat?.label_en ?? source.category} · stored 14 days · ${source.lang} · weight ${source.weight}`}
         titleZh={source.name}
         titleEn={source.name}
+        emptyTitleZh={unavailable ? "来源文章暂时不可用" : undefined}
+        emptyTitleEn={unavailable ? "Source stories temporarily unavailable" : undefined}
+        emptyCopyZh={unavailable ? "数据库连接失败；可以稍后重试或访问来源主页。" : undefined}
+        emptyCopyEn={unavailable ? "The database is unavailable; retry later or visit the source." : undefined}
         action={
           homepage ? (
             <a

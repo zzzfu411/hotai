@@ -13,10 +13,23 @@ export const revalidate = 600;
 
 export async function GET(req: Request) {
   const q = parseFeedQuery(new URL(req.url).searchParams);
-  const articles = await getFeedArticles(
-    { category: q.category, minImportance: q.minImportance },
-    50,
-  );
+  let articles: Awaited<ReturnType<typeof getFeedArticles>>;
+  try {
+    articles = await getFeedArticles(
+      { category: q.category, minImportance: q.minImportance },
+      50,
+    );
+  } catch (error) {
+    console.warn("[feed.xml] database unavailable:", error instanceof Error ? error.message : error);
+    return new Response("Feed temporarily unavailable", {
+      status: 503,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store",
+        "retry-after": "30",
+      },
+    });
+  }
 
   const items = articles
     .map((a) => {

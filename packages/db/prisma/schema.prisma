@@ -24,6 +24,8 @@ model Source {
   // ===== fetch health (maintained by apps/fetcher) =====
   // consecutiveFails reaching SOURCE_FAIL_THRESHOLD flips enabled=false so a
   // dead feed stops burning cycles; re-enable manually via Prisma Studio.
+  // A usable-but-incomplete cycle keeps consecutiveFails at zero while
+  // retaining its reason in lastError/lastErrorAt.
   consecutiveFails Int       @default(0)
   lastError        String?
   lastErrorAt      DateTime?
@@ -87,7 +89,7 @@ model Digest {
   lang        String   @default("en") // generated as a bilingual record but split for index by lang/date
   headline    String   // single-line "story of the day"
   overview    String   // 3-5 sentence prose
-  bullets     Json     // [{ title, takeaway, urls: [..] }]
+  bullets     Json     // [{ title, takeaway, urls: [..], articleIds?: [..] }]
   themes      String[] @default([])
   model       String?
   createdAt   DateTime @default(now())
@@ -104,6 +106,7 @@ model AskCache {
   hash      String   @unique // sha1(question.trim().toLowerCase())
   question  String
   answer    String
+  sources   Json?    // stable citation snapshot: [{ index, id, title, source, url }]
   model     String?
   hits      Int      @default(1)
   createdAt DateTime @default(now())
@@ -145,7 +148,7 @@ model CoordinationLease {
   startedAt      DateTime
   attempts       Int      @default(1)
   lastFinishedAt DateTime?
-  lastStatus     String   @default("running") // running | success | failed
+  lastStatus     String   @default("running") // running | success | degraded | failed
   lastError      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

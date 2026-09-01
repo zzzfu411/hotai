@@ -9,11 +9,13 @@ export function SearchBox({
   initialSort,
   resultCount = null,
   unavailable = false,
+  queryTooShort = false,
 }: {
   initialQuery: string;
   initialSort: "hot" | "recent";
   resultCount?: number | null;
   unavailable?: boolean;
+  queryTooShort?: boolean;
 }) {
   const { lang } = useLang();
   const zh = lang === "zh";
@@ -50,6 +52,11 @@ export function SearchBox({
       <div>
         <p className="kz-page-kicker">{zh ? "搜索" : "Search"}</p>
         <h1 className="kz-page-title">{zh ? "搜标题、摘要、主题" : "Titles, summaries, topics"}</h1>
+        <p className="kz-page-lede">
+          {zh
+            ? "范围：Hot AI 最近 14 天入库文章；首页的实时速闻不在此索引中。"
+            : "Scope: Hot AI articles stored in the last 14 days. The live feed is not indexed here."}
+        </p>
       </div>
       <form
         onSubmit={(e) => {
@@ -93,6 +100,16 @@ export function SearchBox({
           ))}
         </div>
       </form>
+      {queryTooShort && (
+        <div className="kz-card kz-feed-empty" role="status">
+          <p className="kz-feed-empty-title">
+            {zh ? "关键词太短" : "That query is too short"}
+          </p>
+          <p className="kz-feed-empty-copy">
+            {zh ? "请输入至少 2 个字符再搜索。" : "Enter at least 2 characters to search."}
+          </p>
+        </div>
+      )}
       {resultCount != null && (
         <p className="kz-search-count">
           {zh

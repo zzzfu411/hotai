@@ -12,8 +12,20 @@ export type PersistStats = {
   created: number;   // brand-new articles
   refreshed: number; // same URL seen again — signals/score refreshed
   merged: number;    // repost of an existing story, folded into the canonical row
+  accepted: number;  // items that passed validation and retention checks
+  discarded: number; // invalid, out-of-window, or duplicate items
+  discardedInvalid: number;
+  discardedOutsideWindow: number;
+  discardedDuplicate: number;
   failed: number;
 };
+
+export const MAX_ARTICLE_TITLE_LEN = 300;
+export const MAX_ARTICLE_SUMMARY_LEN = 600;
+export const MAX_ARTICLE_AUTHOR_LEN = 200;
+export const MAX_ARTICLE_TAG_LEN = 80;
+export const MAX_ARTICLE_RAW_CHARS = 16_000;
+const MAX_TAG_INPUTS = 100;
 
 const EXISTING_SELECT = {
   id: true,
@@ -62,6 +74,13 @@ type PreparedItem = {
   raw?: unknown;
 };
 
+export type PreparedBatch = {
+  items: PreparedItem[];
+  discardedInvalid: number;
+  discardedOutsideWindow: number;
+  discardedDuplicate: number;
+};
+
 /**
  * Persist one source's fetched items. Dedupe ladder, per item:
  *   1. urlHash hit           → refresh: merge signals, recompute score
@@ -74,8 +93,22 @@ type PreparedItem = {
  * even when nothing new arrived.
  */
 export async function persistItems(source: Source, items: RawItem[]): Promise<PersistStats> {
-  const stats: PersistStats = { created: 0, refreshed: 0, merged: 0, failed: 0 };
-  const prepared = prepare(items);
+  const preparedBatch = prepareItems(items);
+  const prepared = preparedBatch.items;
+  const stats: PersistStats = {
+    created: 0,
+    refreshed: 0,
+    merged: 0,
+    accepted: prepared.length,
+    discarded:
+      preparedBatch.discardedInvalid +
+      preparedBatch.discardedOutsideWindow +
+      preparedBatch.discardedDuplicate,
+    discardedInvalid: preparedBatch.discardedInvalid,
+    discardedOutsideWindow: preparedBatch.discardedOutsideWindow,
+    discardedDuplicate: preparedBatch.discardedDuplicate,
+    failed: 0,
+  };
   if (prepared.length === 0) return stats;
 
   const windowStart = new Date(Date.now() - config.titleDedupeWindowDays * 24 * 3600 * 1000);
@@ -130,23 +163,42 @@ export async function persistItems(source: Source, items: RawItem[]): Promise<Pe
   return stats;
 }
 
-function prepare(items: RawItem[]): PreparedItem[] {
+/** Validate and bound untrusted adapter output before it reaches Prisma. */
+export function prepareItems(items: RawItem[]): PreparedBatch {
   const out = new Map<string, PreparedItem>();
+  let discardedInvalid = 0;
+  let discardedOutsideWindow = 0;
+  let discardedDuplicate = 0;
   for (const it of items) {
-    const title = typeof it.title === "string" ? it.title.trim() : "";
-    if (!title || !it.url) continue;
-    if (!isRetainablePublishedAt(it.publishedAt)) continue;
+    const title = boundedText(it.title, MAX_ARTICLE_TITLE_LEN);
+    if (!title || typeof it.url !== "string") {
+      discardedInvalid++;
+      continue;
+    }
+    const publishedAtMs = it.publishedAt instanceof Date ? it.publishedAt.getTime() : Number.NaN;
+    if (!Number.isFinite(publishedAtMs)) {
+      discardedInvalid++;
+      continue;
+    }
+    if (!isRetainablePublishedAt(it.publishedAt)) {
+      discardedOutsideWindow++;
+      continue;
+    }
     const url = normalizeSafeUrl(it.url);
-    if (!url) continue;
+    if (!url) {
+      discardedInvalid++;
+      continue;
+    }
     const urlHash = hashUrl(url);
     const prev = out.get(urlHash);
     if (prev) {
       // Same URL twice in one page — keep the first, merge its signals.
       prev.signals = mergeSignals(prev.signals, it.signals);
+      discardedDuplicate++;
       continue;
     }
-    const summary = cleanOptional(it.summary);
-    const author = cleanOptional(it.author);
+    const summary = cleanOptional(it.summary, MAX_ARTICLE_SUMMARY_LEN);
+    const author = cleanOptional(it.author, MAX_ARTICLE_AUTHOR_LEN);
     out.set(urlHash, {
       url,
       urlHash,
@@ -158,10 +210,15 @@ function prepare(items: RawItem[]): PreparedItem[] {
       publishedAt: it.publishedAt,
       tags: cleanTags(it.tags),
       signals: asSignals(it.signals),
-      raw: it.raw,
+      raw: cleanRaw(it.raw),
     });
   }
-  return [...out.values()];
+  return {
+    items: [...out.values()],
+    discardedInvalid,
+    discardedOutsideWindow,
+    discardedDuplicate,
+  };
 }
 
 /** Same URL seen again — possibly via a different source (e.g. HN linking a lab blog). */
@@ -279,22 +336,43 @@ async function createArticle(source: Source, p: PreparedItem): Promise<ExistingR
   });
 }
 
-function cleanOptional(value: unknown): string | null {
-  if (typeof value !== "string") return null;
+function boundedText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
   const trimmed = value.trim();
-  return trimmed ? trimmed : null;
+  if (!trimmed) return "";
+  return trimmed.length <= maxLength ? trimmed : `${trimmed.slice(0, maxLength - 1)}…`;
+}
+
+function cleanOptional(value: unknown, maxLength: number): string | null {
+  if (typeof value !== "string") return null;
+  const bounded = boundedText(value, maxLength);
+  return bounded || null;
+}
+
+function cleanRaw(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  try {
+    const encoded = JSON.stringify(value);
+    return encoded && encoded.length <= MAX_ARTICLE_RAW_CHARS ? value : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function cleanTags(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value
+  return [...new Set(value.slice(0, MAX_TAG_INPUTS)
     .filter((tag): tag is string => typeof tag === "string")
-    .map((tag) => tag.trim().toLowerCase())
+    .map((tag) => tag.trim().toLowerCase().slice(0, MAX_ARTICLE_TAG_LEN))
     .filter(Boolean))].slice(0, 20);
 }
 
 function mergeTags(existing: string[] | undefined, incoming: string[]): string[] {
-  return [...new Set([...(existing ?? []), ...incoming].map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 20);
+  return [...new Set(
+    [...(existing ?? []).slice(0, MAX_TAG_INPUTS), ...incoming.slice(0, MAX_TAG_INPUTS)]
+      .map((tag) => tag.trim().toLowerCase().slice(0, MAX_ARTICLE_TAG_LEN))
+      .filter(Boolean),
+  )].slice(0, 20);
 }
 
 function preferSummary(existing: string | null, incoming: string | null): string | null {

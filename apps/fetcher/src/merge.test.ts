@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCrossPost, asSignals, mergeSignals, type CrossPost } from "./merge.js";
+import { appendCrossPost, asSignals, mergeSignals, MAX_SIGNAL_VALUE, type CrossPost } from "./merge.js";
 
 describe("asSignals", () => {
   it("validates a Json column value into Signals", () => {
@@ -11,6 +11,13 @@ describe("asSignals", () => {
     expect(asSignals("points")).toBeUndefined();
     expect(asSignals([1, 2])).toBeUndefined();
     expect(asSignals({ points: -5, stars: "many" })).toBeUndefined();
+  });
+
+  it("caps extreme finite engagement values before they reach scoring", () => {
+    expect(asSignals({ points: Number.MAX_VALUE, downloads: 2_000_000_000 })).toEqual({
+      points: MAX_SIGNAL_VALUE,
+      downloads: MAX_SIGNAL_VALUE,
+    });
   });
 });
 

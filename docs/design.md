@@ -173,12 +173,12 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 | 路由 | 渲染 | 缓存 | 数据源 |
 |---|---|---|---|
 | `/` | Client live catalog | 客户端 3min SWR + 服务端 feed cache | allowlisted RSS/Atom/JSON Feed；不写 Article |
-| `/hot` | RSC + ISR | `revalidate=600` | Postgres,top 50 by score |
-| `/digest` | RSC + ISR | `revalidate=1800` | DB hit → 缺则在线生成 + 落库 |
+| `/hot` | RSC + ISR | `revalidate=600` | Postgres,top 50 by score（最近 14 天入库） |
+| `/digest` | 动态 RSC | `force-dynamic` | DB hit → 缺则在线生成 + 落库 |
 | `/category/{slug}` | RSC + ISR + SSG params | `revalidate=600` | DB,filter by category |
 | `/source/{slug}` | RSC + ISR | `revalidate=600` | DB,filter by source |
 | `/search` | RSC | `force-dynamic` | DB `ILIKE` |
-| `/api/ask` | Node runtime | AskCache 24h + IP 限流 + PostgreSQL 预约（日配额/并发） | DB + 流式 LLM (SSE) |
+| `/api/ask` | Node runtime | AskCache 24h + IP 限流 + 相同问题单飞租约 + PostgreSQL 预约（日配额/并发） | DB + 流式 LLM (SSE)，来源快照随答案返回 |
 | `/api/digest` | RSC | `revalidate=600` | DB |
 | `/feed.xml` | RSC | `revalidate=600` | DB,RSS 2.0 输出 |
 
@@ -487,7 +487,7 @@ ASK_RATE_PER_IP=5/60
 | | 文章详情页 + 相关推荐(4.2) | 1.5d | 留存提升 ★★★★ |
 | | SimHash 模糊去重(3.3 方案 B) | 1d | 转载文聚合 ★★★ |
 | | 首页 sparkline(4.4) | 0.5d | 视觉差异化 ★★ |
-| **Sprint 4 · 运维收口** | ~~vitest 核心测试(5.2)~~ ✅(scoring/dedupe/merge/parseJson;purge 未测) | 0.5d | 改 scoring 不抖 ★★★ |
+| **Sprint 4 · 运维收口** | ~~vitest 核心测试(5.2)~~ ✅(scoring/dedupe/merge/parseJson/feed-cache/health/purge) | 0.5d | 改 scoring 不抖 ★★★ |
 | | Sentry + 关键指标(5.1) | 0.5d | 出事看得见 ★★★★ |
 | | `Digest` 备份脚本(5.3) | 0.5d | 防 LLM 产出丢失 ★★★ |
 | **Sprint 5+ · 拓展面** | 论文专区 `/papers`(4.5) | 1.5d | 内容差异化 |
@@ -531,7 +531,7 @@ ASK_RATE_PER_IP=5/60
 
 **跨源去重(3.3 方案 A)** — `store.ts` 重写为 `persistItems()` 三级阶梯:urlHash 命中→刷新(signals 逐项取 max);titleHash 3 天窗口命中→转载合并进原行的 `crossPosts Json`(封顶 10 条,归一化标题 <8 字符不参与,防"每周讨论帖"误合并);否则新建。同 URL 被第二个源提到同样记 crossPost。前端卡片显示"⇄ N 源转载"。SimHash(方案 B)未做。
 
-**/api/ask 防护(3.4)** — 三重防护:IP token bucket(`ASK_RATE_PER_IP`,默认 5/60s)→ `AskCache` 表按归一化问题 hash 缓存 24h(命中免 LLM、免配额)→ PostgreSQL 日 token/并发预约(`ASK_DAILY_TOKEN_LIMIT`,默认 50 万,0=不限)。预约带 TTL，断连、异常和 worker 崩溃按保守预算结算；SSE wire format 不变。
+**/api/ask 防护(3.4)** — IP token bucket(`ASK_RATE_PER_IP`,默认 5/60s)→ `AskCache` 表按归一化问题 hash 缓存 24h(命中免 LLM、免配额)→相同问题的短时 PostgreSQL 协调租约→日 token/并发预约(`ASK_DAILY_TOKEN_LIMIT`,默认 50 万,0=不限)。预约带 TTL，断连、异常和 worker 崩溃按保守预算结算；AskCache 保存生成时的来源快照，SSE 发送 `sources` 事件，前端把 `[n]` 映射为站内文章链接。
 
 **失效源监控(3.5)** — `Source` 加 `consecutiveFails / lastError / lastErrorAt`;失败递增、成功清零;连续 ≥`SOURCE_FAIL_THRESHOLD`(默认 5)自动 `enabled=false`。dispatch 对未知源、scrape 抓到 0 条也按失败计。admin 页面未做(Prisma Studio 手动 re-enable)。
 
@@ -541,6 +541,6 @@ ASK_RATE_PER_IP=5/60
 
 **结构调整** — fetcher:`index.ts` 只做启动/cron,编排逻辑拆到 `cycle.ts`,健康跟踪在 `sourceHealth.ts`,纯合并函数在 `merge.ts`;web:页面内联 Prisma 查询收敛到 `lib/queries.ts`(读)/`lib/digest.ts`(digest 兜底生成)/`lib/ask-guard.ts`(限流配额)。
 
-**测试(5.2 部分)** — 根级 vitest(`pnpm test`),36 个纯函数用例覆盖 scoring / dedupe(含 arxiv)/ merge / parseJson,不依赖 DB。purge 未测。
+**测试(5.2 部分)** — 根级 vitest(`pnpm test`)覆盖 scoring / dedupe(含 arxiv) / merge / parser / 缓存 / 限流 / 来源健康、租约清理与回链；数据库集成测试在 `RUN_DB_TESTS=1` 时启用。租约清理的完整数据库集成覆盖仍需在有 PostgreSQL 的环境执行。
 
-**Schema 变更(需在服务器上应用已提交迁移)** — `Source` 健康字段、`Article.crossPosts Json?`、AI retry/lease 字段、`aiTopics` GIN 索引，以及 `AskCache`、`AskDailyUsage`、`AskReservation`、`CoordinationLease`、`RateLimitBucket`。部署时使用 `pnpm db:migrate`（`prisma migrate deploy`），再 `pnpm db:seed`；`migrate:dev` 仅用于开发者生成新的 migration。
+**Schema 变更(需在服务器上应用已提交迁移)** — `Source` 健康字段、`Article.crossPosts Json?`、AI retry/lease 字段、`aiTopics` GIN 索引，以及 `AskCache`（含来源快照）、`AskDailyUsage`、`AskReservation`、`CoordinationLease`（支持 `degraded` 周期状态）、`RateLimitBucket`。本轮新增的 `20260901010000_coordination_degraded_status` 与 `20260901020000_ask_cache_sources` 也必须部署。部署时使用 `pnpm db:migrate`（`prisma migrate deploy`），再 `pnpm db:seed`；`migrate:dev` 仅用于开发者生成新的 migration。

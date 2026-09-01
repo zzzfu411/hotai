@@ -25,18 +25,32 @@ export default async function CategoryPage({ params }: PageProps) {
   const cat = CATEGORIES.find((c) => c.slug === slug);
   if (!cat) notFound();
 
-  const rows = await getCategoryArticles(cat.slug);
-  const articles = rows.map(toCard);
+  let articles: ReturnType<typeof toCard>[] = [];
+  let unavailable = false;
+  try {
+    const rows = await getCategoryArticles(cat.slug);
+    articles = rows.map(toCard);
+  } catch (error) {
+    unavailable = true;
+    console.warn(
+      `[category:${cat.slug}] database unavailable:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
 
   return (
     <div className="kz-page">
       <FeedList
         articles={articles}
         ranked={false}
-        kickerZh="分类 · 按时间"
-        kickerEn="Category · chronological"
+        kickerZh="分类 · 最近 14 天入库 · 按时间"
+        kickerEn="Category · stored 14 days · chronological"
         titleZh={cat.label_zh}
         titleEn={cat.label_en}
+        emptyTitleZh={unavailable ? "分类暂时不可用" : undefined}
+        emptyTitleEn={unavailable ? "Category temporarily unavailable" : undefined}
+        emptyCopyZh={unavailable ? "数据库连接失败；首页实时速闻仍可使用。" : undefined}
+        emptyCopyEn={unavailable ? "The database is unavailable; the live feed still works." : undefined}
       />
     </div>
   );

@@ -72,7 +72,7 @@ describe("Prometheus formatter", () => {
         lastFetchAgeSec: 60,
         maxFetchAgeSec: 10_800,
       },
-      sources: { total: 5, enabled: 4, disabled: 1, failing: 1, staleEnabled: 0 },
+      sources: { total: 5, enabled: 4, disabled: 1, failing: 1, degraded: 1, staleEnabled: 0 },
       ai: {
         enabled: true,
         digestEnabled: true,
@@ -109,6 +109,7 @@ describe("Prometheus formatter", () => {
     expect(text).toContain('hotai_ai_articles{status="failed"} 5');
     expect(text).toContain("hotai_ask_reserved_tokens 20");
     expect(text).toContain("hotai_ask_expired_reservations 2");
+    expect(text).toContain('hotai_sources{state="degraded"} 1');
     expect(text).not.toContain("secret");
   });
 });

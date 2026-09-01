@@ -8,6 +8,8 @@ import { normalizeSafeUrl } from "./dedupe.js";
  */
 
 const SIGNAL_KEYS = ["points", "comments", "stars", "downloads"] as const;
+/** Keep untrusted engagement gauges finite and bounded before scoring/storage. */
+export const MAX_SIGNAL_VALUE = 1_000_000_000;
 
 /** Validate an unknown JSON value (e.g. a Prisma Json column) into Signals. */
 export function asSignals(value: unknown): Signals | undefined {
@@ -18,7 +20,7 @@ export function asSignals(value: unknown): Signals | undefined {
   for (const key of SIGNAL_KEYS) {
     const n = Number(rec[key]);
     if (Number.isFinite(n) && n >= 0) {
-      out[key] = n;
+      out[key] = Math.min(n, MAX_SIGNAL_VALUE);
       any = true;
     }
   }

@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@hotai/db";
 import type { RawItem } from "../types.js";
+import { config } from "../config.js";
 import { httpText } from "../http.js";
 
 /**
@@ -57,7 +58,7 @@ function dedupeInPage(items: RawItem[]): RawItem[] {
     if (seen.has(it.url)) continue;
     seen.add(it.url);
     out.push(it);
-    if (out.length >= 30) break;
+    if (out.length >= config.perSourceLimit) break;
   }
   return out;
 }

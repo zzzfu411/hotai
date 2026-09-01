@@ -68,13 +68,10 @@ async function loadInternalFeed(path: string): Promise<RemoteFeed | null> {
 }
 
 async function loadCatalogFeed(src: CatalogSource): Promise<RemoteFeed | null> {
-  if (src.url.startsWith("/")) {
-    try {
-      return await loadInternalFeed(src.url);
-    } catch {
-      return { title: SITE.name, items: [] };
-    }
-  }
+  // Preserve the distinction between an honestly empty Hot AI feed and an
+  // unavailable database. The caller turns dependency failures into a
+  // per-source error instead of showing the internal source as falsely green.
+  if (src.url.startsWith("/")) return loadInternalFeed(src.url);
   return loadRemoteFeed(src.url);
 }
 

@@ -1,6 +1,7 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
   FEED_CACHE_FAIL_TTL_MS,
+  FEED_CACHE_STALE_MS,
   FEED_CACHE_TTL_MS,
   isFreshFeedCache,
   loadRemoteFeed,
@@ -130,6 +131,31 @@ describe("feed-cache", () => {
     expect(calls).toBe(1);
     expect(cooled.ttl).toBe(FEED_CACHE_FAIL_TTL_MS);
     expect(cooled.fail).toBe(false);
+  });
+
+  it("does not slide the stale window across repeated origin failures", async () => {
+    vi.useFakeTimers();
+    try {
+      const originAt = new Date("2026-08-01T00:00:00.000Z").getTime();
+      vi.setSystemTime(originAt);
+      await loadRemoteFeed("https://ex.com/rss", { fetch: async () => okFetch() });
+
+      vi.setSystemTime(originAt + FEED_CACHE_TTL_MS + 1);
+      let calls = 0;
+      const fetch = async () => {
+        calls += 1;
+        throw new Error("upstream down");
+      };
+      expect((await loadRemoteFeed("https://ex.com/rss", { fetch }))?.title).toBe("Lab");
+      expect(peekFeedCache("https://ex.com/rss")?.staleSince).toBe(originAt);
+
+      vi.setSystemTime(originAt + FEED_CACHE_STALE_MS + 1);
+      await expect(loadRemoteFeed("https://ex.com/rss", { fetch })).rejects.toThrow("upstream down");
+      expect(calls).toBe(2);
+      expect(peekFeedCache("https://ex.com/rss")?.fail).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("caches a failed fetch so the next pull does not wait on the origin", async () => {

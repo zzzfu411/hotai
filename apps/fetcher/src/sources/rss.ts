@@ -13,6 +13,10 @@ const parser = new Parser({
 
 const HN_POINTS_RE = /Points:\s*(\d+)/i;
 const HN_COMMENTS_RE = /Comments:\s*(\d+)/i;
+export const MAX_RSS_TITLE_LEN = 300;
+export const MAX_RSS_AUTHOR_LEN = 200;
+export const MAX_RSS_SUMMARY_LEN = 600;
+export const MAX_RSS_TAG_LEN = 80;
 
 export async function fetchRss(source: Source): Promise<RawItem[]> {
   const xml = await httpText(source.url, {
@@ -32,9 +36,9 @@ export async function fetchRss(source: Source): Promise<RawItem[]> {
     const signals = extractSignals(source.slug, it);
     items.push({
       url: link,
-      title: it.title.trim(),
+      title: truncate(it.title.trim(), MAX_RSS_TITLE_LEN) ?? "Untitled",
       summary: contentText,
-      author: it.creator ?? (it as any).author ?? null,
+      author: cleanAuthor(it.creator ?? (it as any).author),
       publishedAt,
       tags: extractTags(it),
       signals,
@@ -49,11 +53,12 @@ export function selectSummary(
   item: { contentSnippet?: unknown; contentEncoded?: unknown; content?: unknown },
   maxLength = 400,
 ): string | undefined {
+  const limit = Math.max(1, Math.min(maxLength, MAX_RSS_SUMMARY_LEN));
   const candidates = [item.contentSnippet, item.contentEncoded, item.content];
   for (const candidate of candidates) {
     if (typeof candidate !== "string") continue;
     const text = stripHtml(candidate);
-    if (text) return truncate(text, maxLength);
+    if (text) return truncate(text, limit);
   }
   return undefined;
 }
@@ -76,7 +81,7 @@ function extractTags(it: Parser.Item): string[] {
   return cats
     .map((c) => (typeof c === "string" ? c : c?._ ?? ""))
     .filter(Boolean)
-    .map((s) => String(s).trim().toLowerCase())
+    .map((s) => String(s).trim().toLowerCase().slice(0, MAX_RSS_TAG_LEN))
     .slice(0, 6);
 }
 
@@ -87,4 +92,10 @@ function stripHtml(s: string): string {
 function truncate(s: string, n: number): string | undefined {
   if (!s) return undefined;
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
+}
+
+function cleanAuthor(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return text ? truncate(text, MAX_RSS_AUTHOR_LEN) ?? null : null;
 }

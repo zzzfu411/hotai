@@ -9,8 +9,12 @@ function bounded(env: string | undefined, fallback: number, min: number, max: nu
 }
 
 export const ASK_MAX_CONCURRENT = bounded(process.env.ASK_MAX_CONCURRENT, 8, 1, 100);
+// The Anthropic client allows a 90s request plus one retry. Keep the durable
+// reservation alive long enough that a healthy slow request cannot be swept
+// and charged as a crash while it is still streaming; production may choose a
+// larger value when a relay has slower retry backoff.
 export const ASK_RESERVATION_TTL_MS =
-  bounded(process.env.ASK_RESERVATION_TTL_SECONDS, 600, 60, 3_600) * 1000;
+  bounded(process.env.ASK_RESERVATION_TTL_SECONDS, 600, 300, 3_600) * 1000;
 
 export type AskQuotaReservation = {
   id: string;

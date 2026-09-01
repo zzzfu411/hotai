@@ -1,7 +1,66 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import {
+  sanitizeAskCitationSources,
+  type AskCitationSource,
+} from "@/lib/ask-citations";
 import { useLang } from "./LangContext";
+
+function AnswerContent({
+  answer,
+  busy,
+  error,
+  sources,
+  lang,
+}: {
+  answer: string;
+  busy: boolean;
+  error: string | null;
+  sources: AskCitationSource[];
+  lang: "zh" | "en";
+}) {
+  const byIndex = new Map(sources.map((source) => [source.index, source]));
+  const parts = answer.split(/(\[\d{1,2}\])/g);
+  const cited = sources.filter((source) => answer.includes(`[${source.index}]`)).slice(0, 8);
+  return (
+    <>
+      {parts.map((part, index) => {
+        const match = /^\[(\d{1,2})\]$/.exec(part);
+        const source = match ? byIndex.get(Number(match[1])) : undefined;
+        return source ? (
+          <Link
+            key={`${part}:${index}`}
+            href={`/a/${source.id}`}
+            className="kz-ask-cite"
+            title={source.title}
+          >
+            {part}
+          </Link>
+        ) : (
+          <span key={`${part}:${index}`}>{part}</span>
+        );
+      })}
+      {busy && <span className="kz-ask-caret" />}
+      {error && <p className="kz-ask-error">⚠ {error}</p>}
+      {cited.length > 0 ? (
+        <div className="kz-ask-sources">
+          <p className="kz-ask-sources-label">{lang === "zh" ? "答案来源" : "Answer sources"}</p>
+          <div className="kz-ask-source-list">
+            {cited.map((source) => (
+              <Link key={source.index} href={`/a/${source.id}`} className="kz-ask-source">
+                <span className="kz-ask-source-index">[{source.index}]</span>
+                <span className="kz-ask-source-title">{source.title}</span>
+                <span className="kz-ask-source-name">{source.source}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 export function AskBox({ compact = false }: { compact?: boolean }) {
   const { lang } = useLang();
@@ -9,6 +68,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sources, setSources] = useState<AskCitationSource[]>([]);
 
   const suggestions =
     lang === "zh"
@@ -27,6 +87,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
     abortRef.current = ac;
     setQ(question);
     setAnswer("");
+    setSources([]);
     setError(null);
     setBusy(true);
     try {
@@ -55,6 +116,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
           if (!m) continue;
           try {
             const obj = JSON.parse(m[1]!);
+            if (obj.sources) setSources(sanitizeAskCitationSources(obj.sources));
             if (typeof obj.delta === "string") setAnswer((a) => a + obj.delta);
             if (obj.error) throw new Error(obj.error);
             if (obj.done) {
@@ -106,9 +168,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
         </form>
         {(answer || error) && (
           <div className="kz-ask-answer">
-            {answer}
-            {busy && <span className="kz-ask-caret" />}
-            {error && <p className="kz-ask-error">⚠ {error}</p>}
+            <AnswerContent answer={answer} busy={busy} error={error} sources={sources} lang={lang} />
           </div>
         )}
       </div>
@@ -165,9 +225,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
 
       {(answer || error) && (
         <div className="kz-ask-answer">
-          {answer}
-          {busy && <span className="kz-ask-caret" />}
-          {error && <p className="kz-ask-error">⚠ {error}</p>}
+          <AnswerContent answer={answer} busy={busy} error={error} sources={sources} lang={lang} />
         </div>
       )}
     </div>

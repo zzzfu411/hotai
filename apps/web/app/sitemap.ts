@@ -2,9 +2,14 @@ import type { MetadataRoute } from "next";
 import { getEnabledSourceSlugs } from "@/lib/queries";
 import { CATEGORIES, SITE } from "@/lib/constants";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = SITE.url;
-  const sources = await getEnabledSourceSlugs();
+  const sources = await getEnabledSourceSlugs().catch((error) => {
+    console.warn("[sitemap] database unavailable:", error instanceof Error ? error.message : error);
+    return [];
+  });
   const now = new Date();
   return [
     { url: `${base}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },

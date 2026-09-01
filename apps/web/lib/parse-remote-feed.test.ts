@@ -146,4 +146,21 @@ describe("parseRemoteFeed", () => {
     );
     expect(feed?.items).toHaveLength(80);
   });
+
+  it("bounds untrusted feed and item fields even when callers request larger values", async () => {
+    const hugeTitle = "T".repeat(2_000);
+    const hugeSummary = "S".repeat(2_000);
+    const feed = await parseRemoteFeed(
+      JSON.stringify({
+        title: hugeTitle,
+        items: [{ title: hugeTitle, url: "https://ex.com/1", summary: hugeSummary }],
+      }),
+      "application/json",
+      "https://ex.com/feed.json",
+      { summaryLen: 10_000, maxItems: 10_000 },
+    );
+    expect(feed?.title.length).toBe(200);
+    expect(feed?.items[0]?.title.length).toBe(300);
+    expect(feed?.items[0]?.summary.length).toBe(400);
+  });
 });

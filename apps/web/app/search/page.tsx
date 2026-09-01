@@ -36,10 +36,19 @@ export default async function SearchPage({
       <SearchBox
         initialQuery={q}
         initialSort={sort}
-        resultCount={q.length > 0 && !unavailable ? articles.length : null}
+        resultCount={q.length >= 2 && !unavailable ? articles.length : null}
         unavailable={unavailable}
+        queryTooShort={q.length > 0 && q.length < 2}
       />
-      {q.length > 0 && !unavailable && <FeedList articles={articles.map(toCard)} />}
+      {q.length >= 2 && !unavailable && (
+        <FeedList
+          articles={articles.map(toCard)}
+          emptyTitleZh="没有匹配的入库文章"
+          emptyTitleEn="No stored articles match"
+          emptyCopyZh="换一个关键词，或回到首页浏览实时速闻。"
+          emptyCopyEn="Try another keyword, or return to the live feed for the latest items."
+        />
+      )}
     </div>
   );
 }

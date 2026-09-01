@@ -24,6 +24,8 @@ const FEED_ACCEPT =
 export type FeedCacheEntry = {
   at: number;
   ttl: number;
+  /** Timestamp of the first stale-if-error response in this window. */
+  staleSince?: number;
   etag: string | null;
   lastModified: string | null;
   contentType: string;
@@ -75,11 +77,17 @@ export function resetFeedCache(): void {
 
 /** Serve a still-usable stale feed and open a short retry cooldown. */
 function serveStale(url: string, hit: FeedCacheEntry | undefined): RemoteFeed | null {
-  if (!hit?.feed || Date.now() - hit.at >= FEED_CACHE_STALE_MS) return null;
+  if (!hit?.feed) return null;
+  // `at` is also the cooldown timestamp for stale responses. Keep a separate
+  // origin timestamp so repeated failures cannot slide the stale window
+  // forever and make a dead feed look healthy.
+  const staleSince = hit.staleSince ?? hit.at;
+  if (Date.now() - staleSince >= FEED_CACHE_STALE_MS) return null;
   putFeedCache(url, {
     ...hit,
     at: Date.now(),
     ttl: FEED_CACHE_FAIL_TTL_MS,
+    staleSince,
     // Keep this as a readable cache hit so callers do not immediately retry
     // the origin; the short ttl schedules the next conditional revalidation.
     fail: false,
@@ -121,7 +129,13 @@ export async function loadRemoteFeed(
       });
 
       if (fetched.status === 304 && hit?.feed) {
-        const next = { ...hit, at: Date.now(), ttl: FEED_CACHE_TTL_MS, fail: false };
+        const next = {
+          ...hit,
+          at: Date.now(),
+          ttl: FEED_CACHE_TTL_MS,
+          staleSince: undefined,
+          fail: false,
+        };
         putFeedCache(url, next);
         return next.feed;
       }
@@ -137,6 +151,7 @@ export async function loadRemoteFeed(
         putFeedCache(url, {
           at: Date.now(),
           ttl: FEED_CACHE_FAIL_TTL_MS,
+          staleSince: undefined,
           etag: fetched.etag,
           lastModified: fetched.lastModified,
           contentType: fetched.contentType,
@@ -149,6 +164,7 @@ export async function loadRemoteFeed(
       putFeedCache(url, {
         at: Date.now(),
         ttl: FEED_CACHE_TTL_MS,
+        staleSince: undefined,
         etag: fetched.etag,
         lastModified: fetched.lastModified,
         contentType: fetched.contentType,
@@ -162,6 +178,7 @@ export async function loadRemoteFeed(
         putFeedCache(url, {
           at: Date.now(),
           ttl: FEED_CACHE_FAIL_TTL_MS,
+          staleSince: undefined,
           etag: null,
           lastModified: null,
           contentType: "",
@@ -176,6 +193,7 @@ export async function loadRemoteFeed(
       putFeedCache(url, {
         at: Date.now(),
         ttl: FEED_CACHE_FAIL_TTL_MS,
+        staleSince: undefined,
         etag: null,
         lastModified: null,
         contentType: "",

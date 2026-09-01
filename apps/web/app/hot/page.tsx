@@ -9,7 +9,7 @@ export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: "热榜",
-  description: "Hot AI 模块：按重要度排序的今日 AI 热榜。",
+  description: "Hot AI 模块：按重要度排序的最近 14 天入库 AI 热榜。",
 };
 
 /** Hot AI module: ranked board + digest pulse. Not the default homepage. */
@@ -76,10 +76,10 @@ export default async function HotPage() {
               articles={articles}
               ranked
               titleAs="h2"
-              kickerZh="Hot AI 模块 · 按重要度"
-              kickerEn="Hot AI module · ranked"
-              titleZh="今日热榜"
-              titleEn="Today's hot"
+              kickerZh="Hot AI 模块 · 最近 14 天入库 · 按重要度"
+              kickerEn="Hot AI module · last 14 days · ranked"
+              titleZh="近 14 天热榜"
+              titleEn="Hot list · last 14 days"
             />
           </div>
         </>

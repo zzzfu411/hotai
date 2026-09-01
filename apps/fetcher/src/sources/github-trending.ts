@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@hotai/db";
 import type { RawItem } from "../types.js";
+import { config } from "../config.js";
 import { httpText } from "../http.js";
 
 const AI_KEYWORDS = [
@@ -19,6 +20,7 @@ export async function fetchGithubTrending(source: Source): Promise<RawItem[]> {
   const $ = cheerio.load(html);
   const items: RawItem[] = [];
   $("article.Box-row").each((_, el) => {
+    if (items.length >= config.perSourceLimit) return false;
     const $el = $(el);
     const repoPath = $el.find("h2 a").attr("href")?.trim();
     if (!repoPath) return;

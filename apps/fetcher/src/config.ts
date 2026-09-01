@@ -43,8 +43,10 @@ export const config = {
   revalidateUrl: revalidateUrl(process.env.REVALIDATE_URL),
   revalidateSecret: process.env.REVALIDATE_SECRET || "",
   fetchTimeoutMs: bounded(process.env.FETCH_TIMEOUT_MS, 20_000, 1_000, 120_000),
-  fetchMaxBytes: Math.max(64 * 1024, num(process.env.FETCH_MAX_BYTES, 1_572_864)),
-  perSourceLimit: Math.max(1, num(process.env.PER_SOURCE_LIMIT, 40)),
+  fetchMaxBytes: Math.trunc(
+    bounded(process.env.FETCH_MAX_BYTES, 1_572_864, 64 * 1024, 8 * 1024 * 1024),
+  ),
+  perSourceLimit: Math.trunc(bounded(process.env.PER_SOURCE_LIMIT, 40, 1, 200)),
   // Parallel upstream fetches; persist stays sequential so urlHash/titleHash
   // dedupe sees rows written by earlier sources in the same cycle.
   fetchConcurrency: Math.max(1, Math.min(8, num(process.env.FETCH_CONCURRENCY, 4))),
