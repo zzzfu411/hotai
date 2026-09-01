@@ -2,7 +2,7 @@
   <g fill="none" stroke-linecap="square" stroke-linejoin="miter">
     <rect x="86" y="78" width="112" height="92" stroke="#6e7180" stroke-width="3"/>
     <rect x="98" y="66" width="112" height="92" stroke="#2f6bff" stroke-width="3"/>
-    <path d="M112 142v-30M138 142V96M164 142v-18" stroke="#ffd60a" stroke-width="8"/>
+    <path d="M112 142v-30M138 142V96M164 142v-18" stroke="#b4473f" stroke-width="8"/>
     <path d="M80 188h150" stroke="#6e7180" stroke-width="3" opacity=".72"/>
     <path d="M102 54h44M190 54h26" stroke="#2f6bff" stroke-width="3"/>
     <path d="M164 42v-14" stroke="#ff3b57" stroke-width="3"/>

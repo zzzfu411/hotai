@@ -28,10 +28,10 @@ export default async function SourcePage({ params }: PageProps) {
       error instanceof Error ? error.message : error,
     );
     return (
-      <div className="kz-page">
-        <div className="kz-card kz-feed-empty">
-          <p className="kz-feed-empty-title">来源暂时不可用 · Source unavailable</p>
-          <p className="kz-feed-empty-copy">数据库连接失败；首页实时速闻仍可使用。</p>
+      <div className="ha-page">
+        <div className="ha-card ha-feed-empty">
+          <p className="ha-feed-empty-title">来源暂时不可用 · Source unavailable</p>
+          <p className="ha-feed-empty-copy">数据库连接失败；首页 briefing 稍后再试。</p>
         </div>
       </div>
     );
@@ -57,7 +57,7 @@ export default async function SourcePage({ params }: PageProps) {
     : "";
 
   return (
-    <div className="kz-page">
+    <div className="ha-page">
       <FeedList
         articles={articles}
         ranked={false}
@@ -75,7 +75,7 @@ export default async function SourcePage({ params }: PageProps) {
               href={homepage}
               target="_blank"
               rel="noopener noreferrer"
-              className="kz-chip"
+              className="ha-chip"
             >
               {host} ↗
             </a>

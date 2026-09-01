@@ -39,7 +39,7 @@ export default async function CategoryPage({ params }: PageProps) {
   }
 
   return (
-    <div className="kz-page">
+    <div className="ha-page">
       <FeedList
         articles={articles}
         ranked={false}
@@ -49,7 +49,7 @@ export default async function CategoryPage({ params }: PageProps) {
         titleEn={cat.label_en}
         emptyTitleZh={unavailable ? "分类暂时不可用" : undefined}
         emptyTitleEn={unavailable ? "Category temporarily unavailable" : undefined}
-        emptyCopyZh={unavailable ? "数据库连接失败；首页实时速闻仍可使用。" : undefined}
+        emptyCopyZh={unavailable ? "数据库连接失败；首页 briefing 稍后再试。" : undefined}
         emptyCopyEn={unavailable ? "The database is unavailable; the live feed still works." : undefined}
       />
     </div>

@@ -61,18 +61,18 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
   const featuredCount = blogs.filter((b) => b.featured).length;
 
   return (
-    <div className="kz-blog-dir">
-      <div className="kz-filters-row">
-        <div className="kz-search kz-search-wide">
+    <div className="ha-blog-dir">
+      <div className="ha-filters-row">
+        <div className="ha-search ha-search-wide">
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={zh ? "搜索作者、博客或主题…" : "Search authors, blogs, or topics…"}
-            className="kz-input"
+            className="ha-input"
             aria-label={zh ? "搜索博客" : "Search blogs"}
           />
-          <span className="kz-search-go" aria-hidden>
+          <span className="ha-search-go" aria-hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" />
@@ -82,18 +82,18 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
         <button
           type="button"
           onClick={() => setFeaturedOnly((v) => !v)}
-          className={featuredOnly ? "kz-btn active" : "kz-btn"}
+          className={featuredOnly ? "ha-btn active" : "ha-btn"}
           aria-pressed={featuredOnly}
         >
           {zh ? `仅精选 · ${featuredCount}` : `Featured · ${featuredCount}`}
         </button>
       </div>
 
-      <div className="kz-filter-tags">
+      <div className="ha-filter-tags">
         <button
           type="button"
           onClick={() => setActiveTag(null)}
-          className={activeTag === null ? "kz-chip active" : "kz-chip"}
+          className={activeTag === null ? "ha-chip active" : "ha-chip"}
           aria-pressed={activeTag === null}
         >
           {zh ? "全部" : "All"}
@@ -106,7 +106,7 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
               key={t.slug}
               type="button"
               onClick={() => setActiveTag(active ? null : t.slug)}
-              className={active ? "kz-chip active" : "kz-chip"}
+              className={active ? "ha-chip active" : "ha-chip"}
               aria-pressed={active}
             >
               {zh ? t.label_zh : t.label_en}
@@ -116,14 +116,14 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
         })}
       </div>
 
-      <p className="kz-blog-meta">
+      <p className="ha-blog-meta">
         {zh
           ? `显示 ${filtered.length} / ${blogs.length} 个博客`
           : `Showing ${filtered.length} of ${blogs.length} blogs`}
       </p>
 
       {filtered.length === 0 ? (
-        <div className="kz-card kz-feed-empty kz-blog-empty">
+        <div className="ha-card ha-feed-empty ha-blog-empty">
           <p className="font-bold">{zh ? "没有匹配的博客" : "No blogs match"}</p>
           <p>{zh ? "试试换个关键词。" : "Try another filter."}</p>
           <button
@@ -133,13 +133,13 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
               setActiveTag(null);
               setFeaturedOnly(false);
             }}
-            className="kz-btn"
+            className="ha-btn"
           >
             {zh ? "清除筛选" : "Clear filters"}
           </button>
         </div>
       ) : (
-        <div className="kz-blog-grid">
+        <div className="ha-blog-grid">
           {filtered.map((b) => (
             <BlogCard key={b.slug} blog={b} />
           ))}

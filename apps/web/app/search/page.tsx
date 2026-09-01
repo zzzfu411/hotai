@@ -32,7 +32,7 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="kz-page">
+    <div className="ha-page">
       <SearchBox
         initialQuery={q}
         initialSort={sort}
@@ -45,7 +45,7 @@ export default async function SearchPage({
           articles={articles.map(toCard)}
           emptyTitleZh="没有匹配的入库文章"
           emptyTitleEn="No stored articles match"
-          emptyCopyZh="换一个关键词，或回到首页浏览实时速闻。"
+          emptyCopyZh="换一个关键词，或回到首页继续阅读 briefing。"
           emptyCopyEn="Try another keyword, or return to the live feed for the latest items."
         />
       )}

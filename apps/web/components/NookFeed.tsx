@@ -158,7 +158,7 @@ const Cover = memo(function Cover({ src, alt }: { src: string; alt: string }) {
   if (!ok) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img className="kz-nook-cover" src={src} alt={alt} loading="lazy" onError={() => setOk(false)} />
+    <img className="ha-nook-cover" src={src} alt={alt} loading="lazy" onError={() => setOk(false)} />
   );
 });
 
@@ -175,22 +175,22 @@ const NookCard = memo(function NookCard({
 }) {
   const when = item.publishedAt ? new Date(item.publishedAt) : null;
   return (
-    <li className={featured ? "kz-card kz-nook-item kz-nook-item-featured" : "kz-card kz-nook-item"}>
-      <Link href={readerHref(item)} className="kz-nook-link">
+    <li className={featured ? "ha-card ha-nook-item ha-nook-item-featured" : "ha-card ha-nook-item"}>
+      <Link href={readerHref(item)} className="ha-nook-link">
         {item.image ? <Cover src={item.image} alt="" /> : null}
-        <div className="kz-nook-copy">
-          <p className="kz-nook-item-meta">
-            <span className="kz-source-mark">{item.sourceName}</span>
+        <div className="ha-nook-copy">
+          <p className="ha-nook-item-meta">
+            <span className="ha-source-mark">{item.sourceName}</span>
             {when && Number.isFinite(when.getTime()) ? (
               <time dateTime={item.publishedAt ?? undefined}>{timeAgo(when, lang)}</time>
             ) : null}
-            <span className="kz-story-index" aria-hidden>
+            <span className="ha-story-index" aria-hidden>
               /{index.toString().padStart(2, "0")}
             </span>
           </p>
-          <h2 className="kz-nook-item-title">{item.title}</h2>
+          <h2 className="ha-nook-item-title">{item.title}</h2>
           {item.summary ? (
-            <p className={item.image ? "kz-nook-item-sum kz-nook-item-sum-tight" : "kz-nook-item-sum"}>
+            <p className={item.image ? "ha-nook-item-sum ha-nook-item-sum-tight" : "ha-nook-item-sum"}>
               {item.summary}
             </p>
           ) : null}
@@ -342,39 +342,38 @@ export function NookFeed() {
       : "New signals will appear here after the sources sync.";
 
   return (
-    <div className="kz-nook" aria-busy={loading}>
-      <header className="kz-nook-head">
-        <div className="kz-nook-title-block">
-          <p className="kz-signal-eyebrow">
-            <span className="kz-live-dot" aria-hidden />
+    <div className="ha-nook" aria-busy={loading}>
+      <header className="ha-nook-head">
+        <div className="ha-nook-title-block">
+          <p className="ha-signal-eyebrow">
+            <span className="ha-live-dot" aria-hidden />
             {zh ? "LIVE · AI 信号编辑部" : "LIVE · AI SIGNAL DESK"}
           </p>
-          <h1 className="kz-feed-title">
-            <span aria-hidden>00/</span>
+          <h1 className="ha-feed-title">
             {zh ? catMeta?.labelZh ?? "综合" : catMeta?.labelEn ?? "Mix"}
           </h1>
-          <p className="kz-nook-deck">{zh ? categoryDeck.zh : categoryDeck.en}</p>
+          <p className="ha-nook-deck">{zh ? categoryDeck.zh : categoryDeck.en}</p>
         </div>
-        <div className="kz-nook-console" aria-label={zh ? "时间线状态" : "Timeline status"}>
-          <div className="kz-console-stat">
+        <div className="ha-nook-console" aria-label={zh ? "时间线状态" : "Timeline status"}>
+          <div className="ha-console-stat">
             <strong>{okCount.toString().padStart(2, "0")}</strong>
             <span>{zh ? "在线源" : "sources"}</span>
           </div>
-          <div className="kz-console-stat">
+          <div className="ha-console-stat">
             <strong>{items.length.toString().padStart(2, "0")}</strong>
             <span>{zh ? "条信号" : "signals"}</span>
           </div>
-          <div className={failCount ? "kz-console-stat kz-console-stat-alert" : "kz-console-stat"}>
+          <div className={failCount ? "ha-console-stat ha-console-stat-alert" : "ha-console-stat"}>
             <strong>{failCount.toString().padStart(2, "0")}</strong>
             <span>{zh ? "异常" : "offline"}</span>
           </div>
           <button
             type="button"
-            className="kz-btn kz-refresh-btn"
+            className="ha-btn ha-refresh-btn"
             onClick={() => setEpoch((n) => n + 1)}
             disabled={loading}
           >
-            <span className={loading ? "kz-refresh-icon is-spinning" : "kz-refresh-icon"} aria-hidden>↻</span>
+            <span className={loading ? "ha-refresh-icon is-spinning" : "ha-refresh-icon"} aria-hidden>↻</span>
             {loading ? (zh ? "同步中" : "Syncing") : zh ? "刷新信号" : "Refresh"}
           </button>
         </div>
@@ -390,32 +389,32 @@ export function NookFeed() {
             : `${items.length} signals, ${okCount} sources online${failCount ? `, ${failCount} offline` : ""}`}
       </p>
 
-      <nav className="kz-nook-chips" aria-label={zh ? "频道" : "Channels"}>
+      <nav className="ha-nook-chips" aria-label={zh ? "频道" : "Channels"}>
         {CATALOG_CATEGORIES.map((c, i) => (
           <button
             key={c.id}
             type="button"
-            className={c.id === category ? "kz-channel active" : "kz-channel"}
+            className={c.id === category ? "ha-channel active" : "ha-channel"}
             onClick={() => setCategory(c.id)}
             aria-pressed={c.id === category}
           >
-            <span className="kz-channel-index" aria-hidden>{(i + 1).toString().padStart(2, "0")}</span>
+            <span className="ha-channel-index" aria-hidden>{(i + 1).toString().padStart(2, "0")}</span>
             <span>{zh ? c.labelZh : c.labelEn}</span>
           </button>
         ))}
       </nav>
 
-      {errorText ? <p className="kz-nook-error" role="status">{errorText}</p> : null}
+      {errorText ? <p className="ha-nook-error" role="status">{errorText}</p> : null}
 
       {loading && items.length === 0 ? (
-        <div className="kz-nook-list" aria-hidden>
+        <div className="ha-nook-list" aria-hidden>
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="kz-card kz-nook-item kz-nook-skel" />
+            <div key={i} className="ha-card ha-nook-item ha-nook-skel" />
           ))}
         </div>
       ) : null}
 
-      <ul className="kz-nook-list">
+      <ul className="ha-nook-list">
         {visible.map((it, i) => (
           <NookCard
             key={`${it.sourceId}:${it.url}`}
@@ -428,12 +427,11 @@ export function NookFeed() {
       </ul>
 
       {!loading && items.length === 0 && !error ? (
-        <div className="kz-card kz-feed-empty">
-          <span className="kz-empty-mark" aria-hidden>{failCount ? "! / !" : "-- / --"}</span>
-          <p className="kz-feed-empty-title">{emptyTitle}</p>
-          <p className="kz-feed-empty-copy">{emptyCopy}</p>
+        <div className="ha-card ha-feed-empty">
+          <p className="ha-feed-empty-title">{emptyTitle}</p>
+          <p className="ha-feed-empty-copy">{emptyCopy}</p>
           {failCount ? (
-            <button type="button" className="kz-btn kz-btn-sm" onClick={() => setEpoch((n) => n + 1)}>
+            <button type="button" className="ha-btn ha-btn-sm" onClick={() => setEpoch((n) => n + 1)}>
               {zh ? "重新连接" : "Reconnect"}
             </button>
           ) : null}
@@ -441,17 +439,17 @@ export function NookFeed() {
       ) : null}
 
       {!loading && shown < items.length ? (
-        <div className="kz-nook-more">
-          <button type="button" className="kz-btn kz-btn-wide" onClick={() => setShown((n) => n + PAGE_SIZE)}>
+        <div className="ha-nook-more">
+          <button type="button" className="ha-btn ha-btn-wide" onClick={() => setShown((n) => n + PAGE_SIZE)}>
             {zh ? "继续读取下一组" : "Load the next signals"}
           </button>
-          <span className="kz-nook-progress font-mono tabular-nums">
+          <span className="ha-nook-progress font-mono tabular-nums">
             {Math.min(shown, items.length)} / {items.length}
           </span>
         </div>
       ) : null}
       {loading && items.length > 0 ? (
-        <p className="kz-nook-meta kz-nook-meta-center" role="status">
+        <p className="ha-nook-meta ha-nook-meta-center" role="status">
           {zh ? "更新中…" : "Refreshing…"}
         </p>
       ) : null}

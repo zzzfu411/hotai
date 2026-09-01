@@ -17,12 +17,12 @@ export function DigestHeader({ digest, aiEnabled }: { digest: Loaded; aiEnabled:
 
   if (!digest) {
     return (
-      <div className="kz-card kz-digest-empty">
-        <p className="kz-page-kicker">{zh ? "今日简报" : "Today's brief"}</p>
-        <h1 className="kz-page-title">
+      <div className="ha-card ha-digest-empty">
+        <p className="ha-page-kicker">{zh ? "今日简报" : "Today's brief"}</p>
+        <h1 className="ha-page-title">
           {zh ? "今日简报正在生成…" : "No brief yet for today."}
         </h1>
-        <p className="kz-page-lede">
+        <p className="ha-page-lede">
           {aiEnabled
             ? zh
               ? "至少需要 5 篇当日入库文章。等下一次抓取后再来。"
@@ -39,8 +39,8 @@ export function DigestHeader({ digest, aiEnabled }: { digest: Loaded; aiEnabled:
   const stamp = created.toUTCString().slice(0, 16);
 
   return (
-    <header className="kz-card kz-digest-head">
-      <p className="kz-page-kicker">
+    <header className="ha-card ha-digest-head">
+      <p className="ha-page-kicker">
         {zh ? "今日简报" : "Today's brief"}
         <span>
           {" "}
@@ -48,12 +48,12 @@ export function DigestHeader({ digest, aiEnabled }: { digest: Loaded; aiEnabled:
           {digest.model ? ` · ${digest.model}` : ""}
         </span>
       </p>
-      <h1 className="kz-page-title">{digest.headline}</h1>
-      <p className="kz-page-lede">{digest.overview}</p>
+      <h1 className="ha-page-title">{digest.headline}</h1>
+      <p className="ha-page-lede">{digest.overview}</p>
       {digest.themes.length > 0 && (
-        <div className="kz-digest-themes">
+        <div className="ha-digest-themes">
           {digest.themes.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="ha-chip">
               #{t}
             </Link>
           ))}

@@ -5,36 +5,36 @@ import { CategoryNav } from "./CategoryNav";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLang } from "./LangContext";
 
-/** Legacy top bar — AppShell is the mounted chrome. Kept as a KAZAM-skinned fallback. */
+/** Legacy top bar — AppShell is the mounted shell. */
 export function Header() {
   const { lang } = useLang();
   return (
-    <header className="kz-topbar">
-      <div className="kz-topbar-row">
+    <header className="ha-topbar">
+      <div className="ha-topbar-row">
         <Link
           href="/"
-          className="kz-logo"
-          aria-label={lang === "zh" ? "Hot AI 首页" : "Hot AI home"}
+          className="ha-logo"
+          aria-label={lang === "zh" ? "LAMDA briefing 首页" : "LAMDA briefing home"}
         >
-          <span className="kz-logo-hot">HOT</span>
-          <span className="kz-logo-ai">AI</span>
-          <span className="kz-logo-pulse" aria-hidden />
+          <span className="ha-logo-hot">HOT</span>
+          <span className="ha-logo-ai">AI</span>
+          <span className="ha-logo-pulse" aria-hidden />
         </Link>
-        <div className="kz-brand-note">
-          <strong lang="en">Signal desk</strong>
-          <span>{lang === "zh" ? "从噪声里挑出信号" : "Signal over noise"}</span>
+        <div className="ha-brand-note">
+            <strong lang="en">LAMDA / RIA</strong>
+            <span>{lang === "zh" ? "私有 AI 研究简报" : "Private AI research briefing"}</span>
         </div>
         <CategoryNav categories={CATEGORIES} />
-        <div className="kz-topbar-actions">
-          <Link href="/blogs" className="kz-btn">
+        <div className="ha-topbar-actions">
+          <Link href="/blogs" className="ha-btn">
             {lang === "zh" ? "研究者" : "Blogs"}
           </Link>
-          <Link href="/digest" className="kz-btn">
+          <Link href="/digest" className="ha-btn">
             {lang === "zh" ? "简报" : "Digest"}
           </Link>
           <Link
             href="/search"
-            className="kz-btn kz-btn-icon"
+            className="ha-btn ha-btn-icon"
             aria-label={lang === "zh" ? "搜索" : "Search"}
             title={lang === "zh" ? "搜索" : "Search"}
           >
@@ -43,7 +43,7 @@ export function Header() {
               <path d="m20 20-3.5-3.5" />
             </svg>
           </Link>
-          <a href="/feed.xml" className="kz-btn" title="RSS feed">
+          <a href="/feed.xml" className="ha-btn" title="RSS feed">
             RSS
           </a>
           <ThemeToggle />

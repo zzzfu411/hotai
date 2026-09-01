@@ -5,8 +5,6 @@ import { useEffect, useState } from "react";
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "hotai-theme";
-const THEME_COLOR = { light: "#ffd60a", dark: "#090b12" } as const;
-
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";
   try {
@@ -22,28 +20,11 @@ function readTheme(): Theme {
   }
 }
 
-function setThemeColor(theme: Theme) {
-  const color = THEME_COLOR[theme];
-  const metas = document.querySelectorAll('meta[name="theme-color"]');
-  if (metas.length === 0) {
-    const meta = document.createElement("meta");
-    meta.setAttribute("name", "theme-color");
-    meta.setAttribute("content", color);
-    document.head.appendChild(meta);
-    return;
-  }
-  metas.forEach((m) => {
-    m.setAttribute("content", color);
-    m.removeAttribute("media");
-  });
-}
-
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");
   root.setAttribute("data-theme", theme);
   root.style.colorScheme = theme;
-  setThemeColor(theme);
 }
 
 export function ThemeToggle() {
@@ -71,7 +52,7 @@ export function ThemeToggle() {
           // Keep the current session usable when persistent storage is unavailable.
         }
       }}
-      className="kz-btn kz-btn-icon"
+      className="ha-btn ha-btn-icon"
       aria-label={next === "dark" ? "Switch to dark mode" : "Switch to light mode"}
       title={next === "dark" ? "Dark" : "Light"}
     >
@@ -89,7 +70,7 @@ export function ThemeToggle() {
   );
 }
 
-/** Renders an inline script that sets theme class + data-theme + theme-color before paint. */
+/** Renders an inline script that sets theme class + data-theme before paint. */
 export function ThemeNoFlashScript() {
   const src = `
     (function() {
@@ -102,19 +83,6 @@ export function ThemeNoFlashScript() {
         root.classList.toggle('dark', d);
         root.setAttribute('data-theme', t);
         root.style.colorScheme = t;
-        var color = d ? '${THEME_COLOR.dark}' : '${THEME_COLOR.light}';
-        var metas = document.querySelectorAll('meta[name="theme-color"]');
-        if (metas.length === 0) {
-          var m = document.createElement('meta');
-          m.setAttribute('name', 'theme-color');
-          m.setAttribute('content', color);
-          document.head.appendChild(m);
-        } else {
-          metas.forEach(function(el) {
-            el.setAttribute('content', color);
-            el.removeAttribute('media');
-          });
-        }
       } catch (_) {}
     })();
   `;

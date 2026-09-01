@@ -243,6 +243,7 @@ async function refreshExisting(source: Source, p: PreparedItem, row: ExistingRow
   const aiReset = contentChanged ? resetAiFields() : {};
   const score = computeScore({
     sourceWeight: row.source.weight,
+    sourceSlug: row.source.slug,
     publishedAt: row.publishedAt,
     title,
     summary,
@@ -287,6 +288,7 @@ async function mergeRepost(source: Source, p: PreparedItem, row: ExistingRow): P
   });
   const score = computeScore({
     sourceWeight: row.source.weight,
+    sourceSlug: row.source.slug,
     publishedAt: row.publishedAt,
     title: row.title,
     summary: row.summary,
@@ -310,6 +312,7 @@ async function mergeRepost(source: Source, p: PreparedItem, row: ExistingRow): P
 async function createArticle(source: Source, p: PreparedItem): Promise<ExistingRow> {
   const score = computeScore({
     sourceWeight: source.weight,
+    sourceSlug: source.slug,
     publishedAt: p.publishedAt,
     title: p.title,
     summary: p.summary,

@@ -2,13 +2,13 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Hot AI Signal Desk",
-    short_name: "Hot AI",
-    description: "每日 AI 新闻、研究与开源信号。",
+    name: "LAMDA AI Briefing",
+    short_name: "LAMDA Briefing",
+    description: "给 Ria 的私有 AI 研究简报。",
     start_url: "/",
     display: "standalone",
-    background_color: "#f3eedf",
-    theme_color: "#ffd60a",
+    background_color: "#f4f0e8",
+    theme_color: "#f4f0e8",
     lang: "zh-CN",
     icons: [
       {

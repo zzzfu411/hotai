@@ -33,21 +33,21 @@ export default async function DigestPage() {
   }
 
   return (
-    <div className="kz-page">
+    <div className="ha-page">
       <DigestHeader digest={digest} aiEnabled={AI_ENABLED} />
 
       {digest && (
-        <ol className="kz-digest-bullets">
+        <ol className="ha-digest-bullets">
           {linkDigestBullets(digest.bullets, todaysTop).map((b: DigestBullet, i: number) => (
-            <li key={i} className="kz-card kz-digest-item">
-              <div className="kz-digest-num">{String(i + 1).padStart(2, "0")}</div>
+            <li key={i} className="ha-card ha-digest-item">
+              <div className="ha-digest-num">{String(i + 1).padStart(2, "0")}</div>
               <div>
                 <h3>{b.title}</h3>
                 <p>{b.takeaway}</p>
                 {(b.articleIds?.length || b.urls?.length) ? (
-                  <div className="kz-digest-hosts">
+                  <div className="ha-digest-hosts">
                     {b.articleIds?.map((id) => (
-                      <Link key={`article-${id}`} href={`/a/${id}`} className="kz-chip">
+                      <Link key={`article-${id}`} href={`/a/${id}`} className="ha-chip">
                         站内阅读 · Read on Hot AI
                       </Link>
                     ))}
@@ -66,7 +66,7 @@ export default async function DigestPage() {
                           href={safe}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="kz-chip"
+                          className="ha-chip"
                         >
                           {host} ↗
                         </a>
@@ -80,7 +80,7 @@ export default async function DigestPage() {
         </ol>
       )}
 
-      <section className="kz-digest-hot">
+      <section className="ha-digest-hot">
         <FeedList
           articles={todaysTop.map(toCard)}
           ranked
@@ -89,13 +89,13 @@ export default async function DigestPage() {
           titleEn="Today's hottest"
           emptyTitleZh={dbUnavailable ? "入库热榜暂时不可用" : undefined}
           emptyTitleEn={dbUnavailable ? "Stored hot list unavailable" : undefined}
-          emptyCopyZh={dbUnavailable ? "数据库连接失败；首页实时速闻仍可使用。" : undefined}
+          emptyCopyZh={dbUnavailable ? "数据库连接失败；首页 briefing 稍后再试。" : undefined}
           emptyCopyEn={dbUnavailable ? "The database is unavailable; the live feed still works." : undefined}
         />
       </section>
 
       {AI_ENABLED && (
-        <section className="kz-digest-ask">
+        <section className="ha-digest-ask">
           <AskBox />
         </section>
       )}

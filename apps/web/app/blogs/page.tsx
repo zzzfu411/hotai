@@ -64,12 +64,12 @@ export default async function BlogsPage() {
   const featured = blogs.filter((b) => b.featured).length;
 
   return (
-    <div className="kz-page kz-page-wide">
+    <div className="ha-page ha-page-wide">
       <BlogHero total={blogs.length} featured={featured} />
       {unavailable ? (
-        <div className="kz-card kz-feed-empty kz-blog-empty">
-          <p className="kz-feed-empty-title">精选博客暂时不可用 · Directory unavailable</p>
-          <p className="kz-feed-empty-copy">数据库连接失败；请稍后重试。</p>
+        <div className="ha-card ha-feed-empty ha-blog-empty">
+          <p className="ha-feed-empty-title">精选博客暂时不可用 · Directory unavailable</p>
+          <p className="ha-feed-empty-copy">数据库连接失败；请稍后重试。</p>
         </div>
       ) : (
         <BlogDirectory blogs={blogs} />

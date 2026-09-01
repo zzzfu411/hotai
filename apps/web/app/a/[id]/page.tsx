@@ -47,10 +47,10 @@ export default async function ArticlePage({ params }: PageProps) {
       error instanceof Error ? error.message : error,
     );
     return (
-      <div className="kz-page">
-        <div className="kz-card kz-feed-empty">
-          <p className="kz-feed-empty-title">文章暂时不可用 · Article unavailable</p>
-          <p className="kz-feed-empty-copy">数据库连接失败；请稍后重试。</p>
+      <div className="ha-page">
+        <div className="ha-card ha-feed-empty">
+          <p className="ha-feed-empty-title">文章暂时不可用 · Article unavailable</p>
+          <p className="ha-feed-empty-copy">数据库连接失败；请稍后重试。</p>
         </div>
       </div>
     );
@@ -84,9 +84,9 @@ export default async function ArticlePage({ params }: PageProps) {
   const hasAiSummaries = Boolean(article.aiSummaryZh || article.aiSummaryEn);
 
   return (
-    <article className="kz-reader">
-      <header className="kz-reader-head">
-        <p className="kz-reader-kicker">
+    <article className="ha-reader">
+      <header className="ha-reader-head">
+        <p className="ha-reader-kicker">
           <Link href={`/source/${article.source.slug}`}>{article.source.name}</Link>
           {cat ? (
             <>
@@ -95,29 +95,29 @@ export default async function ArticlePage({ params }: PageProps) {
             </>
           ) : null}
         </p>
-        <h1 className="kz-reader-title">{article.title}</h1>
-        <div className="kz-reader-meta">
+        <h1 className="ha-reader-title">{article.title}</h1>
+        <div className="ha-reader-meta">
           <time dateTime={publishedIso}>{formatUtcDateTime(article.publishedAt)}</time>
           <a
             href={articleUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="kz-chip kz-host"
+            className="ha-chip ha-host"
             title="打开原文"
           >
             {host}
           </a>
           {importancePct != null ? (
-            <span className="kz-chip font-mono tabular-nums">重要度 {importancePct}</span>
+            <span className="ha-chip font-mono tabular-nums">重要度 {importancePct}</span>
           ) : null}
           {article.aiTopics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="ha-chip">
               {t}
             </Link>
           ))}
         </div>
-        <div className="kz-reader-toolbar">
-          <a className="kz-btn" href={articleUrl} target="_blank" rel="noopener noreferrer">
+        <div className="ha-reader-toolbar">
+          <a className="ha-btn" href={articleUrl} target="_blank" rel="noopener noreferrer">
             打开原文
           </a>
           <ReadingFlags id={article.id} />
@@ -125,21 +125,21 @@ export default async function ArticlePage({ params }: PageProps) {
       </header>
 
       {hasAiSummaries || article.summary ? (
-        <div className="kz-reader-summaries">
+        <div className="ha-reader-summaries">
           {article.aiSummaryZh ? (
-            <section className="kz-card kz-reader-summary" lang="zh">
+            <section className="ha-card ha-reader-summary" lang="zh">
               <h2>中文摘要</h2>
               <p>{article.aiSummaryZh}</p>
             </section>
           ) : null}
           {article.aiSummaryEn ? (
-            <section className="kz-card kz-reader-summary" lang="en">
+            <section className="ha-card ha-reader-summary" lang="en">
               <h2>English</h2>
               <p>{article.aiSummaryEn}</p>
             </section>
           ) : null}
           {!hasAiSummaries && article.summary ? (
-            <section className="kz-card kz-reader-summary">
+            <section className="ha-card ha-reader-summary">
               <h2>摘要</h2>
               <p>{article.summary}</p>
             </section>
@@ -148,15 +148,15 @@ export default async function ArticlePage({ params }: PageProps) {
       ) : null}
 
       {crossPosts.length > 0 ? (
-        <div className="kz-reader-cross">
-          <span className="kz-reader-cross-label">转载</span>
+        <div className="ha-reader-cross">
+          <span className="ha-reader-cross-label">转载</span>
           {crossPosts.map((c) => (
             <a
               key={c.url}
               href={c.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="kz-chip"
+              className="ha-chip"
             >
               {c.source}
             </a>
@@ -164,12 +164,12 @@ export default async function ArticlePage({ params }: PageProps) {
         </div>
       ) : null}
 
-      <div className="kz-reader-body">
+      <div className="ha-reader-body">
         <ReaderBody url={articleUrl} fallbackSummary={fallbackSummary} />
       </div>
 
       {related.length > 0 ? (
-        <div className="kz-reader-related">
+        <div className="ha-reader-related">
           <FeedList
             articles={related.map(toCard)}
             titleZh="相关文章"

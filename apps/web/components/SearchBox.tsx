@@ -48,13 +48,13 @@ export function SearchBox({
   };
 
   return (
-    <header className="kz-page-head">
+    <header className="ha-page-head">
       <div>
-        <p className="kz-page-kicker">{zh ? "搜索" : "Search"}</p>
-        <h1 className="kz-page-title">{zh ? "搜标题、摘要、主题" : "Titles, summaries, topics"}</h1>
-        <p className="kz-page-lede">
+        <p className="ha-page-kicker">{zh ? "搜索" : "Search"}</p>
+        <h1 className="ha-page-title">{zh ? "搜标题、摘要、主题" : "Titles, summaries, topics"}</h1>
+        <p className="ha-page-lede">
           {zh
-            ? "范围：Hot AI 最近 14 天入库文章；首页的实时速闻不在此索引中。"
+            ? "范围：启用 AI 来源的最近 14 天 briefing corpus。"
             : "Scope: Hot AI articles stored in the last 14 days. The live feed is not indexed here."}
         </p>
       </div>
@@ -63,27 +63,27 @@ export function SearchBox({
           e.preventDefault();
           submit(q, sort);
         }}
-        className="kz-search-form"
+        className="ha-search-form"
         role="search"
       >
-        <div className="kz-search kz-search-wide">
+        <div className="ha-search ha-search-wide">
           <input
             ref={inputRef}
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={zh ? "搜索标题、摘要、主题…  (⌘K)" : "Search titles, summaries, topics…  (⌘K)"}
-            className="kz-input"
+            className="ha-input"
             aria-label={zh ? "搜索" : "Search"}
           />
-          <button type="submit" className="kz-search-go" aria-label={zh ? "搜索" : "Search"}>
+          <button type="submit" className="ha-search-go" aria-label={zh ? "搜索" : "Search"}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" />
             </svg>
           </button>
         </div>
-        <div className="kz-sort" role="group" aria-label={zh ? "排序" : "Sort"}>
+        <div className="ha-sort" role="group" aria-label={zh ? "排序" : "Sort"}>
           {(["hot", "recent"] as const).map((s) => (
             <button
               key={s}
@@ -92,7 +92,7 @@ export function SearchBox({
                 setSort(s);
                 submit(q, s);
               }}
-              className={sort === s ? "kz-tab active" : "kz-tab"}
+              className={sort === s ? "ha-tab active" : "ha-tab"}
               aria-pressed={sort === s}
             >
               {s === "hot" ? (zh ? "热度" : "Hot") : zh ? "最新" : "Recent"}
@@ -101,30 +101,30 @@ export function SearchBox({
         </div>
       </form>
       {queryTooShort && (
-        <div className="kz-card kz-feed-empty" role="status">
-          <p className="kz-feed-empty-title">
+        <div className="ha-card ha-feed-empty" role="status">
+          <p className="ha-feed-empty-title">
             {zh ? "关键词太短" : "That query is too short"}
           </p>
-          <p className="kz-feed-empty-copy">
+          <p className="ha-feed-empty-copy">
             {zh ? "请输入至少 2 个字符再搜索。" : "Enter at least 2 characters to search."}
           </p>
         </div>
       )}
       {resultCount != null && (
-        <p className="kz-search-count">
+        <p className="ha-search-count">
           {zh
             ? `${resultCount} 条结果 · 「${initialQuery}」`
             : `${resultCount} result${resultCount === 1 ? "" : "s"} for “${initialQuery}”`}
         </p>
       )}
       {unavailable && (
-        <div className="kz-card kz-feed-empty" role="status">
+        <div className="ha-card ha-feed-empty" role="status">
           <p className="font-bold">
             {zh ? "搜索服务暂时不可用" : "Search is temporarily unavailable"}
           </p>
           <p>
             {zh
-              ? "数据库暂时连不上；速闻时间线仍可继续浏览。"
+              ? "数据库暂时连不上；briefing 稍后再试。"
               : "The database is offline; the live feed remains available."}
           </p>
         </div>

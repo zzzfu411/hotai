@@ -327,20 +327,20 @@ export function SubscribeClient() {
 
   if (!ready) {
     return (
-      <div className="kz-page">
-        <p className="kz-page-kicker">{zh ? "我的订阅" : "My feeds"}</p>
-        <h1 className="kz-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h1>
+      <div className="ha-page">
+        <p className="ha-page-kicker">{zh ? "我的订阅" : "My feeds"}</p>
+        <h1 className="ha-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h1>
       </div>
     );
   }
 
   return (
-    <div className="kz-page">
-      <header className="kz-page-head">
+    <div className="ha-page">
+      <header className="ha-page-head">
         <div>
-          <p className="kz-page-kicker">{zh ? "我的订阅 · 仅本机" : "Subscribe · this browser"}</p>
-          <h1 className="kz-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h1>
-          <p className="kz-page-lede">
+          <p className="ha-page-kicker">{zh ? "我的订阅 · 仅本机" : "Subscribe · this browser"}</p>
+          <h1 className="ha-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h1>
+          <p className="ha-page-lede">
             {zh ? (
               <>
                 源存在浏览器 localStorage（键 <code>hotai.customSources</code>），条目经{" "}
@@ -366,35 +366,35 @@ export function SubscribeClient() {
             )}
           </p>
         </div>
-        <div className="kz-sub-actions">
-          <a href="/hotai.opml" className="kz-btn kz-btn-sm" download>
+        <div className="ha-sub-actions">
+          <a href="/hotai.opml" className="ha-btn ha-btn-sm" download>
             {zh ? "下载编辑 OPML" : "Download catalog OPML"}
           </a>
-          <button type="button" className="kz-btn kz-btn-sm" onClick={() => void onImportEditorial()}>
+          <button type="button" className="ha-btn ha-btn-sm" onClick={() => void onImportEditorial()}>
             {zh ? "导入编辑目录" : "Import catalog"}
           </button>
-          <button type="button" className="kz-btn kz-btn-sm" onClick={onExport} disabled={sources.length === 0}>
+          <button type="button" className="ha-btn ha-btn-sm" onClick={onExport} disabled={sources.length === 0}>
             {zh ? "导出我的 OPML" : "Export my OPML"}
           </button>
         </div>
       </header>
 
-      <section className="kz-card kz-sub-panel">
+      <section className="ha-card ha-sub-panel">
         <h2>{zh ? "添加 RSS" : "Add RSS"}</h2>
         <form
-          className="kz-sub-form"
+          className="ha-sub-form"
           onSubmit={(e) => {
             e.preventDefault();
             onAddUrl(urlInput, nameInput);
           }}
         >
-          <label className="kz-sub-label" htmlFor="sub-url">
+          <label className="ha-sub-label" htmlFor="sub-url">
             {zh ? "Feed 地址" : "Feed URL"}
           </label>
-          <div className="kz-search kz-search-wide">
+          <div className="ha-search ha-search-wide">
             <input
               id="sub-url"
-              className="kz-input"
+              className="ha-input"
               type="text"
               inputMode="url"
               value={urlInput}
@@ -403,16 +403,16 @@ export function SubscribeClient() {
               autoComplete="off"
               spellCheck={false}
             />
-            <button className="kz-search-go kz-search-go-label" type="submit">
+            <button className="ha-search-go ha-search-go-label" type="submit">
               {zh ? "添加" : "Add"}
             </button>
           </div>
-          <label className="kz-sub-label" htmlFor="sub-name">
+          <label className="ha-sub-label" htmlFor="sub-name">
             {zh ? "名称（可留空，用 feed 标题）" : "Name (optional — uses the feed title)"}
           </label>
           <input
             id="sub-name"
-            className="kz-field"
+            className="ha-field"
             type="text"
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
@@ -421,31 +421,31 @@ export function SubscribeClient() {
         </form>
       </section>
 
-      <section className="kz-card kz-sub-panel">
+      <section className="ha-card ha-sub-panel">
         <h2>{zh ? "粘贴 OPML" : "Paste OPML"}</h2>
         <form
-          className="kz-sub-form"
+          className="ha-sub-form"
           onSubmit={(e) => {
             e.preventDefault();
             onImportOpml(opmlInput);
           }}
         >
-          <label className="kz-sub-label" htmlFor="sub-opml">
+          <label className="ha-sub-label" htmlFor="sub-opml">
             {zh ? "包含 xmlUrl 的 outline" : "Outlines with xmlUrl"}
           </label>
           <textarea
             id="sub-opml"
-            className="kz-textarea"
+            className="ha-textarea"
             value={opmlInput}
             onChange={(e) => setOpmlInput(e.target.value)}
             placeholder={'<outline type="rss" text="HN" xmlUrl="https://hnrss.org/frontpage"/>'}
             spellCheck={false}
           />
-          <div className="kz-sub-actions">
-            <button className="kz-btn" type="submit">
+          <div className="ha-sub-actions">
+            <button className="ha-btn" type="submit">
               {zh ? "导入 OPML" : "Import OPML"}
             </button>
-            <label className="kz-btn">
+            <label className="ha-btn">
               {zh ? "选择文件" : "Choose file"}
               <input
                 type="file"
@@ -463,66 +463,66 @@ export function SubscribeClient() {
       </section>
 
       {banner ? (
-        <p className="kz-sub-error" role="alert">
+        <p className="ha-sub-error" role="alert">
           {banner}
         </p>
       ) : null}
-      {notice ? <p className="kz-sub-notice">{notice}</p> : null}
+      {notice ? <p className="ha-sub-notice">{notice}</p> : null}
 
       {sources.length === 0 ? (
-        <div className="kz-card kz-feed-empty kz-sub-empty">
+        <div className="ha-card ha-feed-empty ha-sub-empty">
           <p className="font-bold">{zh ? "还没有自定义源" : "No custom sources yet"}</p>
           <p>
             {zh
               ? "这是浏览器本机订阅，不会影响全站热榜，也不会进数据库。试试 Hacker News 的 RSS，或下载 /hotai.opml 再贴回来。"
               : "This is a browser-local subscription. It does not change the global hot list or touch the database. Try Hacker News RSS, or download /hotai.opml and paste it back."}
           </p>
-          <div className="kz-sub-actions kz-sub-empty-actions">
-            <button type="button" className="kz-btn" onClick={() => onAddUrl(HN_EXAMPLE, "Hacker News")}>
+          <div className="ha-sub-actions ha-sub-empty-actions">
+            <button type="button" className="ha-btn" onClick={() => onAddUrl(HN_EXAMPLE, "Hacker News")}>
               {zh ? "添加 Hacker News" : "Add Hacker News"}
             </button>
-            <a href="/hotai.opml" className="kz-btn" download>
+            <a href="/hotai.opml" className="ha-btn" download>
               {zh ? "下载 /hotai.opml" : "Download /hotai.opml"}
             </a>
           </div>
         </div>
       ) : (
-        <section className="kz-sub-list-wrap">
-          <header className="kz-feed-head">
+        <section className="ha-sub-list-wrap">
+          <header className="ha-feed-head">
             <div>
-              <p className="kz-page-kicker">{zh ? "源" : "Sources"}</p>
-              <h2 className="kz-feed-title">
+              <p className="ha-page-kicker">{zh ? "源" : "Sources"}</p>
+              <h2 className="ha-feed-title">
                 {zh ? `我的源 · ${sources.length}/${MAX_SOURCES}` : `My sources · ${sources.length}/${MAX_SOURCES}`}
               </h2>
             </div>
-            <button type="button" className="kz-btn kz-btn-sm" onClick={refresh} disabled={loading}>
+            <button type="button" className="ha-btn ha-btn-sm" onClick={refresh} disabled={loading}>
               {zh ? "重新拉取" : "Refresh"}
             </button>
           </header>
-          <ul className="kz-sub-sources">
+          <ul className="ha-sub-sources">
             {sources.map((src) => {
               const st = statuses[src.id];
               return (
-                <li key={src.id} className={src.enabled ? "kz-card kz-sub-source" : "kz-card kz-sub-source kz-sub-source-off"}>
-                  <div className="kz-sub-source-main">
-                    <p className="kz-sub-source-name">{src.name}</p>
-                    <p className="kz-sub-source-url">{src.url}</p>
+                <li key={src.id} className={src.enabled ? "ha-card ha-sub-source" : "ha-card ha-sub-source ha-sub-source-off"}>
+                  <div className="ha-sub-source-main">
+                    <p className="ha-sub-source-name">{src.name}</p>
+                    <p className="ha-sub-source-url">{src.url}</p>
                     {st?.state === "loading" ? (
-                      <p className="kz-sub-status">{zh ? "拉取中…" : "Fetching…"}</p>
+                      <p className="ha-sub-status">{zh ? "拉取中…" : "Fetching…"}</p>
                     ) : null}
                     {st?.state === "ok" ? (
-                      <p className="kz-sub-status">
+                      <p className="ha-sub-status">
                         {zh ? `${st.count ?? 0} 条` : `${st.count ?? 0} items`}
                       </p>
                     ) : null}
                     {st?.state === "error" && st.message ? (
-                      <p className="kz-sub-status kz-sub-status-err">{st.message}</p>
+                      <p className="ha-sub-status ha-sub-status-err">{st.message}</p>
                     ) : null}
                   </div>
-                  <div className="kz-sub-source-actions">
+                  <div className="ha-sub-source-actions">
                     <button
                       type="button"
-                      className={src.enabled ? "kz-chip active" : "kz-chip"}
+                      className={src.enabled ? "ha-chip active" : "ha-chip"}
                       aria-pressed={src.enabled}
                       onClick={() => persist(sources.map((s) => (s.id === src.id ? { ...s, enabled: !s.enabled } : s)))}
                     >
@@ -530,7 +530,7 @@ export function SubscribeClient() {
                     </button>
                     <button
                       type="button"
-                      className="kz-chip"
+                      className="ha-chip"
                       onClick={() => {
                         cacheRef.current.delete(src.url);
                         persist(sources.filter((s) => s.id !== src.id));
@@ -547,24 +547,24 @@ export function SubscribeClient() {
       )}
 
       {sources.length > 0 ? (
-        <section className="kz-feed kz-sub-feed">
-          <header className="kz-feed-head">
+        <section className="ha-feed ha-sub-feed">
+          <header className="ha-feed-head">
             <div>
-              <p className="kz-page-kicker">{zh ? "时间线 · 按发布时间" : "Timeline · publishedAt"}</p>
-              <h2 className="kz-feed-title">{zh ? "我的订阅" : "My subscriptions"}</h2>
+              <p className="ha-page-kicker">{zh ? "时间线 · 按发布时间" : "Timeline · publishedAt"}</p>
+              <h2 className="ha-feed-title">{zh ? "我的订阅" : "My subscriptions"}</h2>
             </div>
-            <p className="kz-feed-count">
+            <p className="ha-feed-count">
               {items.length}
               {zh ? " 篇" : items.length === 1 ? " story" : " stories"}
             </p>
           </header>
           {loading && items.length === 0 ? (
-            <div className="kz-card kz-feed-empty">
+            <div className="ha-card ha-feed-empty">
               <p className="font-bold">{zh ? "正在拉取源…" : "Fetching feeds…"}</p>
               <p>{zh ? "缓存命中不计配额；失败会原样显示。" : "Cached feeds skip the quota. Failures are shown as-is."}</p>
             </div>
           ) : items.length === 0 ? (
-            <div className="kz-card kz-feed-empty">
+            <div className="ha-card ha-feed-empty">
               <p className="font-bold">{zh ? "还没有条目" : "No items yet"}</p>
               <p>
                 {zh
@@ -577,23 +577,23 @@ export function SubscribeClient() {
               </p>
             </div>
           ) : (
-            <div className="kz-feed-list">
+            <div className="ha-feed-list">
               {items.map((it) => (
-                <article key={it.url} className="kz-card kz-article">
-                  <div className="kz-article-body">
+                <article key={it.url} className="ha-card ha-article">
+                  <div className="ha-article-body">
                     {(() => {
                       const safe = safeHttpUrl(it.url);
-                      if (!safe) return <span className="kz-article-main">{it.title}</span>;
-                      return <a href={safe} target="_blank" rel="noopener noreferrer" className="kz-article-main">
-                      <span className="kz-article-title-row">
-                        <span className="kz-article-title">{it.title}</span>
+                      if (!safe) return <span className="ha-article-main">{it.title}</span>;
+                      return <a href={safe} target="_blank" rel="noopener noreferrer" className="ha-article-main">
+                      <span className="ha-article-title-row">
+                        <span className="ha-article-title">{it.title}</span>
                       </span>
-                      {it.summary ? <span className="kz-article-summary">{it.summary}</span> : null}
+                      {it.summary ? <span className="ha-article-summary">{it.summary}</span> : null}
                       </a>;
                     })()}
-                    <div className="kz-article-meta">
-                      <span className="kz-chip">{it.sourceName}</span>
-                      {safeHttpUrl(it.url) ? <span className="kz-chip kz-host">{hostname(it.url)}</span> : null}
+                    <div className="ha-article-meta">
+                      <span className="ha-chip">{it.sourceName}</span>
+                      {safeHttpUrl(it.url) ? <span className="ha-chip ha-host">{hostname(it.url)}</span> : null}
                       {it.publishedAt && !Number.isNaN(Date.parse(it.publishedAt)) ? (
                         <time dateTime={it.publishedAt}>{timeAgo(new Date(it.publishedAt), lang)}</time>
                       ) : null}

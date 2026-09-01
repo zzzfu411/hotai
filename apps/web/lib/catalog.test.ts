@@ -44,8 +44,25 @@ describe("catalog", () => {
     expect(CATALOG_ITEMS_PER_SOURCE).toBeLessThanOrEqual(40);
   });
 
-  it("default-enabled set is non-empty and in the catalog", () => {
-    expect(DEFAULT_ENABLED_IDS.length).toBeGreaterThan(8);
+  it("default-enabled set is the private AI briefing set", () => {
+    expect(DEFAULT_ENABLED_IDS).toEqual(
+      expect.arrayContaining(["openai-news", "hf-blog", "juya-daily", "hotai-feed"]),
+    );
+    expect(DEFAULT_ENABLED_IDS).not.toEqual(expect.arrayContaining([
+      "gnews-top",
+      "gnews-world",
+      "gnews-tech",
+      "bbc-zh",
+      "dw-zh",
+      "ithome",
+      "kr36",
+      "ifanr",
+      "sspai",
+      "hn",
+      "jiqizhixin",
+      "qbitai",
+    ]));
+    expect(DEFAULT_ENABLED_IDS.length).toBe(4);
     expect(DEFAULT_ENABLED_IDS.length).toBeLessThanOrEqual(MAX_PULL_IDS);
     for (const id of DEFAULT_ENABLED_IDS) {
       expect(CATALOG_BY_ID.has(id)).toBe(true);

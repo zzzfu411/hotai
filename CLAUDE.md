@@ -4,20 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Hot AI — NewsNook-style live RSS reader on the web, with a small **Hot AI module** (`/hot`, `/digest`, `/api/ask`) that ranks and summarises AI-industry stories.
+Hot AI — a private LAMDA AI briefing for Ria. The homepage reads the fetcher-written AI corpus; `/hot` ranks that same corpus and `/digest` edits it into a daily brief.
 
 **Project scope (hard boundaries — see [`docs/design.md`](docs/design.md) for the full rationale):**
-- **Postgres `Article` rows are deleted after 14 days.** That table is only the Hot AI module corpus, not the 速闻 timeline. The homepage catalog is fetched live and never written to `Article`.
+- **Postgres `Article` rows are deleted after 14 days.** That table is the briefing corpus. Homepage and `/hot` reads filter to enabled sources; the optional catalog is only for local OPML reading and is never written to `Article`.
 - **No user system.** No accounts, no login. localStorage may hold source toggles / OPML / later-read (explicit, device-local).
-- **No personalised recommendations.** The `/hot` ranking is global: source weight × time decay × signals × `aiImportance`. The 速闻 mix is chronological.
-- **Every new `Article` (fetcher pipeline) goes through the LLM.** Catalog/OPML items do **not** — they are a reading client, like NewsNook.
-- Daily **digest** remains the Hot AI module's editor brief, not the default homepage.
+- **No personalised recommendations.** The ranking is global: trusted source weight × time decay × bounded signals × `aiImportance`.
+- **Every new `Article` (fetcher pipeline) goes through the LLM.** Catalog/OPML items do **not** enter the corpus.
+- Daily **digest** is the editor brief layered on the same private corpus.
 
 Do not introduce features that violate these boundaries (user tables, follow/save, push-with-auth, long-term archive, etc.) without an explicit project-scope change in `docs/design.md`. The "Already excluded" section there lists common rejected ideas.
 
 Four workspaces in a pnpm monorepo (Node 22.22.2, pnpm 9.12):
 
-- `apps/web` — Next.js 16 (App Router). The default `/` route is a client-side live RSS catalog; `/hot`, `/digest`, and article/category pages read Postgres via Prisma. Hosts the streaming `/api/ask` and JSON `/api/digest` endpoints.
+- `apps/web` — Next.js 16 (App Router). The default `/` route is a server-rendered corpus briefing; `/hot`, `/digest`, and article/category pages read Postgres via Prisma. Hosts the streaming `/api/ask` and JSON `/api/digest` endpoints.
 - `apps/fetcher` — long-running Node worker. Pulls from RSS / scrapes / HuggingFace / GitHub Trending on a cron, dedupes, scores, upserts. After each cycle it also runs the AI enrichment pipeline and refreshes today's digest.
 - `packages/db` — Prisma schema + generated client + seed script. Imported as `@hotai/db`. Its `main` points at `src/index.ts` (no build step for consumers, but `prisma generate` must have run).
 - `packages/ai` — Anthropic SDK wrapper. Speaks the `/v1/messages` protocol — works against api.anthropic.com directly or an explicitly approved compatible relay (set `ANTHROPIC_BASE_URL` plus `ALLOW_THIRD_PARTY_AI=true`). Exports `enrichArticle`, `enrichArticles` (batch — one LLM call for N articles, returns null on shape mismatch so callers can fall back to singles), `generateDigest`, `client()`, `systemBlock()`, `parseJson()` (fence/prose-tolerant), `AI_MODELS`, and the fail-closed `AI_ENABLED` flag. Model IDs are read from `LLM_MODEL_FAST` / `LLM_MODEL_SMART` env vars (defaults: Claude Haiku 4.5 / Sonnet 4.6). **Every AI path must check `AI_ENABLED` and fail soft** — the site must keep working without the key.
@@ -44,11 +44,11 @@ pnpm build                # builds db (prisma generate) → web (next build) →
 
 No test runner beyond vitest: `pnpm test` runs unit tests (pure functions plus optional DB integration suites, which skip when `RUN_DB_TESTS` is not enabled); `pnpm typecheck` runs `tsc --noEmit` over db, ai, fetcher, and web. `pnpm lint` runs the web app's ESLint 9 flat config with zero warnings.
 
-A running Postgres is required for DB-backed pages, fetcher, migrations, seed, and integration tests. The live `/` catalog can render without Postgres. Default connection string in `.env.example` assumes the Docker command in `README.md`.
+A running Postgres is required for the corpus-backed homepage, DB pages, fetcher, migrations, seed, and integration tests. The optional `/subscribe` catalog can still render its shell without Postgres. Default connection string in `.env.example` assumes the Docker command in `README.md`.
 
 ## Architecture notes worth knowing up front
 
-**Data flow.** Fetcher is the normal writer for `Source`, `Article`, health, and AI fields. Web deliberately writes only the on-demand `Digest` fallback and the `/api/ask` answer cache (`AskCache`); the live catalog itself never enters `Article`. All web reads go through `apps/web/lib/queries.ts` — don't embed Prisma queries in pages. After each fetch cycle the fetcher (1) claims retryable AI enrichment rows with a lease, (2) refreshes today's `Digest` row when older than 6h, and (3) POSTs to `apps/web/app/api/revalidate/route.ts` (authenticated by `REVALIDATE_SECRET`) to invalidate the allowlisted cache paths. If the env vars are unset the call is silently skipped — fine for local dev. The retention pass also purges quota, rate-limit, coordination, and `AskCache` rows according to their TTLs.
+**Data flow.** Fetcher is the normal writer for `Source`, `Article`, health, and AI fields. Web deliberately writes only the on-demand `Digest` fallback and the `/api/ask` answer cache (`AskCache`); the optional catalog never enters `Article`. All web reads go through `apps/web/lib/queries.ts` — don't embed Prisma queries in pages. After each fetch cycle the fetcher (1) claims retryable AI enrichment rows with a lease, (2) refreshes today's `Digest` row when older than 6h, and (3) POSTs to `apps/web/app/api/revalidate/route.ts` (authenticated by `REVALIDATE_SECRET`) to invalidate the allowlisted cache paths. If the env vars are unset the call is silently skipped — fine for local dev. The retention pass also purges quota, rate-limit, coordination, and `AskCache` rows according to their TTLs.
 
 **Fetcher orchestration.** `apps/fetcher/src/index.ts` is bootstrap/cron only; the pipeline lives in `cycle.ts` (purge → fetch each source → persist → enrich → digest → revalidate). `dispatch.ts` first looks up `source.slug` in a per-slug map (custom integrations: `github-trending`, `huggingface-trending`, `huggingface-papers`), then falls back to a per-type map (`rss` → generic RSS parser, `scrape` → Chinese-media list scraper) — and **throws** when nothing matches. Per-source health lives in `sourceHealth.ts`: hard failures increment `Source.consecutiveFails` (with `lastError`/`lastErrorAt`), a healthy success resets it, and a usable-but-incomplete payload records a degraded reason without incrementing the failure streak. `SOURCE_FAIL_THRESHOLD` consecutive failures auto-set `enabled=false` (an empty source response counts as a failure — stale selectors or an upstream outage). Adding a bespoke source: add a row in `packages/db/src/seed.ts`, add a fetcher in `apps/fetcher/src/sources/`, wire it in `dispatch.ts`, then re-run `pnpm db:seed`.
 

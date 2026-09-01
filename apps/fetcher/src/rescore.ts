@@ -21,7 +21,7 @@ export async function rescoreAllArticles(): Promise<number> {
       summary: true,
       signals: true,
       aiImportance: true,
-      source: { select: { weight: true } },
+      source: { select: { slug: true, weight: true } },
     },
   });
 
@@ -29,6 +29,7 @@ export async function rescoreAllArticles(): Promise<number> {
   for (const row of rows) {
     const next = computeScore({
       sourceWeight: row.source.weight,
+      sourceSlug: row.source.slug,
       publishedAt: row.publishedAt,
       title: row.title,
       summary: row.summary,

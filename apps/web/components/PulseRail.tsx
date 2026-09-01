@@ -29,20 +29,20 @@ export function PulseRail({
   const zh = lang === "zh";
 
   return (
-    <aside className="kz-pulse kz-card">
-      <p className="kz-pulse-kicker">{zh ? "今日脉搏" : "Today's pulse"}</p>
+    <aside className="ha-pulse ha-card">
+      <p className="ha-pulse-kicker">{zh ? "今日脉搏" : "Today's pulse"}</p>
       {digest ? (
         <>
-          <h2 className="kz-pulse-headline">
+          <h2 className="ha-pulse-headline">
             <Link href="/digest">{digest.headline}</Link>
           </h2>
           {digest.overview ? (
-            <p className="kz-pulse-overview">{digest.overview}</p>
+            <p className="ha-pulse-overview">{digest.overview}</p>
           ) : null}
           {digest.themes.length > 0 ? (
-            <div className="kz-pulse-themes">
+            <div className="ha-pulse-themes">
               {digest.themes.slice(0, 3).map((t) => (
-                <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
+                <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="ha-chip">
                   {t}
                 </Link>
               ))}
@@ -50,12 +50,12 @@ export function PulseRail({
           ) : null}
         </>
       ) : (
-        <p className="kz-pulse-overview">
+        <p className="ha-pulse-overview">
           {zh ? "今日简报尚未生成。抓取后回来看看。" : "No brief yet. Check back after the next fetch."}
         </p>
       )}
 
-      <dl className="kz-pulse-stats">
+      <dl className="ha-pulse-stats">
         <div>
           <dt>{zh ? "来源" : "Sources"}</dt>
           <dd>{stats.enabledSources}</dd>
@@ -70,12 +70,12 @@ export function PulseRail({
         </div>
       </dl>
 
-      <Link href="/digest" className="kz-btn kz-pulse-digest">
+      <Link href="/digest" className="ha-btn ha-pulse-digest">
         {zh ? "今日简报" : "Today's brief"}
       </Link>
 
       {aiEnabled ? (
-        <div className="kz-pulse-ask">
+        <div className="ha-pulse-ask">
           <AskBox compact />
         </div>
       ) : null}

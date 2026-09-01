@@ -32,44 +32,44 @@ export default async function JuyaPage({ searchParams }: PageProps) {
   const archive = issues.slice(0, 30);
 
   return (
-    <div className="kz-juya">
-      <header className="kz-card kz-juya-head">
-        <p className="kz-page-kicker">橘鸦 Juya · 外部早报</p>
-        <h1 className="kz-page-title">{issue ? issue.title : "橘鸦 AI 早报"}</h1>
-        <p className="kz-page-lede">
+    <div className="ha-juya">
+      <header className="ha-card ha-juya-head">
+        <p className="ha-page-kicker">橘鸦 Juya · 外部早报</p>
+        <h1 className="ha-page-title">{issue ? issue.title : "橘鸦 AI 早报"}</h1>
+        <p className="ha-page-lede">
           内容来自
           <a href={JUYA_HOME} target="_blank" rel="noopener noreferrer">
             daily.juya.uk
           </a>
           ，Hot AI 只做阅读壳，不改写、不入库。
         </p>
-        <div className="kz-digest-hosts">
-          <a className="kz-chip" href={JUYA_HOME} target="_blank" rel="noopener noreferrer">
+        <div className="ha-digest-hosts">
+          <a className="ha-chip" href={JUYA_HOME} target="_blank" rel="noopener noreferrer">
             原文站 ↗
           </a>
-          <a className="kz-chip" href={JUYA_VIDEO_BILI} target="_blank" rel="noopener noreferrer">
+          <a className="ha-chip" href={JUYA_VIDEO_BILI} target="_blank" rel="noopener noreferrer">
             B 站 ↗
           </a>
-          <a className="kz-chip" href={JUYA_VIDEO_YT} target="_blank" rel="noopener noreferrer">
+          <a className="ha-chip" href={JUYA_VIDEO_YT} target="_blank" rel="noopener noreferrer">
             YouTube ↗
           </a>
         </div>
       </header>
 
       {error ? (
-        <div className="kz-card kz-feed-empty">
+        <div className="ha-card ha-feed-empty">
           <p className="font-bold">加载失败</p>
           <p>{error}</p>
         </div>
       ) : null}
 
       {archive.length > 1 ? (
-        <nav className="kz-juya-dates" aria-label="往期早报">
+        <nav className="ha-juya-dates" aria-label="往期早报">
           {archive.map((it) => (
             <Link
               key={it.date}
               href={`/juya?date=${it.date}`}
-              className={issue?.date === it.date ? "kz-chip kz-chip-yellow" : "kz-chip"}
+              className={issue?.date === it.date ? "ha-chip ha-chip-accent" : "ha-chip"}
             >
               {it.date.slice(5)}
             </Link>
@@ -78,23 +78,23 @@ export default async function JuyaPage({ searchParams }: PageProps) {
       ) : null}
 
       {issue ? (
-        <article className="kz-card kz-juya-paper">
+        <article className="ha-card ha-juya-paper">
           {issue.toc.length > 2 ? (
-            <details className="kz-juya-toc">
+            <details className="ha-juya-toc">
               <summary>目录</summary>
               <ol>
                 {issue.toc.map((t) => (
-                  <li key={t.id} className={t.level === 3 ? "kz-juya-toc-sub" : undefined}>
+                  <li key={t.id} className={t.level === 3 ? "ha-juya-toc-sub" : undefined}>
                     <a href={`#${t.id}`}>{t.text}</a>
                   </li>
                 ))}
               </ol>
             </details>
           ) : null}
-          <div className="reader-prose kz-juya-prose" dangerouslySetInnerHTML={{ __html: issue.html }} />
+          <div className="reader-prose ha-juya-prose" dangerouslySetInnerHTML={{ __html: issue.html }} />
         </article>
       ) : !error ? (
-        <div className="kz-card kz-feed-empty">
+        <div className="ha-card ha-feed-empty">
           <p className="font-bold">还没有早报</p>
           <p>RSS 里暂时没有带日期的条目。</p>
         </div>

@@ -40,16 +40,16 @@ export default async function RemoteReaderPage({ searchParams }: PageProps) {
   const host = hostname(url.href);
 
   return (
-    <article className="kz-reader">
-      <header className="kz-reader-head">
-        <p className="kz-reader-kicker">
-          <Link href="/">{src ? src.name : "速闻"}</Link>
+    <article className="ha-reader">
+      <header className="ha-reader-head">
+        <p className="ha-reader-kicker">
+          <Link href="/">{src ? src.name : "简报"}</Link>
           <span aria-hidden> · </span>
-          <a href={url.href} target="_blank" rel="noopener noreferrer" className="kz-chip kz-host">
+          <a href={url.href} target="_blank" rel="noopener noreferrer" className="ha-chip ha-host">
             {host}
           </a>
         </p>
-        <h1 className="kz-reader-title">{title}</h1>
+        <h1 className="ha-reader-title">{title}</h1>
       </header>
       <ReaderBody url={url.href} fallbackSummary={fallbackSummary} />
     </article>
