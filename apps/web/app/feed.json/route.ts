@@ -1,6 +1,7 @@
 import { getFeedArticles } from "@/lib/queries";
 import { SITE } from "@/lib/constants";
 import { feedContentHtml, feedQueryString, parseFeedQuery, pickFeedSummary } from "@/lib/feed";
+import { safeShareableHttpUrl } from "@/lib/safe-url";
 
 export const revalidate = 600;
 
@@ -22,10 +23,11 @@ export async function GET(req: Request) {
     items: articles.map((a) => {
       const summary = pickFeedSummary(a, q.lang);
       const reader = `${SITE.url}/a/${a.id}`;
+       const external = safeShareableHttpUrl(a.url);
       return {
         id: reader,
         url: reader,
-        external_url: a.url,
+        ...(external ? { external_url: external } : {}),
         title: a.title,
         summary,
         content_html: feedContentHtml(a, q.lang),

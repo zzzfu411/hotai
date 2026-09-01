@@ -7,13 +7,14 @@ import { parseArticleId, parseCrossPosts, toCard } from "@/lib/article";
 import { CATEGORIES, SITE } from "@/lib/constants";
 import { formatUtcDateTime, hostname } from "@/lib/format";
 import { getArticleById, getRelatedArticles } from "@/lib/queries";
+import { safeHttpUrl } from "@/lib/safe-url";
 
 export const revalidate = 600;
 
-type PageProps = { params: { id: string } };
+type PageProps = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const id = parseArticleId(params.id);
+  const id = parseArticleId((await params).id);
   if (id == null) return {};
   const a = await getArticleById(id);
   if (!a) return {};
@@ -34,11 +35,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ArticlePage({ params }: PageProps) {
-  const id = parseArticleId(params.id);
+  const id = parseArticleId((await params).id);
   if (id == null) notFound();
 
   const article = await getArticleById(id);
   if (!article) notFound();
+  const articleUrl = safeHttpUrl(article.url);
+  if (!articleUrl) notFound();
 
   const related = await getRelatedArticles(article.aiTopics, article.id, 5);
 
@@ -51,7 +54,7 @@ export default async function ArticlePage({ params }: PageProps) {
     article.aiImportance != null && Number.isFinite(article.aiImportance)
       ? Math.round(Math.min(1, Math.max(0, article.aiImportance)) * 100)
       : null;
-  const host = hostname(article.url);
+  const host = hostname(articleUrl);
   const hasAiSummaries = Boolean(article.aiSummaryZh || article.aiSummaryEn);
 
   return (
@@ -70,7 +73,7 @@ export default async function ArticlePage({ params }: PageProps) {
         <div className="kz-reader-meta">
           <time dateTime={publishedIso}>{formatUtcDateTime(article.publishedAt)}</time>
           <a
-            href={article.url}
+            href={articleUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="kz-chip kz-host"
@@ -88,7 +91,7 @@ export default async function ArticlePage({ params }: PageProps) {
           ))}
         </div>
         <div className="kz-reader-toolbar">
-          <a className="kz-btn" href={article.url} target="_blank" rel="noopener noreferrer">
+          <a className="kz-btn" href={articleUrl} target="_blank" rel="noopener noreferrer">
             打开原文
           </a>
           <ReadingFlags id={article.id} />
@@ -136,7 +139,7 @@ export default async function ArticlePage({ params }: PageProps) {
       ) : null}
 
       <div className="kz-reader-body">
-        <ReaderBody url={article.url} fallbackSummary={fallbackSummary} />
+        <ReaderBody url={articleUrl} fallbackSummary={fallbackSummary} />
       </div>
 
       {related.length > 0 ? (

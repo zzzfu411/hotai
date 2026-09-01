@@ -1,0 +1,287 @@
+[
+  {
+    "verdict": "confirmed",
+    "title": "Copy-ready AI configuration routes content and conditionally API credentials to a third-party relay",
+    "description": "The documented setup tells operators to copy .env.example while treating AI credentials as optional. That template contains a non-empty ANTHROPIC_AUTH_TOKEN placeholder and a fixed third-party ANTHROPIC_BASE_URL, so AI_ENABLED becomes true. Normal enrichment, digest, or Ask activity then sends article metadata, snippets, URLs, and user questions to that relay. A local mock HTTP server confirmed that the copied placeholder is sent as Authorization: Bearer <your-relay-key> and that the request body contains application content. The real Anthropic API key is not sent while the placeholder token remains because token authentication takes precedence. However, if an operator clears the placeholder, sets a real ANTHROPIC_API_KEY for intended direct use, and overlooks the prefilled relay URL, the SDK sends the real key in X-Api-Key together with the content to the third party. This is a trust-boundary and credential-routing defect, not evidence that an actual production key has already leaked.",
+    "root_cause": "The client component in packages/ai/src/client.ts does not reject placeholder credentials or bind credential mode to an approved base URL, allowing application content and, under a common configuration mistake, an API key to be sent to a third-party relay.",
+    "intended_behavior": "AI must remain disabled after copying the example configuration, official Anthropic credentials must be sent only to the official endpoint, and any third-party relay must require an explicit operator opt-in with an unambiguous authentication mode.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "apps/web/app/api/ask/route.ts",
+        "line": 29,
+        "scope": "POST",
+        "description": "The public Ask endpoint accepts an anonymous question when AI is considered enabled."
+      },
+      {
+        "kind": "propagation",
+        "file": "apps/web/app/api/ask/route.ts",
+        "line": 71,
+        "scope": "POST",
+        "description": "The endpoint combines up to 25 recent article titles, URLs, summaries, source names, and the visitor question into the model request."
+      },
+      {
+        "kind": "propagation",
+        "file": "packages/ai/src/client.ts",
+        "line": 30,
+        "scope": "client",
+        "description": "The client selects the bearer token before the API key and accepts ANTHROPIC_BASE_URL without checking placeholders, host ownership, or explicit third-party consent."
+      },
+      {
+        "kind": "sink",
+        "file": "apps/web/app/api/ask/route.ts",
+        "line": 86,
+        "scope": "POST",
+        "description": "The SDK stream call sends the assembled content and selected credential header to the configured /v1/messages endpoint."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "system_configuration",
+        "description": "For content disclosure, the operator follows README.md and copies .env.example without clearing the non-empty placeholder token and prefilled relay URL."
+      },
+      {
+        "kind": "system_configuration",
+        "description": "For real API-key disclosure, the operator clears ANTHROPIC_AUTH_TOKEN, sets a real ANTHROPIC_API_KEY, and unintentionally retains the third-party ANTHROPIC_BASE_URL."
+      },
+      {
+        "kind": "third_party_dependency",
+        "description": "The operator of the configured relay can observe requests terminated at that relay."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "The attacker operates or compromises the third-party Anthropic-compatible relay prefilled in the repository template and waits for a deployment that follows the documented setup flow.",
+      "payloads": [
+        "ANTHROPIC_AUTH_TOKEN=<your-relay-key>; ANTHROPIC_API_KEY=; ANTHROPIC_BASE_URL=http://127.0.0.1:<mock-port>",
+        "ANTHROPIC_AUTH_TOKEN=; ANTHROPIC_API_KEY=sk-real-api-key; ANTHROPIC_BASE_URL=http://127.0.0.1:<mock-port>",
+        "POST /api/ask with JSON body {\"question\":\"audit relay routing\"}"
+      ],
+      "instructions": [
+        "Run an Anthropic-compatible local HTTP recorder and point ANTHROPIC_BASE_URL at it.",
+        "Start once with the copied placeholder token and trigger an AI request through Ask, enrichment, or digest generation.",
+        "Observe Authorization: Bearer <your-relay-key>, no X-Api-Key, a /v1/messages path, and application content in the request body.",
+        "Restart with the token empty, a real-looking API key configured, and the same relay URL, then trigger the request again.",
+        "Observe X-Api-Key: sk-real-api-key, no Authorization header, and the same class of application content in the request body."
+      ],
+      "expected_result": "The configured third party receives article or Ask content by the documented copy flow; in the second configuration it also receives the real API key."
+    },
+    "remediation": {
+      "strategy": "Make the example fail closed, reject placeholder and conflicting credentials, default to the SDK official endpoint, and require an explicit allow flag plus hostname validation before any non-official relay can be used. Audit and rotate credentials for deployments that match the conditional leakage configuration.",
+      "code_changes": [
+        {
+          "file_name": ".env.example",
+          "fixed_code": "ANTHROPIC_AUTH_TOKEN=\"\"\nANTHROPIC_API_KEY=\"\"\nANTHROPIC_BASE_URL=\"\"\nLLM_MODEL_FAST=\"\"\nLLM_MODEL_SMART=\"\""
+        },
+        {
+          "file_name": "packages/ai/src/client.ts",
+          "fixed_code": "Trim both credentials; reject values matching placeholder patterns; fail when both token and API key are set; use the SDK default endpoint when baseURL is empty; and reject any hostname other than api.anthropic.com unless ALLOW_THIRD_PARTY_AI=true is explicitly configured."
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "The repository itself recommends copying the unsafe template, but an AI workflow still has to execute; real-key disclosure additionally requires clearing the placeholder while overlooking the relay URL."
+      },
+      "impact": {
+        "score": "high",
+        "reason": "A third party can receive private visitor questions, current article/corpus metadata, and under the conditional path a billable provider credential that can be abused until revoked."
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The environment-to-SDK data flow was traced in source and both authentication modes were captured against a local mock server, including the target path, credential header, and body content."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Attacker-controlled X-Forwarded-For bypasses public cost and fetch rate limits",
+    "description": "The bundled Nginx configuration appends the real client address to any incoming X-Forwarded-For value. The application then trusts the first value in that list. A direct client can therefore supply a fresh first-hop address on every request and receive a fresh in-memory rate-limit bucket. A local reproduction showed that the sixth request with one key was blocked while six requests using six forged first values were all accepted. The same identity function protects Ask, catalog pulls, the arbitrary feed proxy, and Readability. Ask still has a separate default daily process-local quota, so the defect is not unlimited spend by itself, but it allows rapid exhaustion of that shared budget and removes the intended per-client control. The bucket stores also do not enforce their documented key thresholds: 2,100 unexpired forged identities produced 2,100 live entries, adding memory pressure and a full-map sweep once the threshold is crossed.",
+    "root_cause": "The clientIp function in apps/web/lib/ask-guard.ts does not validate a trusted proxy chain and selects the attacker-controlled first X-Forwarded-For item, allowing one client to create unlimited apparent identities and bypass per-IP limits.",
+    "intended_behavior": "Each public request should be attributed to the connection address supplied by a trusted reverse proxy so that one client shares one enforceable rate-limit identity and limiter storage remains bounded.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "deploy/nginx.conf",
+        "line": 35,
+        "scope": "location",
+        "description": "The public reverse-proxy location accepts arbitrary request headers from an unauthenticated client."
+      },
+      {
+        "kind": "propagation",
+        "file": "deploy/nginx.conf",
+        "line": 40,
+        "scope": "location",
+        "description": "Nginx uses proxy_add_x_forwarded_for, preserving the client-supplied list and appending the actual remote address at the end."
+      },
+      {
+        "kind": "propagation",
+        "file": "apps/web/lib/ask-guard.ts",
+        "line": 44,
+        "scope": "clientIp",
+        "description": "The application unconditionally returns the first X-Forwarded-For value, which is controlled by the direct client under this proxy configuration."
+      },
+      {
+        "kind": "sink",
+        "file": "apps/web/lib/ask-guard.ts",
+        "line": 50,
+        "scope": "rateLimit",
+        "description": "The forged value becomes the Map key, so every changed header receives a new allowed bucket and can expand the store."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "network_routing",
+        "description": "The application is deployed behind the repository's supplied single-layer Nginx configuration or another proxy that preserves an untrusted left-most X-Forwarded-For item."
+      },
+      {
+        "kind": "authentication_level",
+        "description": "No authentication is required for the affected endpoints."
+      },
+      {
+        "kind": "system_configuration",
+        "description": "AI must be enabled for direct LLM-cost impact through /api/ask; the feed, catalog, and Readability rate-limit bypass does not require AI."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "An unauthenticated internet client can connect through the supplied Nginx proxy and set arbitrary HTTP request headers.",
+      "payloads": [
+        "X-Forwarded-For: 203.0.113.1",
+        "X-Forwarded-For: 203.0.113.2",
+        "POST /api/ask HTTP/1.1 with a different X-Forwarded-For value and a distinct JSON question on every request"
+      ],
+      "instructions": [
+        "Send requests through the supplied Nginx configuration from one network connection or one real client address.",
+        "First repeat a single forged X-Forwarded-For value until the configured per-IP limit returns HTTP 429.",
+        "Then repeat the same operation while changing only the first X-Forwarded-For value on every request.",
+        "Observe that each request is assigned a new limiter bucket and remains allowed; continue with unique values to exceed the nominal 2,048-key sweep threshold."
+      ],
+      "expected_result": "One real client bypasses the intended per-IP request limit, can consume the shared Ask allowance or repeatedly invoke public fetch work, and grows the in-process limiter Maps beyond their configured thresholds."
+    },
+    "remediation": {
+      "strategy": "At the outermost trusted proxy, overwrite rather than append the forwarding identity. In the application, accept proxy identity only from configured trusted hops, use the right-most untrusted address, move cost controls to an atomic shared store, and enforce deterministic hard capacity and global concurrency limits.",
+      "code_changes": [
+        {
+          "file_name": "deploy/nginx.conf",
+          "fixed_code": "proxy_set_header X-Real-IP $remote_addr;\nproxy_set_header X-Forwarded-For $remote_addr;"
+        },
+        {
+          "file_name": "apps/web/lib/ask-guard.ts",
+          "fixed_code": "For the documented one-proxy topology, use only the trusted X-Real-IP value. For multi-proxy deployments, parse from the right and remove only explicitly configured trusted proxy CIDRs."
+        },
+        {
+          "file_name": "apps/web/lib/ip-rate-limit.ts",
+          "fixed_code": "Reject or evict before insertion when maxKeys is reached, avoid a full Map scan on every over-threshold request, and back important quotas with Redis or PostgreSQL atomic reservations."
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "The attack is unauthenticated, requires only a standard request header, and is deterministic under the repository's own Nginx configuration."
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "The attacker can rapidly consume the shared Ask budget, degrade availability of public fetch endpoints, and amplify memory and CPU use, but a separate default daily Ask quota limits direct model spending."
+      },
+      "overall_severity": "medium"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The proxy and application behavior were traced line by line and locally reproduced for both rate-limit bypass and growth beyond the nominal Map threshold."
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Juya feed HTML can inject a full-viewport CSS phishing overlay",
+    "description": "Juya issues are loaded from the fixed daily.juya.uk RSS feed and rendered inside the Hot AI origin. DOMPurify removes script and style elements, but the configuration does not forbid the style attribute. A local reproduction using the same sanitizer preserved position:fixed, inset:0, 100vw/100vh sizing, a maximum z-index, and a link. Chromium rendered the injected link at x=0, y=0 with a 1280x720 bounding box, covering the viewport. An attacker must control or compromise the fixed upstream feed, so this is not an anonymous direct-input XSS. The confirmed impact is UI integrity loss and phishing/forced navigation on /juya, not JavaScript execution.",
+    "root_cause": "The sanitizeJuyaHtml function in apps/web/lib/juya.ts does not remove or safely parse inline style attributes before JuyaPage injects the HTML, allowing an upstream feed item to cover the trusted page with attacker-controlled UI.",
+    "intended_behavior": "Remote editorial HTML should preserve safe semantic formatting while being unable to escape the article region, obscure trusted navigation, or create a full-page deceptive interaction layer.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "apps/web/lib/juya.ts",
+        "line": 125,
+        "scope": "fetchJuyaIssues",
+        "description": "The server fetches RSS controlled by the fixed third-party daily.juya.uk origin."
+      },
+      {
+        "kind": "propagation",
+        "file": "apps/web/lib/juya.ts",
+        "line": 103,
+        "scope": "issuesFromParsed",
+        "description": "The item content:encoded or content field becomes the raw HTML for a Juya issue."
+      },
+      {
+        "kind": "propagation",
+        "file": "apps/web/lib/juya.ts",
+        "line": 77,
+        "scope": "sanitizeJuyaHtml",
+        "description": "DOMPurify forbids dangerous elements but leaves arbitrary inline style attributes intact."
+      },
+      {
+        "kind": "sink",
+        "file": "apps/web/app/juya/page.tsx",
+        "line": 93,
+        "scope": "JuyaPage",
+        "description": "The sanitized HTML is inserted into the same-origin page with dangerouslySetInnerHTML."
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "third_party_dependency",
+        "description": "The attacker must control or compromise the fixed daily.juya.uk RSS origin or its publication pipeline."
+      },
+      {
+        "kind": "user_interaction",
+        "description": "A user must visit the /juya page while the malicious issue is current or cached."
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "The attacker has obtained control of a Juya RSS item but has no access to the Hot AI server or database.",
+      "payloads": [
+        "<a href=\"https://phish.example/\" style=\"position:fixed;inset:0;width:100vw;height:100vh;z-index:2147483647;background:white;display:block\">Session expired - continue</a>"
+      ],
+      "instructions": [
+        "Publish the payload in a Juya item content:encoded field from the fixed upstream feed.",
+        "Allow Hot AI to fetch and cache the issue.",
+        "Have a user open /juya.",
+        "Observe that script and style elements would be removed but the inline fixed-position link remains and covers the viewport."
+      ],
+      "expected_result": "The user sees and can click an attacker-controlled full-page overlay inside the trusted Hot AI page, enabling convincing UI redress or phishing without script execution."
+    },
+    "remediation": {
+      "strategy": "Forbid inline styles in remote Juya HTML. If limited styling is essential, parse CSS with a dedicated sanitizer and allow only explicitly safe properties and values; also confine remote content with a defensive container and regression-test viewport escape payloads.",
+      "code_changes": [
+        {
+          "file_name": "apps/web/lib/juya.ts",
+          "fixed_code": "return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true }, FORBID_TAGS: [\"script\", \"style\", \"iframe\", \"object\", \"embed\", \"form\", \"link\", \"meta\", \"base\"], FORBID_ATTR: [\"style\"], ADD_ATTR: [\"target\", \"rel\"] }).trim();"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "low",
+        "reason": "Exploitation requires control or compromise of one fixed third-party publishing origin rather than ordinary anonymous input."
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "Affected visitors can be shown a same-origin full-page deceptive overlay and induced to navigate or disclose information, but script execution and server compromise were not demonstrated."
+      },
+      "overall_severity": "low"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "The exact sanitizer configuration and render sink were verified, the payload survived DOMPurify, and a real Chromium layout measurement confirmed full-viewport coverage."
+    }
+  },
+  {
+    "verdict": "rejected",
+    "reason": "The prior candidate claimed a confirmed click-triggered XSS from javascript: or data: URLs. Although several URL ingestion paths do not consistently restrict schemes, real Chromium testing of the actual target=_blank plus rel=noopener noreferrer sinks opened about:blank for the javascript: payload without executing the script, while the data: navigation was blocked and opened no tab. The confirmed residual issue is inconsistent URL-scheme validation and blank/unsafe navigation behavior, which is a hardening and product-integrity concern rather than the previously claimed executable XSS."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "The prior candidate treated standard NAT64 and 198.18/15 behavior as a confirmed SSRF bypass. Literal 198.18 addresses are already blocked, IPv4-mapped addresses are recognized, and literal NAT64 URLs are rejected by another hostname-validation branch. DNS answers containing a NAT64-embedded private address are not fully decoded, but exploitation additionally requires a production network that routes the NAT64 prefix and a translator that can reach the embedded private target; that deployment condition was not available or established. The 198.18 DNS-answer exception is an explicit Clash/V2Ray fake-IP compatibility choice. Keep this as deployment-specific hardening and testing, not a confirmed exploitable SSRF."
+  }
+]

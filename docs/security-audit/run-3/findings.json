@@ -1,0 +1,10 @@
+[
+  {
+    "verdict": "rejected",
+    "reason": "The Ask quota undercharge behavior existed in the pre-remediation implementation, but the current route passes req.signal to the provider and settles the full reservation on request abort, SSE enqueue failure, and provider exceptions. The current estimator uses UTF-8 byte length and the database expiry sweep charges uncompleted reservations conservatively. It is therefore a remediated historical candidate, not a current exploitable finding. Real provider billing and PostgreSQL integration could not be run on this host."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "Remote feed links and images are parsed through safeHttpUrl, browser consumers validate them again, and Feed/OPML serializers use safeShareableHttpUrl with an internal-reader fallback. Crafted javascript:, data:, credential-bearing, and private URL values do not reach a browser sink in the current code path."
+  }
+]

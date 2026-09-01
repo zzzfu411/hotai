@@ -24,7 +24,7 @@ export function parseFeedQuery(searchParams: URLSearchParams): FeedQuery {
   let minImportance: number | undefined;
   if (miRaw != null && miRaw !== "") {
     const n = Number(miRaw);
-    if (Number.isFinite(n)) minImportance = n;
+    if (Number.isFinite(n) && n >= 0 && n <= 1) minImportance = n;
   }
 
   const langRaw = searchParams.get("lang")?.trim().toLowerCase();

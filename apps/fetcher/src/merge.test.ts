@@ -48,6 +48,14 @@ describe("appendCrossPost", () => {
     expect(appendCrossPost(once, { ...entry, publishedAt: "2026-07-13T00:00:00.000Z" })).toHaveLength(1);
   });
 
+  it("drops legacy unsafe URLs before preserving cross-post metadata", () => {
+    const list = appendCrossPost(
+      [{ source: "bad", url: "javascript:alert(1)", publishedAt: "" }],
+      entry,
+    );
+    expect(list).toEqual([entry]);
+  });
+
   it("caps the list", () => {
     let list: unknown = null;
     for (let i = 0; i < 15; i++) {

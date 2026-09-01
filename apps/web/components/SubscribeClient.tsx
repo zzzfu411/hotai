@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hostname, timeAgo } from "@/lib/format";
+import { safeHttpUrl } from "@/lib/safe-url";
 import {
   MAX_SOURCES,
   addSource,
@@ -580,20 +581,19 @@ export function SubscribeClient() {
               {items.map((it) => (
                 <article key={it.url} className="kz-card kz-article">
                   <div className="kz-article-body">
-                    <a
-                      href={it.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="kz-article-main"
-                    >
+                    {(() => {
+                      const safe = safeHttpUrl(it.url);
+                      if (!safe) return <span className="kz-article-main">{it.title}</span>;
+                      return <a href={safe} target="_blank" rel="noopener noreferrer" className="kz-article-main">
                       <span className="kz-article-title-row">
                         <span className="kz-article-title">{it.title}</span>
                       </span>
                       {it.summary ? <span className="kz-article-summary">{it.summary}</span> : null}
-                    </a>
+                      </a>;
+                    })()}
                     <div className="kz-article-meta">
                       <span className="kz-chip">{it.sourceName}</span>
-                      <span className="kz-chip kz-host">{hostname(it.url)}</span>
+                      {safeHttpUrl(it.url) ? <span className="kz-chip kz-host">{hostname(it.url)}</span> : null}
                       {it.publishedAt && !Number.isNaN(Date.parse(it.publishedAt)) ? (
                         <time dateTime={it.publishedAt}>{timeAgo(new Date(it.publishedAt), lang)}</time>
                       ) : null}

@@ -1,4 +1,5 @@
 import Parser from "rss-parser";
+import { safeHttpUrl } from "./safe-url";
 
 export type RemoteFeedItem = {
   title: string;
@@ -55,11 +56,18 @@ function firstImgSrc(html: string, baseUrl: string): string | null {
   return null;
 }
 
-function enclosureImage(it: { enclosure?: { url?: string; type?: string } }): string | null {
+function enclosureImage(
+  it: { enclosure?: { url?: string; type?: string } },
+  baseUrl: string,
+): string | null {
   const enc = it.enclosure;
   if (!enc?.url) return null;
   if (enc.type && !/^image\//i.test(enc.type)) return null;
-  return isImageUrl(enc.url) ? enc.url : null;
+  // Enclosures are just as untrusted as every other feed field. Do not return
+  // the raw attribute: a private http(s) URL would otherwise reach a browser
+  // <img> sink even though normal feed links go through safeHttpUrl.
+  const safe = absUrl(enc.url, baseUrl);
+  return isImageUrl(safe) ? safe : null;
 }
 
 /** Pull a card cover from JSON Feed / RSS / Atom / Media RSS / inline HTML. */
@@ -73,17 +81,19 @@ export function extractItemImage(
     const href = typeof v === "string" ? absUrl(v, baseUrl) : null;
     if (isImageUrl(href)) return href;
   }
-  const enc = enclosureImage(it as { enclosure?: { url?: string; type?: string } });
+  const enc = enclosureImage(it as { enclosure?: { url?: string; type?: string } }, baseUrl);
   if (enc) return enc;
 
   const media = it.mediaContent ?? it["media:content"];
   const mediaList = Array.isArray(media) ? media : media ? [media] : [];
   for (const node of mediaList) {
     const href = pickAttrUrl(node);
-    if (href) return absUrl(href, baseUrl) ?? href;
+    const safe = absUrl(href, baseUrl);
+    if (isImageUrl(safe)) return safe;
   }
   const thumb = pickAttrUrl(it.mediaThumb ?? it["media:thumbnail"]);
-  if (thumb) return absUrl(thumb, baseUrl) ?? thumb;
+  const safeThumb = absUrl(thumb, baseUrl);
+  if (isImageUrl(safeThumb)) return safeThumb;
 
   for (const html of htmlBits) {
     const img = firstImgSrc(html, baseUrl);
@@ -111,11 +121,7 @@ function truncate(s: string, n: number): string {
 
 function absUrl(maybe: string | undefined | null, base: string): string | null {
   if (!maybe) return null;
-  try {
-    return new URL(maybe, base).toString();
-  } catch {
-    return null;
-  }
+  return safeHttpUrl(maybe, base);
 }
 
 function toIso(raw: string | undefined | null): string | null {

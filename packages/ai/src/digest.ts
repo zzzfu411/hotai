@@ -25,6 +25,18 @@ export type DigestResult = {
   model: string;
 };
 
+function safeHttpUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw.trim());
+    if ((u.protocol !== "http:" && u.protocol !== "https:") || u.username || u.password || !u.hostname) {
+      return null;
+    }
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 const SYSTEM_PROMPT = `You are the editor-in-chief of an AI news digest. Given today's top
 articles (already pre-ranked by heat score), write a concise daily brief.
 
@@ -57,11 +69,12 @@ export async function generateDigest(
   if (articles.length === 0) return null;
   const model = opts.model ?? AI_MODELS.smart;
 
-  const list = articles
-    .slice(0, 40)
+  const inputArticles = articles.slice(0, 40);
+  const allowedUrls = new Set(inputArticles.map((a) => safeHttpUrl(a.url)).filter((u): u is string => Boolean(u)));
+  const list = inputArticles
     .map(
       (a, i) =>
-        `${i + 1}. [${a.sourceName}] ${a.title}\n   url: ${a.url}\n   score: ${a.score.toFixed(1)}${
+        `${i + 1}. [${a.sourceName}] ${a.title}\n   url: ${safeHttpUrl(a.url) ?? "[omitted: unsafe URL]"}\n   score: ${a.score.toFixed(1)}${
           a.topics?.length ? `\n   topics: ${a.topics.join(", ")}` : ""
         }${a.summaryEn ? `\n   summary: ${a.summaryEn}` : ""}`,
     )
@@ -83,22 +96,46 @@ export async function generateDigest(
       ],
     });
     const parsed = parseJson<Partial<DigestResult>>(textOf(msg));
+    const headline = String(parsed.headline ?? "").trim().slice(0, 160);
+    const overview = String(parsed.overview ?? "").trim().slice(0, 720);
+    const themes = Array.isArray(parsed.themes)
+      ? parsed.themes
+          .filter((t): t is string => typeof t === "string")
+          .map((t) => t.trim().slice(0, 80))
+          .filter(Boolean)
+          .slice(0, 4)
+      : [];
+    const bullets = Array.isArray(parsed.bullets)
+      ? parsed.bullets
+          .filter((b): b is DigestBullet => !!b && typeof b === "object" && typeof b.title === "string")
+          .slice(0, 4)
+          .map((b) => ({
+            title: String(b.title).trim().slice(0, 160),
+            takeaway: String(b.takeaway ?? "").trim().slice(0, 360),
+            urls: Array.isArray(b.urls)
+              ? b.urls
+                  .filter((u): u is string => typeof u === "string")
+                  .map((u) => safeHttpUrl(u))
+                  .filter((u): u is string => u !== null)
+                  .filter((u) => allowedUrls.has(u))
+                  .slice(0, 2)
+              : [],
+          }))
+          .filter((b) => b.title.length > 0 && b.takeaway.length > 0 && b.urls.length > 0)
+      : [];
+
+    // The prompt promises a complete four-item digest. Reject malformed or
+    // provenance-free model output rather than persisting a partial digest
+    // that looks authoritative to readers.
+    if (!headline || !overview || bullets.length !== 4) {
+      console.warn("[ai] digest response failed shape/provenance validation");
+      return null;
+    }
     return {
-      headline: String(parsed.headline ?? "").trim(),
-      overview: String(parsed.overview ?? "").trim(),
-      themes: Array.isArray(parsed.themes)
-        ? parsed.themes.filter((t) => typeof t === "string").slice(0, 6)
-        : [],
-      bullets: Array.isArray(parsed.bullets)
-        ? parsed.bullets
-            .filter((b): b is DigestBullet => !!b && typeof b.title === "string")
-            .slice(0, 6)
-            .map((b) => ({
-              title: String(b.title).trim(),
-              takeaway: String(b.takeaway ?? "").trim(),
-              urls: Array.isArray(b.urls) ? b.urls.filter((u) => typeof u === "string").slice(0, 3) : [],
-            }))
-        : [],
+      headline,
+      overview,
+      themes,
+      bullets,
       model,
     };
   } catch (err) {

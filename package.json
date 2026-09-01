@@ -4,16 +4,19 @@
   "private": true,
   "packageManager": "pnpm@9.12.0",
   "scripts": {
-    "dev:web": "pnpm --filter @hotai/web dev",
-    "dev:fetcher": "pnpm --filter @hotai/fetcher dev",
-    "fetch:once": "pnpm --filter @hotai/fetcher start --once",
-    "build": "pnpm --filter @hotai/db build && pnpm --filter @hotai/web build && pnpm --filter @hotai/fetcher build",
+    "dev:web": "corepack pnpm --filter @hotai/web dev",
+    "dev:fetcher": "corepack pnpm --filter @hotai/fetcher dev",
+    "fetch:once": "corepack pnpm --filter @hotai/fetcher start --once",
+    "build": "corepack pnpm --filter @hotai/db build && corepack pnpm --filter @hotai/ai build && corepack pnpm --filter @hotai/web build && corepack pnpm --filter @hotai/fetcher build",
     "test": "vitest run",
-    "typecheck": "tsc -p apps/fetcher --noEmit && tsc -p packages/ai --noEmit && tsc -p apps/web --noEmit",
-    "db:generate": "pnpm --filter @hotai/db generate",
-    "db:migrate": "pnpm --filter @hotai/db migrate",
-    "db:seed": "pnpm --filter @hotai/db seed",
-    "db:studio": "pnpm --filter @hotai/db studio"
+    "build:runtime": "corepack pnpm --filter @hotai/db build && corepack pnpm --filter @hotai/ai build && corepack pnpm --filter @hotai/fetcher build",
+    "typecheck": "tsc -p packages/db --noEmit && tsc -p packages/ai --noEmit && tsc -p apps/fetcher --noEmit && tsc -p apps/web --noEmit",
+    "lint": "corepack pnpm --filter @hotai/web lint",
+    "smoke:dist": "corepack pnpm run build:runtime && corepack pnpm --filter @hotai/fetcher smoke",
+    "db:generate": "corepack pnpm --filter @hotai/db generate",
+    "db:migrate": "corepack pnpm --filter @hotai/db migrate",
+    "db:seed": "corepack pnpm --filter @hotai/db seed",
+    "db:studio": "corepack pnpm --filter @hotai/db studio"
   },
   "devDependencies": {
     "typescript": "5.5.4",
@@ -22,6 +25,6 @@
     "vitest": "2.1.9"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.22.2"
   }
 }

@@ -9,6 +9,7 @@ build/
 .env
 .env.*.local
 .env.local
+.db-password
 
 coverage/
 .turbo/
@@ -25,3 +26,6 @@ prisma/migrations/dev.db*
 
 # Local agent / session files
 .grok/
+.audit-tools/
+.cache/
+.playwright-cli/

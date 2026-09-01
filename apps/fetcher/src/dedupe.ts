@@ -43,8 +43,31 @@ export function normalizeUrl(raw: string): string {
   }
 }
 
+/**
+ * Validate an item URL before it can reach Article.url or crossPosts. The
+ * legacy normalizeUrl helper intentionally preserves malformed strings for
+ * diagnostics/tests; persistence must use this fail-closed variant instead.
+ */
+export function normalizeSafeUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 4096) return null;
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    if (!u.hostname || u.username || u.password) return null;
+    return normalizeUrl(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+export function isSafeHttpUrl(raw: string): boolean {
+  return normalizeSafeUrl(raw) !== null;
+}
+
 export function normalizeTitle(title: string): string {
   return title
+    .normalize("NFKC")
     .toLowerCase()
     .replace(/[\[\]\(\){}【】()「」『』"'`“”‘’,.。、!?!?:;——\-_/\\|~·]+/g, " ")
     .replace(/\s+/g, " ")

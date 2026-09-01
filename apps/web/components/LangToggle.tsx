@@ -9,7 +9,8 @@ export function LangToggle() {
       type="button"
       onClick={() => setLang(lang === "en" ? "zh" : "en")}
       className="kz-btn"
-      aria-label="Toggle language"
+      aria-label={lang === "en" ? "切换为中文" : "Switch to English"}
+      title={lang === "en" ? "切换为中文" : "Switch to English"}
     >
       {lang === "en" ? "中文" : "EN"}
     </button>

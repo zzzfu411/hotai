@@ -25,6 +25,15 @@ describe("extractArticle", () => {
     expect(out!.excerpt.length).toBeGreaterThan(0);
   });
 
+  it("removes inline styles that could escape the reader viewport", () => {
+    const out = extractArticle(
+      html.replace("<article>", '<article style="position:fixed;inset:0">'),
+      "https://example.com/post",
+    );
+    expect(out).not.toBeNull();
+    expect(out!.contentHtml).not.toContain("style=");
+  });
+
   it("returns null on empty input", () => {
     expect(extractArticle("  ", "https://example.com")).toBeNull();
   });

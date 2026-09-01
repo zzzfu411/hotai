@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { hashTitle, hashUrl, normalizeTitle, normalizeUrl } from "./dedupe.js";
+import {
+  hashTitle,
+  hashUrl,
+  isSafeHttpUrl,
+  normalizeSafeUrl,
+  normalizeTitle,
+  normalizeUrl,
+} from "./dedupe.js";
 
 describe("normalizeUrl", () => {
   it("strips tracking params but keeps meaningful ones", () => {
@@ -15,6 +22,13 @@ describe("normalizeUrl", () => {
 
   it("returns trimmed input for unparsable URLs", () => {
     expect(normalizeUrl("  not a url  ")).toBe("not a url");
+  });
+
+  it("rejects unsafe item URLs before persistence", () => {
+    expect(normalizeSafeUrl("javascript:alert(1)")).toBeNull();
+    expect(normalizeSafeUrl("data:text/html,boom")).toBeNull();
+    expect(normalizeSafeUrl("https://user:pass@example.com/a")).toBeNull();
+    expect(isSafeHttpUrl("https://example.com/a")).toBe(true);
   });
 
   describe("arxiv canonicalization", () => {
@@ -57,6 +71,7 @@ describe("normalizeTitle / hashTitle", () => {
   it("is case/punctuation/width-insensitive", () => {
     expect(normalizeTitle("【重磅】GPT-5 发布!")).toBe("重磅 gpt 5 发布");
     expect(hashTitle("Hello, World!")).toBe(hashTitle("hello world"));
+    expect(hashTitle("ＧＰＴ－５ 发布")).toBe(hashTitle("GPT-5 发布"));
   });
 
   it("collapses whitespace", () => {

@@ -1,16 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240" role="img" aria-label="Extinguished flame">
-  <defs>
-    <linearGradient id="flameout-line" x1="96" y1="190" x2="224" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f97316"/>
-      <stop offset=".55" stop-color="#ef4444"/>
-      <stop offset="1" stop-color="#d946ef"/>
-    </linearGradient>
-  </defs>
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M136 164c-10-14-7-31 8-45 8 23 31 30 31 53 0 19-15 31-38 31 9-9 11-22-1-39Z" stroke="url(#flameout-line)" stroke-width="3"/>
-    <path d="M155 174c-9 8-13 16-12 24 4-7 10-12 17-18 5-5 7-12 4-19-2 5-5 9-9 13Z" stroke="url(#flameout-line)" stroke-width="2.25" opacity=".85"/>
-    <path d="M176 98c28-21 64-2 46 25-17 26-65 5-44-21 15-18 49-3 30 17" stroke="#94a3b8" stroke-width="2" opacity=".55"/>
-    <path d="M149 74c-15-20 7-43 33-31 20 10 13 34-10 35-20 0-27-19-12-27" stroke="#cbd5e1" stroke-width="2" opacity=".45"/>
-    <path d="M95 207h130" stroke="#64748b" stroke-width="2" opacity=".25"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240" role="img" aria-label="Misaligned signal plate">
+  <g fill="none" stroke-linecap="square" stroke-linejoin="miter">
+    <rect x="86" y="78" width="112" height="92" stroke="#6e7180" stroke-width="3"/>
+    <rect x="98" y="66" width="112" height="92" stroke="#2f6bff" stroke-width="3"/>
+    <path d="M112 142v-30M138 142V96M164 142v-18" stroke="#ffd60a" stroke-width="8"/>
+    <path d="M80 188h150" stroke="#6e7180" stroke-width="3" opacity=".72"/>
+    <path d="M102 54h44M190 54h26" stroke="#2f6bff" stroke-width="3"/>
+    <path d="M164 42v-14" stroke="#ff3b57" stroke-width="3"/>
   </g>
+  <circle cx="164" cy="23" r="6" fill="#ff3b57" stroke="#6e7180" stroke-width="3"/>
 </svg>

@@ -11,14 +11,18 @@ export async function generateStaticParams() {
   return CATEGORIES.map((c) => ({ slug: c.slug }));
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const c = CATEGORIES.find((x) => x.slug === params.slug);
+type PageProps = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const c = CATEGORIES.find((x) => x.slug === slug);
   if (!c) return {};
   return { title: `${c.label_zh} · ${c.label_en}` };
 }
 
-export default async function CategoryPage({ params }: { params: { slug: string } }) {
-  const cat = CATEGORIES.find((c) => c.slug === params.slug);
+export default async function CategoryPage({ params }: PageProps) {
+  const { slug } = await params;
+  const cat = CATEGORIES.find((c) => c.slug === slug);
   if (!cat) notFound();
 
   const rows = await getCategoryArticles(cat.slug);

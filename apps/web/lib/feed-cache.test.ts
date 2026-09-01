@@ -112,6 +112,26 @@ describe("feed-cache", () => {
     expect(feed?.title).toBe("Lab");
   });
 
+  it("cooldowns stale-if-error responses before retrying the origin", async () => {
+    await loadRemoteFeed("https://ex.com/rss", { fetch: async () => okFetch() });
+    const stored = peekFeedCache("https://ex.com/rss")!;
+    putFeedCache("https://ex.com/rss", { ...stored, at: Date.now() - FEED_CACHE_TTL_MS - 1 });
+    let calls = 0;
+    const fetch = async () => {
+      calls += 1;
+      throw new Error("upstream down");
+    };
+
+    const first = await loadRemoteFeed("https://ex.com/rss", { fetch });
+    const second = await loadRemoteFeed("https://ex.com/rss", { fetch });
+    const cooled = peekFeedCache("https://ex.com/rss")!;
+    expect(first?.title).toBe("Lab");
+    expect(second?.title).toBe("Lab");
+    expect(calls).toBe(1);
+    expect(cooled.ttl).toBe(FEED_CACHE_FAIL_TTL_MS);
+    expect(cooled.fail).toBe(false);
+  });
+
   it("caches a failed fetch so the next pull does not wait on the origin", async () => {
     let calls = 0;
     const fetch = async () => {

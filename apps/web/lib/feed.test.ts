@@ -35,6 +35,11 @@ describe("parseFeedQuery", () => {
     expect(q.category).toBeUndefined();
     expect(q.lang).toBeUndefined();
   });
+
+  it("ignores an out-of-range importance threshold", () => {
+    expect(parseFeedQuery(new URLSearchParams("min_importance=2")).minImportance).toBeUndefined();
+    expect(parseFeedQuery(new URLSearchParams("min_importance=-0.1")).minImportance).toBeUndefined();
+  });
 });
 
 describe("feedContentHtml", () => {

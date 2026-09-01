@@ -5,13 +5,21 @@ import { useEffect, useState } from "react";
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "hotai-theme";
-const THEME_COLOR = { light: "#facc15", dark: "#000000" } as const;
+const THEME_COLOR = { light: "#ffd60a", dark: "#090b12" } as const;
 
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored === "light" || stored === "dark") return stored;
+  } catch {
+    // Storage can be disabled in private browsing or embedded contexts.
+  }
+  try {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }
 
 function setThemeColor(theme: Theme) {
@@ -57,7 +65,11 @@ export function ThemeToggle() {
       onClick={() => {
         setTheme(next);
         applyTheme(next);
-        window.localStorage.setItem(STORAGE_KEY, next);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, next);
+        } catch {
+          // Keep the current session usable when persistent storage is unavailable.
+        }
       }}
       className="kz-btn kz-btn-icon"
       aria-label={next === "dark" ? "Switch to dark mode" : "Switch to light mode"}

@@ -6,7 +6,7 @@ import { LangProvider } from "@/components/LangContext";
 import { ThemeNoFlashScript } from "@/components/ThemeToggle";
 
 const GOOGLE_FONTS =
-  "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;0,9..40,900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;700;900&display=swap";
 
 export const metadata: Metadata = {
   title: {
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   },
   description: "每日 AI 新闻、研究与开源热度榜 — 按热度排序，Claude 摘要。",
   metadataBase: new URL(SITE.url),
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
@@ -31,13 +32,13 @@ export const metadata: Metadata = {
     url: SITE.url,
     siteName: SITE.name,
     type: "website",
-    images: ["/og.png"],
+    images: ["/og-zh.png"],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE.name,
     description: SITE.tagline_zh,
-    images: ["/og.png"],
+    images: ["/og-zh.png"],
   },
   alternates: {
     types: { "application/rss+xml": `${SITE.url}/feed.xml` },
@@ -46,8 +47,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#facc15" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#ffd60a" },
+    { media: "(prefers-color-scheme: dark)", color: "#090b12" },
   ],
 };
 
@@ -58,15 +59,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeNoFlashScript />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link rel="stylesheet" href={GOOGLE_FONTS} media="print" data-kz-fonts="1" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){function arm(l){l.onload=function(){l.media='all'};if(l.sheet)l.media='all'}document.querySelectorAll('link[data-kz-fonts]').forEach(arm);})();`,
-          }}
-        />
+        <link rel="stylesheet" href={GOOGLE_FONTS} />
         <noscript>
-          {/* eslint-disable-next-line @next/next/no-page-custom-font */}
           <link rel="stylesheet" href={GOOGLE_FONTS} />
         </noscript>
       </head>

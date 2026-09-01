@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { formatScore, hostname, timeAgo } from "@/lib/format";
+import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
 
 export type ArticleCardData = {
@@ -36,9 +37,11 @@ const SENTIMENT_LABEL: Record<string, { en: string; zh: string }> = {
 };
 
 function faviconFor(url: string) {
+  const safe = safeHttpUrl(url);
+  if (!safe) return null;
   const host = (() => {
     try {
-      return new URL(url).hostname;
+      return new URL(safe).hostname;
     } catch {
       return "";
     }
@@ -60,7 +63,8 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
   const summary = (lang === "zh" ? a.aiSummaryZh : a.aiSummaryEn) || a.summary;
   const sentiment = a.aiSentiment ? SENTIMENT_LABEL[a.aiSentiment] : null;
   const readerHref = a.href ?? `/a/${a.id}`;
-  const host = hostname(a.url);
+  const externalUrl = safeHttpUrl(a.url);
+  const host = externalUrl ? hostname(externalUrl) : "";
   const topics = (a.aiTopics?.length ? a.aiTopics : a.tags).slice(0, 3);
   const cross = a.crossPostCount ?? 0;
 
@@ -103,15 +107,17 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
           <Link href={`/source/${a.source.slug}`} className="kz-chip">
             {a.source.name}
           </Link>
-          <a
-            href={a.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="kz-chip kz-host"
-            title={lang === "zh" ? "打开原文" : "Open original"}
-          >
-            {host}
-          </a>
+          {externalUrl ? (
+            <a
+              href={externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="kz-chip kz-host"
+              title={lang === "zh" ? "打开原文" : "Open original"}
+            >
+              {host}
+            </a>
+          ) : null}
           <time dateTime={a.publishedAt}>{timeAgo(date, lang)}</time>
           <span className="kz-article-score font-mono tabular-nums">{formatScore(a.score)}</span>
           {cross > 0 ? (

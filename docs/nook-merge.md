@@ -31,7 +31,7 @@ Web 版没有 App 内 SOCKS 隧道，国际源依赖 Functions 代理。Hot AI �
 
 | 优点来源 | 具体能力 | 合并后落点 |
 |---|---|---|
-| Hot AI | 全局打分（源权重 × 衰减 × 信号 × aiImportance） | 默认场景 **「今日热榜」**，SSR 首页 |
+| Hot AI | 全局打分（源权重 × 衰减 × 信号 × aiImportance） | `/hot` 数据库热榜；默认 `/` 是实时速闻目录 |
 | Hot AI | 每篇 LLM 双语摘要 / topics / 情感 / 重要度 | 列表卡 + 站内阅读器顶部 |
 | Hot AI | 每日 digest + `/api/ask` | 桌面左侧「今日脉搏」+ `/digest` 全页 |
 | Hot AI | 14 天硬删除、无账号、无个性化推荐 | **不变**（见 §3） |
@@ -94,7 +94,8 @@ Web 版没有 App 内 SOCKS 隧道，国际源依赖 Functions 代理。Hot AI �
 
 | 路径 | 角色 |
 |---|---|
-| `/` | 默认「今日热榜」。SSR 出 top 50；客户端可切场景 |
+| `/` | 默认实时速闻目录。客户端拉 allowlisted RSS/Atom/JSON Feed；可切场景 |
+| `/hot` | 数据库热榜（top 50，按 score / AI 重要度排序） |
 | `/digest` | 今日简报全页 + AskBox |
 | `/a/[id]` | **新** 站内阅读器 |
 | `/category/[slug]` | 分类时间线（publishedAt） |
@@ -106,7 +107,7 @@ Web 版没有 App 内 SOCKS 隧道，国际源依赖 Functions 代理。Hot AI �
 | `/feed.json` | **新** JSON Feed 1.1 |
 | `/hotai.opml` | **新** 编辑源 + 博客 feedUrl |
 | `/api/digest` | 简报 JSON（保留） |
-| `/api/ask` | SSE 问答（保留，限流不变） |
+| `/api/ask` | SSE 问答（保留；IP 限流 + AskCache + PostgreSQL 日配额/并发预约） |
 | `/api/readability` | **新** POST `{url}` → 抽取正文（SSRF 防护） |
 | `/api/proxy/feed` | **新** GET `?url=` 拉用户自建源（SSRF 防护，不入库） |
 | `/api/revalidate` | 现有；cycle 增加 `/` `/digest` 之外如需要再列 |
@@ -205,7 +206,7 @@ Hot AI
 - 用 `rss-parser` 解析 RSS/Atom；若 body 是 JSON 且 `items` 为数组则当 JSON Feed
 - 返回 `{ ok, title, items: [{title,url,summary,publishedAt}] }` 最多 40 条
 - **绝不写入 Article 表**
-- 限流：每 IP 30/60s（内存 Map，可与 ask-guard 同模式）
+- 限流：每 IP 30/60s（共享 PostgreSQL fixed-window bucket；数据库不可用时 fail-closed）
 
 ### 5.7 revalidate
 

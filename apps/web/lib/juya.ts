@@ -1,6 +1,7 @@
 import Parser from "rss-parser";
-import DOMPurify from "isomorphic-dompurify";
 import { fetchPublic } from "./ssrf";
+import { safeHttpUrl } from "./safe-url";
+import { sanitizeRemoteHtml } from "./sanitize-remote-html";
 
 /** Live Juya briefing. Official GitHub Pages RSS is gone; daily.juya.uk is current. */
 export const JUYA_HOME = "https://daily.juya.uk/";
@@ -75,11 +76,7 @@ function decorateHeadings(html: string): { html: string; toc: JuyaTocItem[] } {
 }
 
 export function sanitizeJuyaHtml(raw: string): string {
-  return DOMPurify.sanitize(raw, {
-    USE_PROFILES: { html: true },
-    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "link", "meta", "base"],
-    ADD_ATTR: ["target", "rel"],
-  }).trim();
+  return sanitizeRemoteHtml(raw, JUYA_HOME);
 }
 
 export function issuesFromParsed(
@@ -106,11 +103,15 @@ export function issuesFromParsed(
     if (!clean) continue;
     const { html, toc } = decorateHeadings(clean);
     const excerpt = stripTags(it.contentSnippet || html).slice(0, 220);
-    const published = it.isoDate || (it.pubDate ? new Date(it.pubDate).toISOString() : null);
+    // RSS publishers occasionally emit an invalid pubDate. Calling
+    // toISOString() on that Invalid Date would abort the whole feed parse;
+    // discard the bad value and let the issue date provide a stable fallback.
+    const published = toIso(it.isoDate) ?? toIso(it.pubDate);
+    const issueUrl = safeHttpUrl(it.link, JUYA_HOME) ?? `${JUYA_HOME}issues/${date}/`;
     out.push({
       date,
       title: title || `橘鸦 AI 早报 ${date}`,
-      url: it.link || `${JUYA_HOME}issues/${date}/`,
+      url: issueUrl,
       html,
       excerpt,
       cover: firstImg(html),
@@ -120,6 +121,12 @@ export function issuesFromParsed(
   }
   out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   return out;
+}
+
+function toIso(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 async function fetchJuyaIssues(): Promise<JuyaIssue[]> {

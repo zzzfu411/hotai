@@ -16,6 +16,7 @@ import type { RemoteFeed, RemoteFeedItem } from "@/lib/parse-remote-feed";
 import { mapPool } from "@/lib/pool";
 import { getFeedArticles } from "@/lib/queries";
 import { UnsafeUrlError } from "@/lib/ssrf";
+import { readJsonBody } from "@/lib/request";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,15 +88,23 @@ export type CatalogPullSource = {
 };
 
 export async function POST(req: Request) {
-  const limited = limitIp("catalog-pull", clientIp(req), { limit: 40, windowMs: 60_000 });
+  const limited = await limitIp("catalog-pull", clientIp(req), { limit: 40, windowMs: 60_000 });
   if (!limited.ok) {
     return NextResponse.json(
-      { ok: false, error: "rate limited" },
-      { status: 429, headers: { "retry-after": String(limited.retryAfterSec) } },
+      {
+        ok: false,
+        error: limited.reason === "limited" ? "rate limited" : "service unavailable",
+      },
+      {
+        status: limited.reason === "limited" ? 429 : 503,
+        headers: { "retry-after": String(limited.retryAfterSec) },
+      },
     );
   }
 
-  const body = (await req.json().catch(() => null)) as { ids?: unknown } | null;
+  const parsed = await readJsonBody<{ ids?: unknown }>(req, 16 * 1024);
+  if (!parsed.ok) return NextResponse.json({ ok: false, error: parsed.error }, { status: parsed.status });
+  const body = parsed.value;
   const rawIds = Array.isArray(body?.ids)
     ? body.ids.filter((id): id is string => typeof id === "string").slice(0, MAX_PULL_IDS)
     : [];

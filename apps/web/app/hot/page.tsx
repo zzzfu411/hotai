@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AI_ENABLED } from "@hotai/ai";
 import { FeedList } from "@/components/FeedList";
 import { PulseRail } from "@/components/PulseRail";
 import { toCard } from "@/lib/article";
@@ -45,6 +46,7 @@ export default async function HotPage() {
 
   return (
     <div className="kz-home">
+      <h1 className="sr-only">Hot AI</h1>
       {dbError ? (
         <div className="kz-card kz-feed-empty" style={{ margin: 16 }}>
           <p className="font-bold">Hot AI 模块需要 Postgres</p>
@@ -53,6 +55,7 @@ export default async function HotPage() {
       ) : (
         <>
           <PulseRail
+            aiEnabled={AI_ENABLED}
             digest={
               digest
                 ? {
@@ -72,6 +75,7 @@ export default async function HotPage() {
             <FeedList
               articles={articles}
               ranked
+              titleAs="h2"
               kickerZh="Hot AI 模块 · 按重要度"
               kickerEn="Hot AI module · ranked"
               titleZh="今日热榜"

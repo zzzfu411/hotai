@@ -3,6 +3,7 @@ import { clientIp } from "@/lib/ask-guard";
 import { extractArticle } from "@/lib/extract-article";
 import { limitIp } from "@/lib/ip-rate-limit";
 import { fetchPublic, UnsafeUrlError } from "@/lib/ssrf";
+import { asJsonRecord, readJsonBody } from "@/lib/request";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,15 +66,24 @@ async function extractFromUrl(url: string): Promise<Extracted | null> {
 }
 
 export async function POST(req: Request) {
-  const limited = limitIp("readability", clientIp(req), { limit: 12, windowMs: 60_000 });
+  const limited = await limitIp("readability", clientIp(req), { limit: 12, windowMs: 60_000 });
   if (!limited.ok) {
     return NextResponse.json(
-      { ok: false, error: "rate limited" },
-      { status: 429, headers: { "retry-after": String(limited.retryAfterSec) } },
+      {
+        ok: false,
+        error: limited.reason === "limited" ? "rate limited" : "service unavailable",
+      },
+      {
+        status: limited.reason === "limited" ? 429 : 503,
+        headers: { "retry-after": String(limited.retryAfterSec) },
+      },
     );
   }
 
-  const body = (await req.json().catch(() => ({}))) as { url?: unknown };
+  const parsed = await readJsonBody<{ url?: unknown }>(req, 16 * 1024);
+  if (!parsed.ok) return NextResponse.json({ ok: false, error: parsed.error }, { status: parsed.status });
+  const body = asJsonRecord(parsed.value);
+  if (!body) return NextResponse.json({ ok: false, error: "invalid JSON object" }, { status: 400 });
   const url = typeof body.url === "string" ? body.url.trim() : "";
   if (!url) {
     return NextResponse.json({ ok: false, error: "missing url" }, { status: 400 });

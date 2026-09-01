@@ -4,10 +4,8 @@ module.exports = {
       name: "hotai-web",
       cwd: "./apps/web",
       script: "node_modules/next/dist/bin/next",
-      // Port is env-driven so multi-tenant servers can avoid collisions:
-      //   HOTAI_WEB_PORT=3100 pm2 start ecosystem.config.js
-      // (pm2 save stores the resolved args, so resurrect keeps the port.)
-      args: `start -p ${process.env.HOTAI_WEB_PORT || 3000}`,
+      // Nginx is the only public entry point and proxies to this fixed socket.
+      args: "start -H 127.0.0.1 -p 3000",
       instances: 1,
       exec_mode: "fork",
       env: {
@@ -22,8 +20,8 @@ module.exports = {
     {
       name: "hotai-fetcher",
       cwd: "./apps/fetcher",
-      script: "./node_modules/tsx/dist/cli.mjs",
-      args: "src/index.ts",
+      script: "dist/index.js",
+      interpreter: "node",
       instances: 1,
       exec_mode: "fork",
       env: {

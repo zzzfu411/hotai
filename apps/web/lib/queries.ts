@@ -11,15 +11,33 @@ import { prisma } from "./db";
 
 const WITH_SOURCE = { source: { select: { slug: true, name: true } } } as const;
 
+/** Keep Web reads inside the same retention contract as the fetcher purge. */
+function articleCutoff(): Date {
+  const configured = Number(process.env.ARTICLE_RETENTION_DAYS ?? "14");
+  const days = Number.isFinite(configured) && configured >= 1 ? Math.min(configured, 3650) : 14;
+  return new Date(Date.now() - days * 24 * 3600 * 1000);
+}
+
+function articleWindow(): { gte: Date; lte: Date } {
+  return { gte: articleCutoff(), lte: new Date(Date.now() + 24 * 3600 * 1000) };
+}
+
 export function startOfUtcDay(d: Date = new Date()): Date {
   const x = new Date(d);
   x.setUTCHours(0, 0, 0, 0);
   return x;
 }
 
+function endOfUtcDay(d: Date): Date {
+  const x = startOfUtcDay(d);
+  x.setUTCDate(x.getUTCDate() + 1);
+  return x;
+}
+
 /** Global hot list — top by score (source weight × decay × signals × aiImportance). */
 export function getTopArticles(limit = 50) {
   return prisma.article.findMany({
+    where: { publishedAt: articleWindow() },
     orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
     take: limit,
     include: WITH_SOURCE,
@@ -28,8 +46,14 @@ export function getTopArticles(limit = 50) {
 
 /** Top-scored articles published since `since` (e.g. today's board). */
 export function getArticlesSince(since: Date, limit = 20) {
+  const effectiveSince = new Date(Math.max(since.getTime(), articleCutoff().getTime()));
+  // Callers use this for a calendar-day board/digest. Do not let the generic
+  // future-skew allowance pull tomorrow's articles into today's view.
+  const upperBound = new Date(
+    Math.min(Date.now() + 24 * 3600 * 1000, endOfUtcDay(since).getTime()),
+  );
   return prisma.article.findMany({
-    where: { publishedAt: { gte: since } },
+    where: { publishedAt: { gte: effectiveSince, lt: upperBound } },
     orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
     take: limit,
     include: WITH_SOURCE,
@@ -39,7 +63,7 @@ export function getArticlesSince(since: Date, limit = 20) {
 /** Category timeline — chronological (NewsNook), not the hot-list score. */
 export function getCategoryArticles(category: string, limit = 80) {
   return prisma.article.findMany({
-    where: { category },
+    where: { category, publishedAt: articleWindow() },
     orderBy: [{ publishedAt: "desc" }],
     take: limit,
     include: WITH_SOURCE,
@@ -52,7 +76,7 @@ export const getSourceBySlug = cache(function getSourceBySlug(slug: string) {
 
 export function getArticlesBySource(sourceId: number, limit = 80) {
   return prisma.article.findMany({
-    where: { sourceId },
+    where: { sourceId, publishedAt: articleWindow() },
     orderBy: [{ publishedAt: "desc" }],
     take: limit,
     include: WITH_SOURCE,
@@ -64,6 +88,7 @@ export function searchArticles(q: string, sort: "hot" | "recent", limit = 60) {
   if (needle.length < 2) return Promise.resolve([]);
   return prisma.article.findMany({
     where: {
+      publishedAt: articleWindow(),
       OR: [
         { title: { contains: needle, mode: "insensitive" } },
         { summary: { contains: needle, mode: "insensitive" } },
@@ -85,7 +110,7 @@ export function searchArticles(q: string, sort: "hot" | "recent", limit = 60) {
 export async function getHomeStats() {
   const since = new Date(Date.now() - 24 * 3600 * 1000);
   const [articles24h, enabledSources, latestFetch] = await Promise.all([
-    prisma.article.count({ where: { publishedAt: { gte: since } } }),
+    prisma.article.count({ where: { publishedAt: { gte: since, lte: new Date() } } }),
     prisma.source.count({ where: { enabled: true } }),
     prisma.source.findFirst({
       where: { lastFetch: { not: null } },
@@ -102,8 +127,8 @@ export function getTodayDigestRow() {
 
 /** Single article for the in-site reader (`/a/[id]`). */
 export const getArticleById = cache(function getArticleById(id: number) {
-  return prisma.article.findUnique({
-    where: { id },
+  return prisma.article.findFirst({
+    where: { id, publishedAt: articleWindow() },
     include: WITH_SOURCE,
   });
 });
@@ -111,7 +136,7 @@ export const getArticleById = cache(function getArticleById(id: number) {
 export function getArticlesByIds(ids: number[]) {
   if (ids.length === 0) return Promise.resolve([]);
   return prisma.article.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, publishedAt: articleWindow() },
     include: WITH_SOURCE,
   });
 }
@@ -156,6 +181,7 @@ export async function getRelatedArticles(topics: string[], excludeId: number, li
     where: {
       id: { not: excludeId },
       aiTopics: { hasSome: tags },
+      publishedAt: articleWindow(),
     },
     orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
     take: Math.min(80, Math.max(limit * 6, 20)),
@@ -186,6 +212,7 @@ export type FeedArticleQuery = {
 export function getFeedArticles(query: FeedArticleQuery = {}, limit = 50) {
   return prisma.article.findMany({
     where: {
+      publishedAt: articleWindow(),
       ...(query.category ? { category: query.category } : {}),
       ...(query.minImportance != null
         ? { aiImportance: { gte: query.minImportance } }
@@ -215,9 +242,12 @@ export function getCuratedBlogSlugs() {
 
 /** Grounding corpus for /api/ask — hottest articles of the last `hours`. */
 export function getAskCorpus(hours = 48, limit = 25) {
-  const since = new Date(Date.now() - hours * 3600 * 1000);
+  const now = new Date();
+  const requestedSince = new Date(now.getTime() - hours * 3600 * 1000);
+  const retentionSince = articleCutoff();
+  const since = requestedSince > retentionSince ? requestedSince : retentionSince;
   return prisma.article.findMany({
-    where: { publishedAt: { gte: since } },
+    where: { publishedAt: { gte: since, lte: new Date(now.getTime() + 24 * 3600 * 1000) } },
     orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
     take: limit,
     include: WITH_SOURCE,

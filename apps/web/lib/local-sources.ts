@@ -1,4 +1,5 @@
 import { escXml } from "./feed";
+import { safeHttpUrl, safeShareableHttpUrl } from "./safe-url";
 
 /** localStorage key for in-browser custom feeds — never written to Postgres. */
 export const CUSTOM_SOURCES_KEY = "hotai.customSources";
@@ -28,15 +29,11 @@ export function newSourceId(): string {
 export function normalizeFeedUrl(raw: string): string | null {
   let t = raw.trim();
   if (!t) return null;
+  if (t.length > 4096) return null;
   if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(t)) t = `https://${t}`;
-  try {
-    const u = new URL(t);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    if (!u.hostname) return null;
-    return u.toString();
-  } catch {
-    return null;
-  }
+  // Match the server-side policy early so a private/credential-bearing URL
+  // cannot sit in localStorage only to fail later after a wasted request.
+  return safeHttpUrl(t);
 }
 
 export function hostOf(url: string): string {
@@ -92,10 +89,13 @@ export function parseOpml(xml: string): OpmlOutline[] {
 export function exportOpml(sources: CustomSource[], title = "Hot AI · 我的订阅"): string {
   const now = new Date().toUTCString();
   const body = sources
-    .map(
-      (s) =>
-        `    <outline type="rss" text="${escXml(s.name)}" title="${escXml(s.name)}" xmlUrl="${escXml(s.url)}"/>`,
-    )
+    .map((s) => {
+      const url = safeShareableHttpUrl(s.url);
+      return url
+        ? `    <outline type="rss" text="${escXml(s.name)}" title="${escXml(s.name)}" xmlUrl="${escXml(url)}"/>`
+        : "";
+    })
+    .filter(Boolean)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <opml version="2.0">

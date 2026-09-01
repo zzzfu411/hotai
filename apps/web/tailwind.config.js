@@ -41,18 +41,19 @@ export default {
       },
       fontFamily: {
         sans: [
-          "DM Sans", "PingFang SC", "Microsoft YaHei", "sans-serif",
+          "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", "sans-serif",
         ],
         serif: [
           "Noto Serif SC", "Source Serif 4", "Georgia", "serif",
         ],
         mono: [
-          "JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace",
+          "IBM Plex Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace",
         ],
       },
       boxShadow: {
         hard: "var(--shadow)",
         "hard-sm": "var(--shadow-sm)",
+        "hard-lg": "var(--shadow-lg)",
       },
       keyframes: {
         "shimmer": {

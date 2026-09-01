@@ -61,9 +61,10 @@ const SENTIMENTS = new Set<EnrichResult["sentiment"]>([
 ]);
 
 function formatInput(input: EnrichInput): string {
+  const url = safeHttpUrl(input.url);
   return [
     `Source: ${input.sourceName}`,
-    `URL: ${input.url}`,
+    url ? `URL: ${url}` : null,
     `Language: ${input.lang}`,
     `Title: ${input.title}`,
     input.summary ? `Snippet: ${input.summary.slice(0, 600)}` : null,
@@ -76,24 +77,41 @@ function formatInput(input: EnrichInput): string {
 function normalizeResult(parsed: unknown, model: string): EnrichResult | null {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   const p = parsed as Record<string, unknown>;
-  const sentiment = SENTIMENTS.has(p.sentiment as EnrichResult["sentiment"])
-    ? (p.sentiment as EnrichResult["sentiment"])
-    : "other";
+  if (!SENTIMENTS.has(p.sentiment as EnrichResult["sentiment"])) return null;
+  const sentiment = p.sentiment as EnrichResult["sentiment"];
   const topics = Array.isArray(p.topics)
-    ? p.topics
+    ? [...new Set(p.topics
         .filter((t): t is string => typeof t === "string")
-        .slice(0, 5)
         .map((s) => s.toLowerCase().trim())
-        .filter(Boolean)
+        .filter(Boolean))]
+        .slice(0, 5)
     : [];
+  const summaryEn = typeof p.summary_en === "string" ? p.summary_en.trim().slice(0, 400) : "";
+  const summaryZh = typeof p.summary_zh === "string" ? p.summary_zh.trim().slice(0, 200) : "";
+  const importance = Number(p.importance);
+  if (!summaryEn || !summaryZh || topics.length === 0 || !Number.isFinite(importance) || importance < 0 || importance > 1) {
+    return null;
+  }
   return {
-    summaryEn: String(p.summary_en ?? "").trim(),
-    summaryZh: String(p.summary_zh ?? "").trim(),
+    summaryEn,
+    summaryZh,
     topics,
     sentiment,
-    importance: clamp(Number(p.importance ?? 0), 0, 1),
+    importance,
     model,
   };
+}
+
+function safeHttpUrl(raw: string): string | null {
+  try {
+    const parsed = new URL(raw.trim());
+    if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || parsed.username || parsed.password || !parsed.hostname) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
 }
 
 /** Enrich a single article. Fail-soft: returns null on any error. */
@@ -162,9 +180,4 @@ export async function enrichArticles(
     console.warn(`  [ai] batch enrich (${inputs.length} articles) failed:`, (err as Error).message);
     return null;
   }
-}
-
-function clamp(n: number, lo: number, hi: number) {
-  if (!Number.isFinite(n)) return lo;
-  return Math.max(lo, Math.min(hi, n));
 }

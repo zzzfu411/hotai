@@ -1,4 +1,5 @@
 import type { Signals } from "./scoring.js";
+import { normalizeSafeUrl } from "./dedupe.js";
 
 /**
  * Pure merge helpers used by the persist stage when the same story arrives
@@ -67,16 +68,22 @@ export function appendCrossPost(existing: unknown, entry: CrossPost): CrossPost[
     for (const item of existing) {
       if (!item || typeof item !== "object") continue;
       const rec = item as Record<string, unknown>;
-      if (typeof rec.url !== "string" || typeof rec.source !== "string") continue;
+      const safeUrl = typeof rec.url === "string" ? normalizeSafeUrl(rec.url) : null;
+      if (!safeUrl || typeof rec.source !== "string") continue;
       list.push({
-        source: rec.source,
-        url: rec.url,
+        source: rec.source.slice(0, 120),
+        url: safeUrl,
         publishedAt: typeof rec.publishedAt === "string" ? rec.publishedAt : "",
       });
     }
   }
-  if (!list.some((c) => c.url === entry.url)) {
-    list.push(entry);
+  const safeEntryUrl = normalizeSafeUrl(entry.url);
+  if (safeEntryUrl && !list.some((c) => c.url === safeEntryUrl)) {
+    list.push({
+      source: entry.source.slice(0, 120),
+      url: safeEntryUrl,
+      publishedAt: entry.publishedAt.slice(0, 40),
+    });
   }
   return list.slice(0, CROSS_POSTS_CAP);
 }

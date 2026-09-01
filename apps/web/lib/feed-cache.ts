@@ -73,6 +73,20 @@ export function resetFeedCache(): void {
   b.inflight.clear();
 }
 
+/** Serve a still-usable stale feed and open a short retry cooldown. */
+function serveStale(url: string, hit: FeedCacheEntry | undefined): RemoteFeed | null {
+  if (!hit?.feed || Date.now() - hit.at >= FEED_CACHE_STALE_MS) return null;
+  putFeedCache(url, {
+    ...hit,
+    at: Date.now(),
+    ttl: FEED_CACHE_FAIL_TTL_MS,
+    // Keep this as a readable cache hit so callers do not immediately retry
+    // the origin; the short ttl schedules the next conditional revalidation.
+    fail: false,
+  });
+  return hit.feed;
+}
+
 export type FeedLoader = (url: string, init?: PublicFetchInit) => Promise<PublicFetchResult>;
 
 /**
@@ -118,7 +132,8 @@ export async function loadRemoteFeed(
         fetched.url.toString(),
       );
       if (!parsed) {
-        if (hit?.feed && Date.now() - hit.at < FEED_CACHE_STALE_MS) return hit.feed;
+        const stale = serveStale(url, hit);
+        if (stale) return stale;
         putFeedCache(url, {
           at: Date.now(),
           ttl: FEED_CACHE_FAIL_TTL_MS,
@@ -156,7 +171,8 @@ export async function loadRemoteFeed(
         });
         throw err;
       }
-      if (hit?.feed && Date.now() - hit.at < FEED_CACHE_STALE_MS) return hit.feed;
+      const stale = serveStale(url, hit);
+      if (stale) return stale;
       putFeedCache(url, {
         at: Date.now(),
         ttl: FEED_CACHE_FAIL_TTL_MS,

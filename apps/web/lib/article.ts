@@ -1,5 +1,6 @@
 import type { Article, Source } from "@hotai/db";
 import type { ArticleCardData } from "@/components/ArticleCard";
+import { safeHttpUrl } from "./safe-url";
 
 type Row = Article & { source: Pick<Source, "slug" | "name"> };
 
@@ -28,7 +29,7 @@ export function parseCrossPosts(value: unknown): CrossPost[] {
     if (!item || typeof item !== "object") continue;
     const rec = item as Record<string, unknown>;
     if (typeof rec.url !== "string" || typeof rec.source !== "string") continue;
-    const url = rec.url.trim();
+    const url = safeHttpUrl(rec.url);
     const source = rec.source.trim();
     if (!url || !source) continue;
     out.push({

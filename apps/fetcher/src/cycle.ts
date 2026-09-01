@@ -5,12 +5,19 @@ import { fetchSource } from "./dispatch.js";
 import { persistItems, type PersistStats } from "./store.js";
 import { enrichPendingArticles } from "./enrich.js";
 import { ensureTodayDigest } from "./digest.js";
-import { purgeOldArticles, purgeStaleAskCache } from "./purge.js";
+import {
+  purgeExpiredRateLimitBuckets,
+  purgeOldArticles,
+  purgeOldAskQuota,
+  purgeOldCoordinationLeases,
+  purgeStaleAskCache,
+} from "./purge.js";
 import { rescoreAllArticles } from "./rescore.js";
 import { recordFetchSuccess, recordFetchFailure } from "./sourceHealth.js";
 import { config } from "./config.js";
 import { mapPool } from "./pool.js";
 import type { RawItem } from "./types.js";
+import { runWithFetcherCycleLease } from "./cycle-lock.js";
 
 export type CycleReport = {
   sources: { ok: number; failed: number; disabled: number };
@@ -31,7 +38,21 @@ export type CycleReport = {
  * that are about to be deleted. Enrichment runs after fetch so importance is
  * scored with the fullest signal set of the cycle.
  */
-export async function runCycle(): Promise<CycleReport> {
+export async function runCycle(): Promise<CycleReport | null> {
+  const result = await runWithFetcherCycleLease(runCycleUnlocked);
+  if (!result.acquired) {
+    console.warn(
+      `[fetcher] skip cross-process overlap — lease held until ${result.leaseUntil.toISOString()}`,
+    );
+    return null;
+  }
+  if (!result.leaseHealthy) {
+    console.warn("[fetcher] cycle completed but lease health degraded; inspect database connectivity");
+  }
+  return result.value;
+}
+
+async function runCycleUnlocked(): Promise<CycleReport> {
   const started = Date.now();
   const report: CycleReport = {
     sources: { ok: 0, failed: 0, disabled: 0 },
@@ -49,6 +70,15 @@ export async function runCycle(): Promise<CycleReport> {
   });
   await purgeStaleAskCache().catch((e) =>
     console.warn("[purge] ask-cache failed:", (e as Error).message),
+  );
+  await purgeOldAskQuota().catch((e) =>
+    console.warn("[purge] ask-quota failed:", (e as Error).message),
+  );
+  await purgeExpiredRateLimitBuckets().catch((e) =>
+    console.warn("[purge] rate-limit buckets failed:", (e as Error).message),
+  );
+  await purgeOldCoordinationLeases().catch((e) =>
+    console.warn("[purge] coordination leases failed:", (e as Error).message),
   );
 
   const sources = await prisma.source.findMany({ where: { enabled: true } });
@@ -97,11 +127,24 @@ export async function runCycle(): Promise<CycleReport> {
       report.articles.refreshed += stats.refreshed;
       report.articles.merged += stats.merged;
       report.articles.failed += stats.failed;
-      report.sources.ok++;
-      await recordFetchSuccess(out.src);
-      console.log(
-        `    ✓ ${out.src.slug}: ${out.items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged`,
-      );
+      if (stats.failed > 0) {
+        // A fetch that cannot persist one or more items is degraded, not
+        // healthy. Do not clear consecutive-failure state or make the source
+        // look green when the database silently rejected part of its payload.
+        report.sources.failed++;
+        const persistErr = new Error(`persist failed for ${stats.failed} item(s)`);
+        const { fails, disabled } = await recordFetchFailure(out.src, persistErr);
+        if (disabled) report.sources.disabled++;
+        console.warn(
+          `    ! ${out.src.slug}: ${out.items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged, ${stats.failed} failed (source fail ${fails}/${config.sourceFailThreshold})`,
+        );
+      } else {
+        report.sources.ok++;
+        await recordFetchSuccess(out.src);
+        console.log(
+          `    ✓ ${out.src.slug}: ${out.items.length} items — ${stats.created} new, ${stats.refreshed} refreshed, ${stats.merged} merged`,
+        );
+      }
     } catch (err) {
       report.sources.failed++;
       const { fails, disabled } = await recordFetchFailure(out.src, err as Error);

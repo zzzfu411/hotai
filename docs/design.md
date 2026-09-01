@@ -25,6 +25,8 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
 
 **阅读壳升级（2026-08 · NewsNook 交互 + KAZAM 视觉）：** 站点仍是「今日 AI 热榜」，不是综合新闻 App。交互改成分类轨 / 场景 / 站内阅读 / 本机 OPML 订阅（localStorage，不进 Postgres）；视觉对齐 [music.yeuxark.com](https://music.yeuxark.com)。规格见 [`nook-merge.md`](./nook-merge.md)。这不改变上表四条硬边界——本机偏好不是账号系统，自定义源不进入全局排名。
 
+> **实现校准（2026-09-01）**：默认 `/` 是客户端实时速闻目录，按需调用 `/api/catalog/pull`，不依赖 `Article`；数据库热榜位于 `/hot`。Fetcher 负责主要内容写入，但 Web 会在缺少当日简报时写入 `Digest`，并由 `/api/ask` 写入 `AskCache`。当前 AI 配置、Ask 配额、公开抓取限流、AI lease/retry、retention、URL/HTML 边界和 CI 已有代码与测试；本文后面的历史更新记录保留原始决策背景，若与本段冲突，以代码、`README.md` 和最新安全审计为准。
+
 ---
 
 ## 目录
@@ -53,9 +55,9 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
                        │                       │
             ┌──────────┴──────────┐   ┌────────┴──────────┐
             │  apps/fetcher       │   │  apps/web         │
-            │  (Node + cron)      │   │  (Next.js SSR/ISR)│
+            │  (Node + cron)      │   │  (Next.js 16)     │
             │                     │   │                   │
-            │  唯一写入者         │   │  只读             │
+            │  主要写入者         │   │  读 + 两个有意写入 │
             └──────────┬──────────┘   └────────▲──────────┘
                        │                       │
                        │  POST /api/revalidate │
@@ -74,7 +76,7 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
                        └──────────────────────┘
 ```
 
-**关键设计:** 单向数据流。fetcher 是唯一写库者,web 完全只读。两边通过 `/api/revalidate` 弱耦合。**没有用户表、没有 session、没有冷归档** —— 整个 Postgres 永远只有不到 14 天的内容,体量上限可预测。
+**关键设计:** 内容主链路仍由 fetcher 写入，Web 只保留两个有意的写路径：缺少当日简报时生成 `Digest`，以及 `/api/ask` 的 `AskCache`。两边通过 `/api/revalidate` 弱耦合；实时速闻目录不写 `Article`。**没有用户表、没有 session、没有冷归档** —— `Article` 永远只保留约 14 天内容，体量上限可预测。
 
 ## 1.2 一轮 fetcher cycle 干了什么
 
@@ -104,12 +106,12 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
   │           连续 ≥SOURCE_FAIL_THRESHOLD(默认 5)自动 enabled=false
   │
   ├── enrichPendingArticles()             ← AI 流水线 1/2
-  │     ├── 取 aiAnalyzedAt IS NULL 的文章 (按 score DESC, 软上限 AI_ENRICH_PER_RUN)
+  │     ├── 认领 pending/retry/过期 processing 文章 (按 score DESC, 软上限 AI_ENRICH_PER_RUN)
   │     ├── 按 AI_BATCH_SIZE(默认 10)分批,一批一次 LLM_MODEL_FAST 调用
   │     ├── 批量输出对不齐 → 整批降级成单篇调用
   │     ├── 每篇返回 { summaryEn, summaryZh, topics, sentiment, importance }
   │     ├── 成功的同时用 importance 重算 score 并回写(排序闭环)
-  │     └── 失败的也写 aiAnalyzedAt=now / aiModel="skipped" 防止热循环
+  │     └── 失败按指数退避重试，达到上限后进入 failed
   │
   ├── ensureTodayDigest()                 ← AI 流水线 2/2
   │     ├── 当日 (UTC) 文章 ≥5 篇才生成
@@ -158,7 +160,7 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 | `digest.ts` | `LLM_MODEL_SMART` | fetcher cycle 末尾 | 每天 ≤4 次刷新 | 当日 headline + bullets |
 | `/api/ask` | `LLM_MODEL_FAST` (流式) | 用户每问一次 | IP 限流 5/60s;同问题 24h 走 AskCache;日 token 配额 | 基于过去 48h 的问答 |
 
-**字段写入:** `Article.aiSummaryEn/Zh`、`aiTopics[]`、`aiSentiment`、`aiImportance`、`aiAnalyzedAt`、`aiModel`。每个 AI 路径都先查 `AI_ENABLED`,key 没配就静默跳过。
+**字段写入:** `Article.aiSummaryEn/Zh`、`aiTopics[]`、`aiSentiment`、`aiImportance`、`aiAnalyzedAt`、`aiModel`，以及 `aiStatus/aiAttempts/aiNextAttemptAt/aiLeaseUntil` 重试状态。每个 AI 路径都先查 `AI_ENABLED`，key 没配就静默跳过。
 
 **容量核算:**
 - 20 源 × 平均 10 篇新文/天 ≈ 200 新文/天
@@ -170,12 +172,13 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 
 | 路由 | 渲染 | 缓存 | 数据源 |
 |---|---|---|---|
-| `/` | RSC + ISR | `revalidate=600` | 直查 Postgres,top 50 by score |
+| `/` | Client live catalog | 客户端 3min SWR + 服务端 feed cache | allowlisted RSS/Atom/JSON Feed；不写 Article |
+| `/hot` | RSC + ISR | `revalidate=600` | Postgres,top 50 by score |
 | `/digest` | RSC + ISR | `revalidate=1800` | DB hit → 缺则在线生成 + 落库 |
 | `/category/{slug}` | RSC + ISR + SSG params | `revalidate=600` | DB,filter by category |
 | `/source/{slug}` | RSC + ISR | `revalidate=600` | DB,filter by source |
 | `/search` | RSC | `force-dynamic` | DB `ILIKE` |
-| `/api/ask` | Node runtime | AskCache 24h + IP 限流 + 日配额 | DB + 流式 LLM (SSE) |
+| `/api/ask` | Node runtime | AskCache 24h + IP 限流 + PostgreSQL 预约（日配额/并发） | DB + 流式 LLM (SSE) |
 | `/api/digest` | RSC | `revalidate=600` | DB |
 | `/feed.xml` | RSC | `revalidate=600` | DB,RSS 2.0 输出 |
 
@@ -279,7 +282,7 @@ return (base + signalBoost + keywordBoost + importanceBoost) * decay + base * 0.
 **威胁:** 完全公开,无任何保护。一个恶意脚本就能让中转站账单爆炸。
 
 **最小可行方案:**
-1. **IP 级 token bucket** —— `60s / 5 次`,内存 `Map<ip, { count, resetAt }>`
+1. **IP 级 token bucket** —— `60s / 5 次`（应用层保留快速 bucket，部署 Nginx 覆盖真实 IP）
 2. **问题去重缓存** —— 同一问题 24h 内只算第一次,后续返回缓存。key = `sha1(question.toLowerCase().trim())`,value 落到新表 `AskCache { hash, question, answer, createdAt, hits }`
 3. **总配额阀门** —— 每日总 token 上限 env 配置,超过返回"今日额度用完"
 
@@ -528,7 +531,7 @@ ASK_RATE_PER_IP=5/60
 
 **跨源去重(3.3 方案 A)** — `store.ts` 重写为 `persistItems()` 三级阶梯:urlHash 命中→刷新(signals 逐项取 max);titleHash 3 天窗口命中→转载合并进原行的 `crossPosts Json`(封顶 10 条,归一化标题 <8 字符不参与,防"每周讨论帖"误合并);否则新建。同 URL 被第二个源提到同样记 crossPost。前端卡片显示"⇄ N 源转载"。SimHash(方案 B)未做。
 
-**/api/ask 防护(3.4)** — 三重防护:IP token bucket(`ASK_RATE_PER_IP`,默认 5/60s)→ `AskCache` 表按归一化问题 hash 缓存 24h(命中免 LLM、免配额)→ 日 token 阀门(`ASK_DAILY_TOKEN_LIMIT`,默认 50 万,0=不限)。限流/配额计数在内存(单进程 PM2,重启清零可接受)。SSE wire format 不变。
+**/api/ask 防护(3.4)** — 三重防护:IP token bucket(`ASK_RATE_PER_IP`,默认 5/60s)→ `AskCache` 表按归一化问题 hash 缓存 24h(命中免 LLM、免配额)→ PostgreSQL 日 token/并发预约(`ASK_DAILY_TOKEN_LIMIT`,默认 50 万,0=不限)。预约带 TTL，断连、异常和 worker 崩溃按保守预算结算；SSE wire format 不变。
 
 **失效源监控(3.5)** — `Source` 加 `consecutiveFails / lastError / lastErrorAt`;失败递增、成功清零;连续 ≥`SOURCE_FAIL_THRESHOLD`(默认 5)自动 `enabled=false`。dispatch 对未知源、scrape 抓到 0 条也按失败计。admin 页面未做(Prisma Studio 手动 re-enable)。
 
@@ -540,4 +543,4 @@ ASK_RATE_PER_IP=5/60
 
 **测试(5.2 部分)** — 根级 vitest(`pnpm test`),36 个纯函数用例覆盖 scoring / dedupe(含 arxiv)/ merge / parseJson,不依赖 DB。purge 未测。
 
-**Schema 变更(需在服务器上跑迁移)** — `Source` +3 健康字段、`Article.crossPosts Json?`、`aiTopics` GIN 索引、新表 `AskCache`。部署时先 `pnpm --filter @hotai/db migrate:dev --name v0_3_logic_refactor`(或 `prisma db push`),再 `pnpm db:seed`。
+**Schema 变更(需在服务器上应用已提交迁移)** — `Source` 健康字段、`Article.crossPosts Json?`、AI retry/lease 字段、`aiTopics` GIN 索引，以及 `AskCache`、`AskDailyUsage`、`AskReservation`、`CoordinationLease`、`RateLimitBucket`。部署时使用 `pnpm db:migrate`（`prisma migrate deploy`），再 `pnpm db:seed`；`migrate:dev` 仅用于开发者生成新的 migration。

@@ -61,6 +61,14 @@ model Article {
   aiImportance  Float?    // 0-1, model's standalone importance estimate
   aiAnalyzedAt  DateTime?
   aiModel       String?   // model id used, e.g. "claude-haiku-4-5"
+  // Retryable enrichment state. aiAnalyzedAt is set only after success;
+  // transient provider/parser failures use retry + exponential backoff.
+  aiStatus        String    @default("pending") // pending | processing | retry | success | failed
+  aiAttempts      Int       @default(0)
+  aiNextAttemptAt DateTime?
+  aiLastError     String?
+  aiLeaseUntil    DateTime?
+  aiPromptVersion String?
 
   @@index([score(sort: Desc), publishedAt(sort: Desc)])
   @@index([category, score(sort: Desc)])
@@ -68,6 +76,8 @@ model Article {
   @@index([publishedAt(sort: Desc)])
   @@index([titleHash])
   @@index([aiAnalyzedAt])
+  @@index([aiStatus, aiNextAttemptAt, score(sort: Desc)])
+  @@index([aiLeaseUntil])
   @@index([aiTopics(ops: ArrayOps)], type: Gin)
 }
 
@@ -99,6 +109,65 @@ model AskCache {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// Durable cost/concurrency valve for the anonymous /api/ask endpoint. The
+// daily row stores settled usage; short-lived reservations make concurrent
+// web processes account for in-flight calls before they spend provider tokens.
+model AskDailyUsage {
+  day          DateTime         @id @db.Date
+  usedTokens   Int              @default(0)
+  updatedAt    DateTime         @updatedAt
+  reservations AskReservation[]
+}
+
+model AskReservation {
+  id             String        @id @default(uuid())
+  day            DateTime      @db.Date
+  dailyUsage     AskDailyUsage @relation(fields: [day], references: [day], onDelete: Cascade)
+  reservedTokens Int
+  expiresAt      DateTime
+  createdAt      DateTime      @default(now())
+
+  @@index([day, expiresAt])
+  @@index([expiresAt])
+}
+
+// Cross-process leases for singleton jobs. Acquisition is serialized with a
+// PostgreSQL advisory transaction lock; the durable expiry lets another
+// process recover safely after a worker crash without holding an idle database
+// transaction for the whole network-heavy job.
+model CoordinationLease {
+  name           String   @id
+  ownerId        String
+  leaseUntil     DateTime
+  heartbeatAt    DateTime
+  startedAt      DateTime
+  attempts       Int      @default(1)
+  lastFinishedAt DateTime?
+  lastStatus     String   @default("running") // running | success | failed
+  lastError      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([leaseUntil])
+  @@index([lastStatus, leaseUntil])
+}
+
+// Shared fixed-window counters for public, cost-bearing fetch endpoints.
+// keyHash is a SHA-256 digest of the limiter namespace and normalized client
+// address; raw client IPs are never persisted.
+model RateLimitBucket {
+  name      String
+  keyHash   String
+  count     Int      @default(1)
+  resetAt   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([name, keyHash])
+  @@index([resetAt])
+  @@index([name, resetAt])
 }
 
 // Curated directory of high-quality AI researcher / practitioner blogs

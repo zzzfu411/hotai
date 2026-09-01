@@ -28,12 +28,12 @@ export async function fetchRss(source: Source): Promise<RawItem[]> {
       : it.pubDate
         ? new Date(it.pubDate)
         : new Date();
-    const contentText = stripHtml(it.contentSnippet ?? it.content ?? "");
+    const contentText = selectSummary(it as unknown as Record<string, unknown>);
     const signals = extractSignals(source.slug, it);
     items.push({
       url: link,
       title: it.title.trim(),
-      summary: truncate(contentText, 400),
+      summary: contentText,
       author: it.creator ?? (it as any).author ?? null,
       publishedAt,
       tags: extractTags(it),
@@ -42,6 +42,20 @@ export async function fetchRss(source: Source): Promise<RawItem[]> {
     });
   }
   return items.slice(0, config.perSourceLimit);
+}
+
+/** Prefer a clean snippet, then full content including RSS content:encoded. */
+export function selectSummary(
+  item: { contentSnippet?: unknown; contentEncoded?: unknown; content?: unknown },
+  maxLength = 400,
+): string | undefined {
+  const candidates = [item.contentSnippet, item.contentEncoded, item.content];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const text = stripHtml(candidate);
+    if (text) return truncate(text, maxLength);
+  }
+  return undefined;
 }
 
 function extractSignals(slug: string, it: Parser.Item): { points?: number; comments?: number } | undefined {

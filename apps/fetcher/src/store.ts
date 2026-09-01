@@ -1,11 +1,12 @@
 import type { Prisma, Source } from "@hotai/db";
 import { prisma } from "@hotai/db";
 import type { RawItem } from "./types.js";
-import { hashTitle, hashUrl, normalizeTitle, normalizeUrl } from "./dedupe.js";
+import { hashTitle, hashUrl, normalizeSafeUrl, normalizeTitle } from "./dedupe.js";
 import { computeScore } from "./scoring.js";
 import { appendCrossPost, asSignals, mergeSignals } from "./merge.js";
 import type { Signals } from "./scoring.js";
 import { config } from "./config.js";
+import { isRetainablePublishedAt } from "./retention.js";
 
 export type PersistStats = {
   created: number;   // brand-new articles
@@ -21,10 +22,25 @@ const EXISTING_SELECT = {
   sourceId: true,
   title: true,
   summary: true,
+  author: true,
+  tags: true,
+  raw: true,
   publishedAt: true,
   signals: true,
   crossPosts: true,
+  aiSummaryEn: true,
+  aiSummaryZh: true,
+  aiTopics: true,
+  aiSentiment: true,
   aiImportance: true,
+  aiAnalyzedAt: true,
+  aiModel: true,
+  aiStatus: true,
+  aiAttempts: true,
+  aiNextAttemptAt: true,
+  aiLastError: true,
+  aiLeaseUntil: true,
+  aiPromptVersion: true,
   source: { select: { slug: true, weight: true } },
 } satisfies Prisma.ArticleSelect;
 
@@ -86,7 +102,12 @@ export async function persistItems(source: Source, items: RawItem[]): Promise<Pe
     try {
       const urlHit = byUrl.get(p.urlHash);
       if (urlHit) {
+        const oldTitleHash = urlHit.titleHash;
         await refreshExisting(source, p, urlHit);
+        if (urlHit.titleHash !== oldTitleHash && byTitle.get(oldTitleHash) === urlHit) {
+          byTitle.delete(oldTitleHash);
+          if (normalizeTitle(urlHit.title).length >= 8) byTitle.set(urlHit.titleHash, urlHit);
+        }
         if (urlHit.sourceId === source.id) stats.refreshed++;
         else stats.merged++;
         continue;
@@ -112,8 +133,11 @@ export async function persistItems(source: Source, items: RawItem[]): Promise<Pe
 function prepare(items: RawItem[]): PreparedItem[] {
   const out = new Map<string, PreparedItem>();
   for (const it of items) {
-    if (!it.title || !it.url) continue;
-    const url = normalizeUrl(it.url);
+    const title = typeof it.title === "string" ? it.title.trim() : "";
+    if (!title || !it.url) continue;
+    if (!isRetainablePublishedAt(it.publishedAt)) continue;
+    const url = normalizeSafeUrl(it.url);
+    if (!url) continue;
     const urlHash = hashUrl(url);
     const prev = out.get(urlHash);
     if (prev) {
@@ -121,18 +145,19 @@ function prepare(items: RawItem[]): PreparedItem[] {
       prev.signals = mergeSignals(prev.signals, it.signals);
       continue;
     }
-    const title = it.title.trim();
+    const summary = cleanOptional(it.summary);
+    const author = cleanOptional(it.author);
     out.set(urlHash, {
       url,
       urlHash,
       titleHash: hashTitle(title),
       titleDedupeEligible: normalizeTitle(title).length >= 8,
       title,
-      summary: it.summary ?? null,
-      author: it.author ?? null,
+      summary,
+      author,
       publishedAt: it.publishedAt,
-      tags: it.tags ?? [],
-      signals: it.signals,
+      tags: cleanTags(it.tags),
+      signals: asSignals(it.signals),
       raw: it.raw,
     });
   }
@@ -142,6 +167,8 @@ function prepare(items: RawItem[]): PreparedItem[] {
 /** Same URL seen again — possibly via a different source (e.g. HN linking a lab blog). */
 async function refreshExisting(source: Source, p: PreparedItem, row: ExistingRow): Promise<void> {
   const sameSource = row.sourceId === source.id;
+  const previousTitle = row.title;
+  const previousSummary = row.summary;
   const signals = mergeSignals(asSignals(row.signals), p.signals);
   const crossPosts = sameSource
     ? undefined
@@ -152,7 +179,11 @@ async function refreshExisting(source: Source, p: PreparedItem, row: ExistingRow
       });
 
   const title = sameSource ? p.title : row.title;
-  const summary = sameSource ? p.summary : row.summary;
+  // A feed can temporarily omit its description. Never erase a useful stored
+  // summary with an empty/null refresh; replace it only with a non-empty value.
+  const summary = sameSource ? preferSummary(row.summary, p.summary) : row.summary;
+  const contentChanged = sameSource && (title !== previousTitle || summary !== previousSummary);
+  const aiReset = contentChanged ? resetAiFields() : {};
   const score = computeScore({
     sourceWeight: row.source.weight,
     publishedAt: row.publishedAt,
@@ -166,15 +197,25 @@ async function refreshExisting(source: Source, p: PreparedItem, row: ExistingRow
     where: { id: row.id },
     data: {
       title,
+      titleHash: sameSource ? p.titleHash : undefined,
       summary,
+      author: sameSource && p.author ? p.author : undefined,
+      tags: sameSource ? mergeTags(row.tags, p.tags) : undefined,
+      raw: sameSource && p.raw !== undefined ? (p.raw as Prisma.InputJsonValue) : undefined,
       score,
       signals: signals ? (signals as Prisma.InputJsonValue) : undefined,
       crossPosts: crossPosts ? (crossPosts as unknown as Prisma.InputJsonValue) : undefined,
+      ...aiReset,
     },
   });
 
   row.title = title;
+  row.titleHash = sameSource ? p.titleHash : row.titleHash;
   row.summary = summary;
+  if (sameSource && p.author) row.author = p.author;
+  if (sameSource) row.tags = mergeTags(row.tags, p.tags);
+  if (sameSource && p.raw !== undefined) row.raw = p.raw as ExistingRow["raw"];
+  if (contentChanged) Object.assign(row, resetAiFields());
   row.signals = (signals ?? row.signals) as ExistingRow["signals"];
   if (crossPosts) row.crossPosts = crossPosts as ExistingRow["crossPosts"];
 }
@@ -236,4 +277,47 @@ async function createArticle(source: Source, p: PreparedItem): Promise<ExistingR
     },
     select: EXISTING_SELECT,
   });
+}
+
+function cleanOptional(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function cleanTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((tag): tag is string => typeof tag === "string")
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean))].slice(0, 20);
+}
+
+function mergeTags(existing: string[] | undefined, incoming: string[]): string[] {
+  return [...new Set([...(existing ?? []), ...incoming].map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 20);
+}
+
+function preferSummary(existing: string | null, incoming: string | null): string | null {
+  if (!incoming) return existing;
+  if (!existing || incoming.length >= existing.length) return incoming;
+  return existing;
+}
+
+/** Clear derived fields when an upstream publisher changes the article body. */
+function resetAiFields() {
+  return {
+    aiSummaryEn: null,
+    aiSummaryZh: null,
+    aiTopics: [],
+    aiSentiment: null,
+    aiImportance: null,
+    aiAnalyzedAt: null,
+    aiModel: null,
+    aiStatus: "pending",
+    aiAttempts: 0,
+    aiNextAttemptAt: null,
+    aiLastError: null,
+    aiLeaseUntil: null,
+    aiPromptVersion: null,
+  } as const;
 }

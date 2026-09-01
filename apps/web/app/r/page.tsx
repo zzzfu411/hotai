@@ -9,7 +9,7 @@ import { parsePublicHttpUrl, UnsafeUrlError } from "@/lib/ssrf";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: { url?: string; title?: string; src?: string };
+  searchParams: Promise<{ url?: string; title?: string; src?: string }>;
 };
 
 function safeUrl(raw: string | undefined): URL | null {
@@ -22,18 +22,20 @@ function safeUrl(raw: string | undefined): URL | null {
   }
 }
 
-export function generateMetadata({ searchParams }: PageProps): Metadata {
-  const url = safeUrl(searchParams.url);
-  const title = (searchParams.title ?? "").trim() || (url ? hostname(url.href) : "阅读");
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const resolved = await searchParams;
+  const url = safeUrl(resolved.url);
+  const title = (resolved.title ?? "").trim() || (url ? hostname(url.href) : "阅读");
   return { title, robots: { index: false, follow: true } };
 }
 
-export default function RemoteReaderPage({ searchParams }: PageProps) {
-  const url = safeUrl(searchParams.url);
+export default async function RemoteReaderPage({ searchParams }: PageProps) {
+  const resolved = await searchParams;
+  const url = safeUrl(resolved.url);
   if (!url) notFound();
 
-  const title = (searchParams.title ?? "").trim() || hostname(url.href);
-  const src = searchParams.src ? CATALOG_BY_ID.get(searchParams.src) : undefined;
+  const title = (resolved.title ?? "").trim() || hostname(url.href);
+  const src = resolved.src ? CATALOG_BY_ID.get(resolved.src) : undefined;
   const host = hostname(url.href);
 
   return (

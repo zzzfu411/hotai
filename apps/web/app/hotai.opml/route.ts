@@ -1,6 +1,7 @@
 import { getCuratedBlogs, getEnabledSources } from "@/lib/queries";
 import { SITE } from "@/lib/constants";
 import { escXml } from "@/lib/feed";
+import { safeShareableHttpUrl } from "@/lib/safe-url";
 
 export const revalidate = 600;
 
@@ -20,8 +21,14 @@ export async function GET() {
 
   const groups = GROUPS.map((g) => {
     const children = sources
-      .filter((s) => s.category === g.key)
-      .map((s) => outline(s.name, s.url, s.homepage || s.url));
+      .filter((s) => s.category === g.key && s.type === "rss")
+      .map((s) => {
+        const xmlUrl = safeShareableHttpUrl(s.url);
+        if (!xmlUrl) return "";
+        const htmlUrl = safeShareableHttpUrl(s.homepage) ?? xmlUrl;
+        return outline(s.name, xmlUrl, htmlUrl);
+      })
+      .filter(Boolean);
     if (children.length === 0) return "";
     return `    <outline text="${escXml(g.title)}" title="${escXml(g.title)}">
 ${children.join("\n")}
@@ -30,9 +37,10 @@ ${children.join("\n")}
 
   const blogOutlines: string[] = [];
   for (const b of blogs) {
-    const xmlUrl = b.feedUrl?.trim();
-    if (!xmlUrl) continue;
-    blogOutlines.push(outline(b.name, xmlUrl, b.url));
+    const xmlUrl = b.feedUrl ? safeShareableHttpUrl(b.feedUrl) : null;
+    const htmlUrl = safeShareableHttpUrl(b.url);
+    if (!xmlUrl || !htmlUrl) continue;
+    blogOutlines.push(outline(b.name, xmlUrl, htmlUrl));
   }
 
   if (blogOutlines.length) {

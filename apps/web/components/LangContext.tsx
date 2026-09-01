@@ -15,7 +15,12 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("zh");
 
   useEffect(() => {
-    const stored = typeof window !== "undefined" ? localStorage.getItem("hotai-lang") : null;
+    let stored: string | null = null;
+    try {
+      stored = typeof window !== "undefined" ? localStorage.getItem("hotai-lang") : null;
+    } catch {
+      stored = null;
+    }
     if (stored === "en" || stored === "zh") {
       setLangState(stored);
       document.documentElement.lang = stored;
@@ -27,7 +32,11 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    if (typeof window !== "undefined") localStorage.setItem("hotai-lang", l);
+    try {
+      if (typeof window !== "undefined") localStorage.setItem("hotai-lang", l);
+    } catch {
+      // Private browsing and storage-disabled environments can reject writes.
+    }
     document.documentElement.lang = l;
   };
 

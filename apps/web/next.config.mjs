@@ -27,22 +27,36 @@ if (existsSync(envFile)) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // These headers are compatible with the inline theme bootstrap and
+          // the intentionally public RSS/JSON endpoints; CSP is kept out until
+          // the remaining inline/external assets are migrated to nonces.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+        ],
+      },
+    ];
+  },
   // Production data queries can be slow while the small VPS is also serving
   // traffic. Give ISR page generation enough time during deploy builds.
   staticPageGenerationTimeout: 180,
   transpilePackages: ["@hotai/db", "@hotai/ai"],
-  experimental: {
-    serverComponentsExternalPackages: [
-      "@prisma/client",
-      "@anthropic-ai/sdk",
-      "@mozilla/readability",
-      "linkedom",
-      "isomorphic-dompurify",
-      "jsdom",
-      "rss-parser",
-      "undici",
-    ],
-  },
+  serverExternalPackages: [
+    "@prisma/client",
+    "@anthropic-ai/sdk",
+    "@mozilla/readability",
+    "linkedom",
+    "isomorphic-dompurify",
+    "jsdom",
+    "rss-parser",
+    "undici",
+  ],
   // packages/ai and packages/db are ESM with explicit `.js` extensions on
   // intra-package imports (required by tsx/Node ESM), but the files on disk
   // are `.ts` — teach webpack to resolve `./client.js` -> `./client.ts`.

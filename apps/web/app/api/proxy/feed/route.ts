@@ -17,19 +17,29 @@ export const maxDuration = 20;
 const PROXY_ITEMS_CAP = 40;
 /** MAX_SOURCES is 50 — allow one full cold pull per minute; cache hits are free. */
 const PROXY_RATE = 60;
+const MAX_URL_LENGTH = 2048;
 
 export async function GET(req: Request) {
   const url = new URL(req.url).searchParams.get("url")?.trim() ?? "";
   if (!url) {
     return NextResponse.json({ ok: false, error: "missing url" }, { status: 400 });
   }
+  if (url.length > MAX_URL_LENGTH) {
+    return NextResponse.json({ ok: false, error: "url too long" }, { status: 414 });
+  }
 
   if (!isFreshFeedCache(url)) {
-    const limited = limitIp("feed-proxy", clientIp(req), { limit: PROXY_RATE, windowMs: 60_000 });
+    const limited = await limitIp("feed-proxy", clientIp(req), { limit: PROXY_RATE, windowMs: 60_000 });
     if (!limited.ok) {
       return NextResponse.json(
-        { ok: false, error: "rate limited" },
-        { status: 429, headers: { "retry-after": String(limited.retryAfterSec) } },
+        {
+          ok: false,
+          error: limited.reason === "limited" ? "rate limited" : "service unavailable",
+        },
+        {
+          status: limited.reason === "limited" ? 429 : 503,
+          headers: { "retry-after": String(limited.retryAfterSec) },
+        },
       );
     }
   }

@@ -108,7 +108,9 @@ function mappedIPv4(ip: string): string | null {
     return `${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`;
   }
 
-  const nat64 = s.match(/^64:ff9b:(?:0:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  const nat64 = s.match(
+    /^(?:64:ff9b::|64:ff9b:0:0:0:0:)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/,
+  );
   if (nat64?.[1] && nat64[2]) {
     const hi = parseInt(nat64[1], 16);
     const lo = parseInt(nat64[2], 16);
@@ -228,11 +230,7 @@ export async function resolvePublicHostname(
   const key = hostname.toLowerCase();
   const memo = dnsMemo();
   const now = Date.now();
-  if (memo.size >= 512) {
-    for (const [h, row] of memo) {
-      if (now - row.at >= row.ttl) memo.delete(h);
-    }
-  }
+  pruneDnsMemo(memo, now);
   const cached = memo.get(key);
   if (cached && now - cached.at < cached.ttl) {
     if (cached.err) throw new UnsafeUrlError(cached.err);
@@ -245,21 +243,26 @@ export async function resolvePublicHostname(
   try {
     answers = await lookupAll(hostname, DNS_LOOKUP_TIMEOUT_MS);
   } catch {
-    memo.set(key, { at: now, ttl: DNS_TTL_FAIL_MS, err: "dns lookup failed" });
+    rememberDnsMemo(memo, key, { at: now, ttl: DNS_TTL_FAIL_MS, err: "dns lookup failed" }, now);
     throw new UnsafeUrlError("dns lookup failed");
   }
   if (!answers.length) {
-    memo.set(key, { at: now, ttl: DNS_TTL_FAIL_MS, err: "dns lookup failed" });
+    rememberDnsMemo(memo, key, { at: now, ttl: DNS_TTL_FAIL_MS, err: "dns lookup failed" }, now);
     throw new UnsafeUrlError("dns lookup failed");
   }
   for (const a of answers) {
     if (isBlockedResolvedAddress(a.address)) {
-      memo.set(key, { at: now, ttl: DNS_TTL_OK_MS, err: "private address" });
+      rememberDnsMemo(memo, key, { at: now, ttl: DNS_TTL_OK_MS, err: "private address" }, now);
       throw new UnsafeUrlError("private address");
     }
   }
   const pin = answers[0]!;
-  memo.set(key, { at: now, ttl: DNS_TTL_OK_MS, address: pin.address, family: pin.family });
+  rememberDnsMemo(
+    memo,
+    key,
+    { at: now, ttl: DNS_TTL_OK_MS, address: pin.address, family: pin.family },
+    now,
+  );
   return pin;
 }
 
@@ -300,6 +303,7 @@ export type PublicFetchInit = {
 const DNS_TTL_OK_MS = 20_000;
 const DNS_TTL_FAIL_MS = 5_000;
 const DNS_LOOKUP_TIMEOUT_MS = 3_000;
+const DNS_MEMO_MAX_ENTRIES = 512;
 
 type DnsMemo = { at: number; ttl: number; err?: string; address?: string; family?: number };
 
@@ -307,6 +311,30 @@ const dnsState = globalThis as typeof globalThis & { __hotai_dns_memo?: Map<stri
 
 function dnsMemo(): Map<string, DnsMemo> {
   return (dnsState.__hotai_dns_memo ??= new Map());
+}
+
+/** Keep the process-wide DNS cache bounded even when every entry is live. */
+function pruneDnsMemo(memo: Map<string, DnsMemo>, now: number): void {
+  for (const [host, row] of memo) {
+    if (now - row.at >= row.ttl) memo.delete(host);
+  }
+}
+
+function rememberDnsMemo(
+  memo: Map<string, DnsMemo>,
+  key: string,
+  row: DnsMemo,
+  now: number,
+): void {
+  pruneDnsMemo(memo, now);
+  // Refreshing a key should not evict an unrelated entry.
+  memo.delete(key);
+  while (memo.size >= DNS_MEMO_MAX_ENTRIES) {
+    const oldest = memo.keys().next().value;
+    if (oldest === undefined) break;
+    memo.delete(oldest);
+  }
+  memo.set(key, row);
 }
 
 async function lookupAll(

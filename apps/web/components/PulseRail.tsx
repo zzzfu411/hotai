@@ -19,9 +19,11 @@ export type PulseStats = {
 export function PulseRail({
   digest,
   stats,
+  aiEnabled,
 }: {
   digest: PulseDigest;
   stats: PulseStats;
+  aiEnabled: boolean;
 }) {
   const { lang } = useLang();
   const zh = lang === "zh";
@@ -72,9 +74,11 @@ export function PulseRail({
         {zh ? "今日简报" : "Today's brief"}
       </Link>
 
-      <div className="kz-pulse-ask">
-        <AskBox compact />
-      </div>
+      {aiEnabled ? (
+        <div className="kz-pulse-ask">
+          <AskBox compact />
+        </div>
+      ) : null}
     </aside>
   );
 }

@@ -7,6 +7,7 @@ import {
   parseFeedQuery,
   pickFeedSummary,
 } from "@/lib/feed";
+import { safeShareableHttpUrl } from "@/lib/safe-url";
 
 export const revalidate = 600;
 
@@ -19,6 +20,11 @@ export async function GET(req: Request) {
 
   const items = articles
     .map((a) => {
+      // A legacy or manually corrupted Article row must never reintroduce a
+      // javascript:, data:, credential-bearing, or otherwise unsafe URL into
+      // a public syndication document. Keep the item reachable through the
+      // trusted internal reader route when the original URL is invalid.
+       const link = safeShareableHttpUrl(a.url) ?? `${SITE.url}/a/${a.id}`;
       const description = pickFeedSummary(a, q.lang);
       const encoded = feedContentHtml(a, q.lang);
       const extra: string[] = [];
@@ -30,8 +36,8 @@ export async function GET(req: Request) {
       return `
     <item>
       <title>${escXml(a.title)}</title>
-      <link>${escXml(a.url)}</link>
-      <guid isPermaLink="true">${escXml(a.url)}</guid>
+      <link>${escXml(link)}</link>
+      <guid isPermaLink="true">${escXml(link)}</guid>
       <pubDate>${a.publishedAt.toUTCString()}</pubDate>
       <source>${escXml(a.source.name)}</source>
 ${extra.join("\n")}

@@ -5,6 +5,7 @@ import { FeedList } from "@/components/FeedList";
 import { toCard } from "@/lib/article";
 import { loadDigest } from "@/lib/digest";
 import { getArticlesSince, startOfUtcDay } from "@/lib/queries";
+import { safeHttpUrl } from "@/lib/safe-url";
 import type { Metadata } from "next";
 
 // AI credentials are runtime-only secrets. Rendering this page dynamically
@@ -43,16 +44,18 @@ export default async function DigestPage() {
                 {b.urls?.length > 0 && (
                   <div className="kz-digest-hosts">
                     {b.urls.map((u) => {
+                      const safe = safeHttpUrl(u);
+                      if (!safe) return null;
                       let host = "";
                       try {
-                        host = new URL(u).hostname.replace(/^www\./, "");
+                        host = new URL(safe).hostname.replace(/^www\./, "");
                       } catch {
-                        host = u;
+                        host = safe;
                       }
                       return (
                         <a
-                          key={u}
-                          href={u}
+                          key={safe}
+                          href={safe}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="kz-chip"

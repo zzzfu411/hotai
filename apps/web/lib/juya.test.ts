@@ -25,9 +25,23 @@ describe("juya", () => {
   });
 
   it("strips scripts in sanitizer", () => {
-    const html = sanitizeJuyaHtml('<p>ok</p><script>x()</script><img src="https://assets.juya.uk/a.png">');
+    const html = sanitizeJuyaHtml('<p style="position:fixed;inset:0">ok</p><script>x()</script><img src="https://assets.juya.uk/a.png">');
     expect(html).toContain("ok");
     expect(html).not.toContain("script");
+    expect(html).not.toContain("style=");
     expect(html).toContain("assets.juya.uk");
+  });
+
+  it("ignores an invalid pubDate instead of aborting the whole feed", () => {
+    const issues = issuesFromParsed([
+      {
+        title: "2026-08-26",
+        link: "https://daily.juya.uk/issues/2026-08-26/",
+        pubDate: "not-a-date",
+        contentEncoded: "<p>仍然可以阅读</p>",
+      },
+    ]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.publishedAt).toBe("2026-08-26T00:00:00.000Z");
   });
 });

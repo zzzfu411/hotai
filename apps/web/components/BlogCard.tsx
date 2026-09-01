@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
 
 export type GuideStartHereItem = {
@@ -32,8 +33,10 @@ export type BlogCardData = {
 };
 
 function faviconFor(url: string) {
+  const safe = safeHttpUrl(url);
+  if (!safe) return null;
   try {
-    const host = new URL(url).hostname;
+    const host = new URL(safe).hostname;
     return `https://www.google.com/s2/favicons?sz=64&domain=${host}`;
   } catch {
     return null;
@@ -41,8 +44,10 @@ function faviconFor(url: string) {
 }
 
 function hostnameOf(url: string) {
+  const safe = safeHttpUrl(url);
+  if (!safe) return "";
   try {
-    return new URL(url).hostname.replace(/^www\./, "");
+    return new URL(safe).hostname.replace(/^www\./, "");
   } catch {
     return url;
   }
@@ -83,7 +88,9 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
   const { lang } = useLang();
   const zh = lang === "zh";
   const [open, setOpen] = useState(false);
-  const fav = faviconFor(blog.url);
+  const blogUrl = safeHttpUrl(blog.url);
+  const feedUrl = blog.feedUrl ? safeHttpUrl(blog.feedUrl) : null;
+  const fav = blogUrl ? faviconFor(blogUrl) : null;
   const bio = zh ? blog.bioZh : blog.bioEn;
   const host = hostnameOf(blog.url);
   const guide = hasGuide(blog);
@@ -105,9 +112,9 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="kz-blog-name">
-            <a href={blog.url} target="_blank" rel="noopener noreferrer">
-              {blog.name}
-            </a>
+            {blogUrl ? (
+              <a href={blogUrl} target="_blank" rel="noopener noreferrer">{blog.name}</a>
+            ) : blog.name}
           </h3>
           <p className="kz-blog-by">
             <strong>{blog.author}</strong>
@@ -188,8 +195,8 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
                       );
                       return (
                         <li key={`${item.title}-${i}`}>
-                          {item.url ? (
-                            <a href={item.url} target="_blank" rel="noopener noreferrer">
+                          {item.url && safeHttpUrl(item.url) ? (
+                            <a href={safeHttpUrl(item.url)!} target="_blank" rel="noopener noreferrer">
                               {inner}
                               <span className="kz-blog-start-note">{zh ? "打开 ↗" : "Open ↗"}</span>
                             </a>
@@ -203,10 +210,10 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
                 </section>
               )}
 
-              {blog.feedUrl && (
+              {feedUrl && (
                 <p className="kz-blog-rss">
                   {zh ? "订阅：" : "Subscribe: "}
-                  <a href={blog.feedUrl} target="_blank" rel="noopener noreferrer">
+                  <a href={feedUrl} target="_blank" rel="noopener noreferrer">
                     RSS
                   </a>
                 </p>
@@ -217,14 +224,11 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
       )}
 
       <div className="kz-blog-foot">
-        <a
-          href={blog.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="kz-btn kz-btn-sm"
-        >
-          {zh ? "打开博客" : "Visit blog"} ↗
-        </a>
+        {blogUrl ? (
+          <a href={blogUrl} target="_blank" rel="noopener noreferrer" className="kz-btn kz-btn-sm">
+            {zh ? "打开博客" : "Visit blog"} ↗
+          </a>
+        ) : null}
         <span className="kz-blog-host">{host}</span>
       </div>
     </article>

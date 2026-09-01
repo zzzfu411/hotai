@@ -8,10 +8,12 @@ export function SearchBox({
   initialQuery,
   initialSort,
   resultCount = null,
+  unavailable = false,
 }: {
   initialQuery: string;
   initialSort: "hot" | "recent";
   resultCount?: number | null;
+  unavailable?: boolean;
 }) {
   const { lang } = useLang();
   const zh = lang === "zh";
@@ -60,7 +62,6 @@ export function SearchBox({
         <div className="kz-search kz-search-wide">
           <input
             ref={inputRef}
-            autoFocus
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -98,6 +99,18 @@ export function SearchBox({
             ? `${resultCount} 条结果 · 「${initialQuery}」`
             : `${resultCount} result${resultCount === 1 ? "" : "s"} for “${initialQuery}”`}
         </p>
+      )}
+      {unavailable && (
+        <div className="kz-card kz-feed-empty" role="status">
+          <p className="font-bold">
+            {zh ? "搜索服务暂时不可用" : "Search is temporarily unavailable"}
+          </p>
+          <p>
+            {zh
+              ? "数据库暂时连不上；速闻时间线仍可继续浏览。"
+              : "The database is offline; the live feed remains available."}
+          </p>
+        </div>
       )}
     </header>
   );

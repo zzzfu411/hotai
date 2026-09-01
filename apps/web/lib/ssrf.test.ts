@@ -86,6 +86,8 @@ describe("isBlockedAddress / isBlockedHostname", () => {
     expect(isBlockedAddress("198.18.0.23")).toBe(true);
     expect(isBlockedResolvedAddress("198.18.0.23")).toBe(false);
     expect(isBlockedResolvedAddress("127.0.0.1")).toBe(true);
+    expect(isBlockedResolvedAddress("64:ff9b::7f00:1")).toBe(true);
+    expect(isBlockedResolvedAddress("64:ff9b::808:808")).toBe(false);
   });
 
   it("flags localhost-style names", () => {

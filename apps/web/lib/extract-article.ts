@@ -1,7 +1,7 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
-import DOMPurify from "isomorphic-dompurify";
 import { escHtml } from "./feed";
+import { sanitizeRemoteHtml } from "./sanitize-remote-html";
 
 export type ExtractedArticle = {
   title: string;
@@ -36,10 +36,7 @@ export function extractArticle(html: string, url: string): ExtractedArticle | nu
   }
   if (!parsed?.content) return null;
 
-  const contentHtml = DOMPurify.sanitize(String(parsed.content), {
-    USE_PROFILES: { html: true },
-    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "link", "meta", "base"],
-  }).trim();
+  const contentHtml = sanitizeRemoteHtml(String(parsed.content), url);
   if (!contentHtml) return null;
 
   const title = (parsed.title || "").trim();

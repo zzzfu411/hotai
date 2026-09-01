@@ -16,9 +16,10 @@ export const metadata: Metadata = {
   description: "橘鸦 Juya 的每日 AI 早报，在 Hot AI 里阅读。",
 };
 
-type PageProps = { searchParams: { date?: string } };
+type PageProps = { searchParams: Promise<{ date?: string }> };
 
 export default async function JuyaPage({ searchParams }: PageProps) {
+  const { date } = await searchParams;
   let issues: Awaited<ReturnType<typeof loadJuyaIssues>> = [];
   let error: string | null = null;
   try {
@@ -27,7 +28,7 @@ export default async function JuyaPage({ searchParams }: PageProps) {
     error = "橘鸦 RSS 暂时拉不到。源站是 daily.juya.uk，可稍后再试。";
   }
 
-  const issue = pickJuyaIssue(issues, searchParams.date);
+  const issue = pickJuyaIssue(issues, date);
   const archive = issues.slice(0, 30);
 
   return (

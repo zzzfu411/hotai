@@ -27,6 +27,22 @@ describe("parseRemoteFeed", () => {
     expect(feed?.items[0]?.image).toBeNull();
   });
 
+  it("drops unsafe item protocols instead of returning clickable URLs", async () => {
+    const feed = await parseRemoteFeed(
+      JSON.stringify({
+        title: "Unsafe",
+        items: [
+          { title: "JS", url: "javascript:alert(1)" },
+          { title: "Data", url: "data:text/html,boom" },
+          { title: "Good", url: "https://example.com/good" },
+        ],
+      }),
+      "application/json",
+      "https://example.com/feed.json",
+    );
+    expect(feed?.items.map((item) => item.title)).toEqual(["Good"]);
+  });
+
   it("picks JSON Feed and RSS images", async () => {
     const json = await parseRemoteFeed(
       JSON.stringify({
@@ -60,6 +76,25 @@ describe("parseRemoteFeed", () => {
       "https://ex.com/rss",
     );
     expect(rss?.items[0]?.image).toBe("https://ex.com/pic.png");
+  });
+
+  it("rejects private enclosure and media image URLs", async () => {
+    const feed = await parseRemoteFeed(
+      `<?xml version="1.0"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel><title>Unsafe images</title>
+    <item>
+      <title>Enclosure</title><link>https://example.com/a</link>
+      <enclosure url="http://127.0.0.1:8000/admin" type="image/png" />
+      <media:content url="http://192.168.1.1/router.png" type="image/png" />
+      <media:thumbnail url="http://[::1]/loop.png" />
+    </item>
+  </channel>
+</rss>`,
+      "application/rss+xml",
+      "https://example.com/rss",
+    );
+    expect(feed?.items[0]?.image).toBeNull();
   });
 
   it("parses RSS 2.0", async () => {

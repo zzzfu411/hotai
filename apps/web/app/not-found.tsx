@@ -18,6 +18,14 @@ export default function NotFound() {
           ? "链接坏了，或者这篇文章已经超过 14 天被清掉了。"
           : "Broken link, or the story aged out of the 14-day window."}
       </p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="kz-404-art"
+        src="/404-flameout.svg"
+        alt=""
+        width={320}
+        height={240}
+      />
       <Link href="/" className="kz-btn kz-404-back">
         {zh ? "← 回速闻" : "← Back to feed"}
       </Link>
