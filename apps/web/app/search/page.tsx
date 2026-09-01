@@ -46,7 +46,7 @@ export default async function SearchPage({
           emptyTitleZh="没有匹配的入库文章"
           emptyTitleEn="No stored articles match"
           emptyCopyZh="换一个关键词，或回到首页继续阅读 briefing。"
-          emptyCopyEn="Try another keyword, or return to the live feed for the latest items."
+          emptyCopyEn="Try another keyword, or return to the homepage briefing."
         />
       )}
     </div>

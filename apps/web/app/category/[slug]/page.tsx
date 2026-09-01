@@ -50,7 +50,7 @@ export default async function CategoryPage({ params }: PageProps) {
         emptyTitleZh={unavailable ? "分类暂时不可用" : undefined}
         emptyTitleEn={unavailable ? "Category temporarily unavailable" : undefined}
         emptyCopyZh={unavailable ? "数据库连接失败；首页 briefing 稍后再试。" : undefined}
-        emptyCopyEn={unavailable ? "The database is unavailable; the live feed still works." : undefined}
+        emptyCopyEn={unavailable ? "The database is unavailable; try the briefing again later." : undefined}
       />
     </div>
   );

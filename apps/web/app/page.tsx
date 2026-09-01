@@ -12,16 +12,21 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  let articles: Awaited<ReturnType<typeof getHomeArticles>> = [];
+  let articles: Awaited<ReturnType<typeof getHomeArticles>>["articles"] = [];
+  let scope: Awaited<ReturnType<typeof getHomeArticles>>["scope"] = "today";
   let dbError: string | null = null;
   try {
-    articles = await getHomeArticles(40);
+    const briefing = await getHomeArticles(40);
+    articles = briefing.articles;
+    scope = briefing.scope;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     dbError = msg.includes("DATABASE_URL")
       ? "未读到 DATABASE_URL。配置数据库后重新打开简报。"
       : "数据库暂时不可用。稍后重新打开简报。";
   }
+
+  const today = scope === "today";
 
   return (
     <div className="ha-briefing-home">
@@ -44,10 +49,10 @@ export default async function HomePage() {
         <FeedList
           articles={articles.map(toCard)}
           titleAs="h2"
-          kickerZh="今日阅读"
-          kickerEn="Today's reading"
-          titleZh="研究与实验室更新"
-          titleEn="Research and lab updates"
+          kickerZh={today ? "今日阅读" : "保留窗口"}
+          kickerEn={today ? "Today's reading" : "Retained corpus"}
+          titleZh={today ? "研究与实验室更新" : "最近的研究与实验室更新"}
+          titleEn={today ? "Research and lab updates" : "Recent research and lab updates"}
           emptyTitleZh="简报预热中"
           emptyTitleEn="Briefing warming"
           emptyCopyZh="还没有论文或实验室更新入库；抓取器写入第一批条目后，这里会出现今天的阅读。"

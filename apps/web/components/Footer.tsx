@@ -11,9 +11,9 @@ export function Footer() {
   return (
     <footer className="ha-foot">
       <div className="ha-foot-inner">
-        <p className="ha-foot-motto">SIGNAL, NOT NOISE.</p>
+        <p className="ha-foot-motto">LAMDA / BRIEFING</p>
         <div className="ha-foot-note">
-          <span>{zh ? "独立 AI 新闻信号台" : "Independent AI news signal desk"}</span>
+          <span>{zh ? "给 Ria 的私有 AI 阅读桌" : "A private AI reading desk for Ria"}</span>
           <nav className="ha-foot-links" aria-label={zh ? "页脚链接" : "Footer links"}>
             <Link href="/digest">{zh ? "简报" : "Digest"}</Link>
             <Link href="/search">{zh ? "搜索" : "Search"}</Link>

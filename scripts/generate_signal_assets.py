@@ -31,20 +31,14 @@ def icon(size: int) -> Image.Image:
         scaled = tuple(round(v * size * scale / 32) for v in box)
         draw.rectangle(scaled, fill=fill, outline=outline, width=max(1, round(width * size * scale / 32)) if outline else 1)
 
+    rect((3.5, 3.5, 28.5, 28.5), PAPER, INK, 2)
     def line(points: list[tuple[float, float]], fill: str, width: float) -> None:
         scaled = [(round(x * size * scale / 32), round(y * size * scale / 32)) for x, y in points]
         draw.line(scaled, fill=fill, width=max(1, round(width * size * scale / 32)), joint="curve")
-
-    rect((5, 5, 30, 30), BLUE)
-    rect((2, 2, 27, 27), VERMILLION, INK, 2.5)
-    line([(8, 21), (8, 12)], INK, 4)
-    line([(14.5, 21), (14.5, 7)], INK, 4)
-    line([(21, 21), (21, 15)], INK, 4)
+    line([(8, 18), (22, 18)], INK, 3)
     draw.ellipse(
-        tuple(round(v * size * scale / 32) for v in (21, 3, 28, 10)),
-        fill=RED,
-        outline=INK,
-        width=max(1, round(2 * size * scale / 32)),
+        tuple(round(v * size * scale / 32) for v in (20.25, 8.75, 24.75, 13.25)),
+        fill=INK,
     )
     return canvas.resize((size, size), Image.Resampling.LANCZOS)
 
@@ -69,11 +63,9 @@ def draw_grid(draw: ImageDraw.ImageDraw, size: tuple[int, int]) -> None:
 
 
 def draw_mark(draw: ImageDraw.ImageDraw, x: int, y: int, scale: int = 1) -> None:
-    draw.rectangle((x + 6 * scale, y + 6 * scale, x + 52 * scale, y + 52 * scale), fill=BLUE)
-    draw.rectangle((x, y, x + 46 * scale, y + 46 * scale), fill=VERMILLION, outline=INK, width=3 * scale)
-    for offset, end in ((12, 34), (23, 22), (34, 30)):
-        draw.line((x + offset * scale, y + 35 * scale, x + offset * scale, y + end * scale), fill=INK, width=6 * scale)
-    draw.ellipse((x + 37 * scale, y + 3 * scale, x + 51 * scale, y + 17 * scale), fill=RED, outline=INK, width=3 * scale)
+    draw.rectangle((x + 7 * scale, y + 7 * scale, x + 57 * scale, y + 57 * scale), fill=PAPER, outline=INK, width=3 * scale)
+    draw.line((x + 17 * scale, y + 36 * scale, x + 45 * scale, y + 36 * scale), fill=INK, width=5 * scale)
+    draw.ellipse((x + 41 * scale, y + 19 * scale, x + 49 * scale, y + 27 * scale), fill=INK)
 
 
 def og_image(language: str) -> Image.Image:
@@ -114,7 +106,7 @@ def og_image(language: str) -> Image.Image:
     hourly_font = font("arial.ttf", "NotoSans-Regular.ttf", size=18) if language == "en" else font("msyh.ttc", "NotoSansSC-VF.ttf", size=20)
     draw.text((790, 264), hourly, fill=(245, 241, 230, 180), font=hourly_font)
 
-    labels = ["OPENAI", "ANTHROPIC", "ARXIV", "HUGGING FACE"]
+    labels = ["OPENAI", "ARXIV", "HUGGING FACE", "JUYA"]
     chip_x = 790
     for label in labels:
         bbox = draw.textbbox((0, 0), label, font=font("arialbd.ttf", "NotoSans-Bold.ttf", size=14))

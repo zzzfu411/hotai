@@ -90,7 +90,7 @@ export default async function DigestPage() {
           emptyTitleZh={dbUnavailable ? "入库热榜暂时不可用" : undefined}
           emptyTitleEn={dbUnavailable ? "Stored hot list unavailable" : undefined}
           emptyCopyZh={dbUnavailable ? "数据库连接失败；首页 briefing 稍后再试。" : undefined}
-          emptyCopyEn={dbUnavailable ? "The database is unavailable; the live feed still works." : undefined}
+          emptyCopyEn={dbUnavailable ? "The database is unavailable; try the briefing again later." : undefined}
         />
       </section>
 

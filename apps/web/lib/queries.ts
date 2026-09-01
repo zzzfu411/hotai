@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { BRIEFING_SOURCE_SLUGS } from "@hotai/db";
+import { BRIEFING_SOURCE_SLUGS, isBriefingSourceSlug } from "@hotai/db";
 import { prisma } from "./db";
 
 /**
@@ -76,7 +76,8 @@ export function getCategoryArticles(category: string, limit = 80) {
 }
 
 export const getSourceBySlug = cache(function getSourceBySlug(slug: string) {
-  return prisma.source.findUnique({ where: { slug } });
+  if (!isBriefingSourceSlug(slug)) return Promise.resolve(null);
+  return prisma.source.findFirst({ where: { slug, enabled: true } });
 });
 
 export function getArticlesBySource(sourceId: number, limit = 80) {
@@ -133,10 +134,14 @@ export function getTodayDigestRow() {
   return prisma.digest.findUnique({ where: { date: startOfUtcDay() } });
 }
 
-/** Single article for the in-site reader (`/a/[id]`). */
+/**
+ * Single article for the in-site reader (`/a/[id]`).
+ * Ranked lists stay on the briefing allowlist; permalinks still resolve
+ * retained rows so existing digest `articleIds` do not 404 after a source flip.
+ */
 export const getArticleById = cache(function getArticleById(id: number) {
   return prisma.article.findFirst({
-    where: { id, source: BRIEFING_SOURCE_FILTER, publishedAt: articleWindow() },
+    where: { id, publishedAt: articleWindow() },
     include: WITH_SOURCE,
   });
 });
@@ -169,9 +174,9 @@ export function getEnabledSources() {
   });
 }
 
-/** Enabled source slugs — sitemap entries. */
+/** Briefing source slugs — sitemap entries. */
 export function getEnabledSourceSlugs() {
-  return prisma.source.findMany({ where: { enabled: true }, select: { slug: true } });
+  return prisma.source.findMany({ where: BRIEFING_SOURCE_FILTER, select: { slug: true } });
 }
 
 /**
@@ -267,28 +272,35 @@ export function getAskCorpus(hours = 48, limit = 25) {
   });
 }
 
+export type HomeBriefingScope = "today" | "retained";
+
+export type HomeBriefing = {
+  articles: Awaited<ReturnType<typeof loadHomeRows>>;
+  scope: HomeBriefingScope;
+};
+
+function loadHomeRows(publishedAt: { gte: Date; lt?: Date; lte?: Date }, limit: number) {
+  return prisma.article.findMany({
+    where: { source: BRIEFING_SOURCE_FILTER, publishedAt },
+    orderBy: [{ publishedAt: "desc" }, { score: "desc" }],
+    take: limit,
+    include: WITH_SOURCE,
+  });
+}
+
 /** Homepage briefing: today's enabled corpus, with a retained-corpus fallback. */
-export async function getHomeArticles(limit = 40) {
+export async function getHomeArticles(limit = 40): Promise<HomeBriefing> {
   const cutoff = articleCutoff();
   const today = startOfUtcDay();
-  const todayRows = await prisma.article.findMany({
-    where: {
-      source: BRIEFING_SOURCE_FILTER,
-      publishedAt: {
-        gte: new Date(Math.max(today.getTime(), cutoff.getTime())),
-        lt: endOfUtcDay(today),
-      },
+  const todayRows = await loadHomeRows(
+    {
+      gte: new Date(Math.max(today.getTime(), cutoff.getTime())),
+      lt: endOfUtcDay(today),
     },
-    orderBy: [{ publishedAt: "desc" }, { score: "desc" }],
-    take: limit,
-    include: WITH_SOURCE,
-  });
-  if (todayRows.length > 0) return todayRows;
+    limit,
+  );
+  if (todayRows.length > 0) return { articles: todayRows, scope: "today" };
 
-  return prisma.article.findMany({
-    where: { source: BRIEFING_SOURCE_FILTER, publishedAt: articleWindow() },
-    orderBy: [{ publishedAt: "desc" }, { score: "desc" }],
-    take: limit,
-    include: WITH_SOURCE,
-  });
+  const retained = await loadHomeRows(articleWindow(), limit);
+  return { articles: retained, scope: "retained" };
 }

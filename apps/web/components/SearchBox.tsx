@@ -55,7 +55,7 @@ export function SearchBox({
         <p className="ha-page-lede">
           {zh
             ? "范围：启用 AI 来源的最近 14 天 briefing corpus。"
-            : "Scope: Hot AI articles stored in the last 14 days. The live feed is not indexed here."}
+            : "Scope: the last 14 days of the LAMDA briefing corpus."}
         </p>
       </div>
       <form
@@ -125,7 +125,7 @@ export function SearchBox({
           <p>
             {zh
               ? "数据库暂时连不上；briefing 稍后再试。"
-              : "The database is offline; the live feed remains available."}
+              : "The database is offline; try the briefing again in a moment."}
           </p>
         </div>
       )}
