@@ -314,7 +314,9 @@ export function NookFeed() {
   );
 
   const visible = items.slice(0, shown);
-  const catMeta = CATALOG_CATEGORIES.find((c) => c.id === category);
+  const categoryIndex = CATALOG_CATEGORIES.findIndex((c) => c.id === category);
+  const catMeta = categoryIndex >= 0 ? CATALOG_CATEGORIES[categoryIndex] : undefined;
+  const categoryNo = (categoryIndex >= 0 ? categoryIndex + 1 : 0).toString().padStart(2, "0");
   const categoryDeck = CATEGORY_DECK[category];
   const errorText =
     error === "rate"
@@ -350,7 +352,7 @@ export function NookFeed() {
             {zh ? "LIVE · AI 信号编辑部" : "LIVE · AI SIGNAL DESK"}
           </p>
           <h1 className="kz-feed-title">
-            <span aria-hidden>00/</span>
+            <span aria-hidden>{categoryNo}/</span>
             {zh ? catMeta?.labelZh ?? "综合" : catMeta?.labelEn ?? "Mix"}
           </h1>
           <p className="kz-nook-deck">{zh ? categoryDeck.zh : categoryDeck.en}</p>
