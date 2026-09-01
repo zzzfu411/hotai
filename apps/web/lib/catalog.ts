@@ -153,6 +153,12 @@ export function getCatalogCategory(id: CatalogCategoryId): CatalogCategory {
   return CATALOG_CATEGORIES.find((c) => c.id === id) ?? CATALOG_CATEGORIES[0]!;
 }
 
+/** 1-based, zero-padded index used by 速闻 channel chips and the masthead. */
+export function catalogCategoryNumber(id: CatalogCategoryId): string {
+  const index = CATALOG_CATEGORIES.findIndex((c) => c.id === id);
+  return (Math.max(index, 0) + 1).toString().padStart(2, "0");
+}
+
 export function defaultEnabledIds(): string[] {
   return [...DEFAULT_ENABLED_IDS];
 }

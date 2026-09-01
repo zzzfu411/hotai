@@ -7,6 +7,8 @@ import {
   CATALOG_BY_ID,
   CATALOG_CATEGORIES,
   DEFAULT_ENABLED_IDS,
+  catalogCategoryNumber,
+  getCatalogCategory,
   idsForCategory,
   isCatalogCategoryId,
   type CatalogCategoryId,
@@ -314,9 +316,8 @@ export function NookFeed() {
   );
 
   const visible = items.slice(0, shown);
-  const categoryIndex = CATALOG_CATEGORIES.findIndex((c) => c.id === category);
-  const catMeta = categoryIndex >= 0 ? CATALOG_CATEGORIES[categoryIndex] : undefined;
-  const categoryNo = (categoryIndex >= 0 ? categoryIndex + 1 : 0).toString().padStart(2, "0");
+  const catMeta = getCatalogCategory(category);
+  const categoryNo = catalogCategoryNumber(category);
   const categoryDeck = CATEGORY_DECK[category];
   const errorText =
     error === "rate"
@@ -353,7 +354,7 @@ export function NookFeed() {
           </p>
           <h1 className="kz-feed-title">
             <span aria-hidden>{categoryNo}/</span>
-            {zh ? catMeta?.labelZh ?? "综合" : catMeta?.labelEn ?? "Mix"}
+            {zh ? catMeta.labelZh : catMeta.labelEn}
           </h1>
           <p className="kz-nook-deck">{zh ? categoryDeck.zh : categoryDeck.en}</p>
         </div>
@@ -393,7 +394,7 @@ export function NookFeed() {
       </p>
 
       <nav className="kz-nook-chips" aria-label={zh ? "频道" : "Channels"}>
-        {CATALOG_CATEGORIES.map((c, i) => (
+        {CATALOG_CATEGORIES.map((c) => (
           <button
             key={c.id}
             type="button"
@@ -401,7 +402,7 @@ export function NookFeed() {
             onClick={() => setCategory(c.id)}
             aria-pressed={c.id === category}
           >
-            <span className="kz-channel-index" aria-hidden>{(i + 1).toString().padStart(2, "0")}</span>
+            <span className="kz-channel-index" aria-hidden>{catalogCategoryNumber(c.id)}</span>
             <span>{zh ? c.labelZh : c.labelEn}</span>
           </button>
         ))}
