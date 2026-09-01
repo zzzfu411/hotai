@@ -11,9 +11,9 @@ type SourceSeed = {
   category: "research" | "industry" | "opensource" | "media";
 };
 
-// The default corpus is a private AI research briefing. Keep non-AI and
-// community rows in the database for deliberate re-enablement, but do not
-// let the seed silently turn them back on during a routine refresh.
+// Seed is the allowlist writer. Rows stay in the table so a source can be
+// added later, but re-enablement means adding the slug to BRIEFING_SOURCE_SLUGS
+// — a routine seed always rewrites Source.enabled from that set.
 const DEFAULT_ENABLED_SOURCE_SLUGS = BRIEFING_SOURCE_SLUG_SET;
 
 const sources: SourceSeed[] = [

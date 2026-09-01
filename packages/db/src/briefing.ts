@@ -1,9 +1,9 @@
 /**
  * Sources that make up Ria's private AI briefing corpus.
  *
- * Keep this list deliberately small: the seed uses it to set Source.enabled,
- * while web queries use it to prevent retained rows from disabled/legacy
- * sources (for example Hacker News) leaking into the briefing.
+ * Keep this list deliberately small: seed, fetcher, and ranked reads all
+ * treat it as the corpus. Flipping Source.enabled in the database is not
+ * enough — leftover HN rows stay out until the slug is added here.
  *
  * Default ON: HF Daily Papers, arXiv cs.LG/AI, OpenAI / Hugging Face / 橘鸦
  * changelogs. Everything else stays in seed but enabled=false.
