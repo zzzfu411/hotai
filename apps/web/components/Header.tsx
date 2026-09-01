@@ -16,9 +16,7 @@ export function Header() {
           className="ha-logo"
           aria-label={lang === "zh" ? "LAMDA briefing 首页" : "LAMDA briefing home"}
         >
-          <span className="ha-logo-hot">HOT</span>
-          <span className="ha-logo-ai">AI</span>
-          <span className="ha-logo-pulse" aria-hidden />
+          <span className="ha-logo-wordmark">{lang === "zh" ? "速闻" : "Brief"}</span>
         </Link>
         <div className="ha-brand-note">
             <strong lang="en">LAMDA / RIA</strong>

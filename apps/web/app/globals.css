@@ -2223,21 +2223,13 @@ html[data-theme="dark"] .chip-accent {
   color: var(--vermillion);
 }
 
-.ha-logo-hot,
-.ha-logo-ai {
+.ha-logo-wordmark {
   display: inline-flex;
   align-items: center;
   align-self: stretch;
   padding-inline: 9px;
-}
-
-.ha-logo-ai {
-  color: var(--vermillion);
-  border-left: 0;
-}
-
-.ha-logo-pulse {
-  display: none;
+  color: inherit;
+  font-weight: 700;
 }
 
 html[data-theme="dark"] .ha-logo {
@@ -3074,8 +3066,7 @@ html[data-theme="dark"] .ha-nook .ha-feed-title > span {
     height: 42px;
   }
 
-  .ha-logo-hot,
-  .ha-logo-ai {
+  .ha-logo-wordmark {
     padding-inline: 7px;
   }
 
@@ -3169,7 +3160,6 @@ html[data-theme="dark"] .ha-nook .ha-feed-title > span {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ha-logo-pulse,
   .ha-live-dot,
   .ha-refresh-icon.is-spinning,
   .ha-nook-item,
