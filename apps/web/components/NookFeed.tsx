@@ -45,6 +45,33 @@ type PullSnapshot = {
 
 type PullError = "rate" | "fail";
 
+type PullMessage =
+  | { t: "s"; source: PullSource }
+  | { t: "done"; okCount: number; failCount: number };
+
+/** Parse one NDJSON line from /api/catalog/pull; tolerant of junk lines. */
+function parsePullLine(line: string): PullMessage | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== "object") return null;
+  const rec = raw as Record<string, unknown>;
+  if (rec.t === "s" && rec.source && typeof rec.source === "object") {
+    return { t: "s", source: rec.source as PullSource };
+  }
+  if (rec.t === "done") {
+    return {
+      t: "done",
+      okCount: typeof rec.okCount === "number" ? rec.okCount : 0,
+      failCount: typeof rec.failCount === "number" ? rec.failCount : 0,
+    };
+  }
+  return null;
+}
+
 const PAGE_SIZE = 24;
 const ENABLED_KEY = "hotai.nook.enabled";
 const CLIENT_TTL_MS = 3 * 60 * 1000;
@@ -257,6 +284,11 @@ export function NookFeed() {
     setLoading(true);
 
     (async () => {
+      // Accumulate sources as they stream in; re-merge on each arrival so the
+      // timeline fills progressively instead of waiting for the slowest feed.
+      const received: PullSource[] = [];
+      let sawSource = false;
+      let complete = false;
       try {
         const res = await fetch("/api/catalog/pull", {
           method: "POST",
@@ -264,14 +296,9 @@ export function NookFeed() {
           body: JSON.stringify({ ids: pullIds }),
           signal: ac.signal,
         });
-        const data = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          sources?: PullSource[];
-        } | null;
-        if (ac.signal.aborted) return;
-        if (!res.ok || !data?.ok || !Array.isArray(data.sources)) {
-          if (!cached) {
+        if (!res.ok || !res.body) {
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          if (!ac.signal.aborted && !cached) {
             setItems([]);
             setOkCount(0);
             setFailCount(pullIds.length);
@@ -280,15 +307,49 @@ export function NookFeed() {
           return;
         }
 
-        const snap = { at: Date.now(), ...mergeSources(data.sources) };
-        clientPullCache.set(key, snap);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        for (;;) {
+          const { value, done: streamDone } = await reader.read();
+          if (streamDone) break;
+          buf += decoder.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) >= 0) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            if (!line) continue;
+            const msg = parsePullLine(line);
+            if (!msg) continue;
+            if (msg.t === "s") {
+              received.push(msg.source);
+              sawSource = true;
+              const merged = mergeSources(received);
+              setItems(merged.items);
+              setOkCount(merged.okCount);
+              setFailCount(merged.failCount);
+              setError(null);
+            } else if (msg.t === "done") {
+              complete = true;
+            }
+          }
+        }
+
+        const snap = { at: Date.now(), ...mergeSources(received) };
+        // Only cache a fully-drained stream so a dropped connection re-fetches.
+        if (complete) clientPullCache.set(key, snap);
         setItems(snap.items);
         setOkCount(snap.okCount);
         setFailCount(snap.failCount);
-        setError(null);
+        if (!sawSource && !cached) {
+          setFailCount(pullIds.length);
+          setError("fail");
+        } else {
+          setError(null);
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!ac.signal.aborted && !cached) {
+        if (!ac.signal.aborted && !cached && !sawSource) {
           setItems([]);
           setError("fail");
         }
