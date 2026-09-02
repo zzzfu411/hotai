@@ -15,8 +15,11 @@ const sources: SourceSeed[] = [
   // ===== Research =====
   {
     slug: "arxiv-cs-ai",
+    // The rss/cs.AI feed now exceeds FETCH_MAX_BYTES (~1.6MB, all cross-lists)
+    // and gets rejected every cycle. The Atom API bounded to the newest 40
+    // submissions is ~100KB and parses through the same rss-parser path.
     name: "arXiv cs.AI",
-    url: "http://export.arxiv.org/rss/cs.AI",
+    url: "http://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=40",
     homepage: "https://arxiv.org/list/cs.AI/recent",
     type: "rss",
     lang: "en",
@@ -56,16 +59,6 @@ const sources: SourceSeed[] = [
     category: "industry",
   },
   {
-    slug: "anthropic-news",
-    name: "Anthropic News",
-    url: "https://www.anthropic.com/news/rss.xml",
-    homepage: "https://www.anthropic.com/news",
-    type: "rss",
-    lang: "en",
-    weight: 2.0,
-    category: "industry",
-  },
-  {
     slug: "google-research",
     name: "Google Research Blog",
     url: "https://research.google/blog/rss/",
@@ -86,10 +79,10 @@ const sources: SourceSeed[] = [
     category: "industry",
   },
   {
-    slug: "meta-ai",
-    name: "Meta AI",
-    url: "https://ai.meta.com/blog/rss/",
-    homepage: "https://ai.meta.com/blog/",
+    slug: "google-ai-blog",
+    name: "Google AI Blog",
+    url: "https://blog.google/technology/ai/rss/",
+    homepage: "https://blog.google/technology/ai/",
     type: "rss",
     lang: "en",
     weight: 1.5,
@@ -128,37 +121,47 @@ const sources: SourceSeed[] = [
     category: "media",
   },
   {
-    slug: "theverge-ai",
-    name: "The Verge — AI",
-    url: "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
-    homepage: "https://www.theverge.com/ai-artificial-intelligence",
+    slug: "techcrunch-ai",
+    name: "TechCrunch AI",
+    url: "https://techcrunch.com/category/artificial-intelligence/feed/",
+    homepage: "https://techcrunch.com/category/artificial-intelligence/",
     type: "rss",
     lang: "en",
     weight: 1.2,
     category: "media",
   },
   {
-    slug: "arstechnica-ai",
-    name: "Ars Technica — AI",
-    url: "https://feeds.arstechnica.com/arstechnica/ai",
-    homepage: "https://arstechnica.com/ai/",
+    slug: "venturebeat-ai",
+    name: "VentureBeat AI",
+    url: "https://venturebeat.com/category/ai/feed/",
+    homepage: "https://venturebeat.com/category/ai/",
     type: "rss",
     lang: "en",
     weight: 1.1,
     category: "media",
   },
-
-  // ===== Chinese media =====
   {
-    slug: "jiqizhixin",
-    name: "机器之心",
-    url: "https://www.jiqizhixin.com/rss",
-    homepage: "https://www.jiqizhixin.com/",
+    slug: "mit-news-ai",
+    name: "MIT News — AI",
+    url: "https://news.mit.edu/rss/topic/artificial-intelligence2",
+    homepage: "https://news.mit.edu/topic/artificial-intelligence2",
     type: "rss",
-    lang: "zh",
-    weight: 1.5,
+    lang: "en",
+    weight: 1.2,
     category: "media",
   },
+  {
+    slug: "import-ai",
+    name: "Import AI",
+    url: "https://importai.substack.com/feed",
+    homepage: "https://importai.substack.com",
+    type: "rss",
+    lang: "en",
+    weight: 1.2,
+    category: "media",
+  },
+
+  // ===== Chinese media =====
   {
     slug: "qbitai",
     name: "量子位",
@@ -170,23 +173,13 @@ const sources: SourceSeed[] = [
     category: "media",
   },
   {
-    slug: "36kr-ai",
-    name: "36氪 AI",
-    url: "https://36kr.com/information/AI",
-    homepage: "https://36kr.com/information/AI",
-    type: "scrape",
+    slug: "leiphone",
+    name: "雷峰网",
+    url: "https://www.leiphone.com/feed",
+    homepage: "https://www.leiphone.com/",
+    type: "rss",
     lang: "zh",
-    weight: 1.2,
-    category: "media",
-  },
-  {
-    slug: "infoq-cn-ai",
-    name: "InfoQ 中国 · AI",
-    url: "https://www.infoq.cn/topic/AI",
-    homepage: "https://www.infoq.cn/topic/AI",
-    type: "scrape",
-    lang: "zh",
-    weight: 1.1,
+    weight: 1.3,
     category: "media",
   },
 
@@ -204,7 +197,9 @@ const sources: SourceSeed[] = [
   {
     slug: "huggingface-trending",
     name: "HuggingFace Trending Models",
-    url: "https://huggingface.co/api/models?sort=trending&limit=30",
+    // HF dropped `sort=trending` (now 400); `trendingScore` + explicit
+    // direction is the current trending query.
+    url: "https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=30",
     homepage: "https://huggingface.co/models?sort=trending",
     type: "api",
     lang: "en",
@@ -1303,9 +1298,27 @@ async function main() {
         lang: s.lang,
         weight: s.weight,
         category: s.category,
+        // Seeded sources are the canonical active set: re-enable and clear any
+        // auto-disable / failure state so a fixed URL comes back to life.
+        enabled: true,
+        consecutiveFails: 0,
+        lastError: null,
+        lastErrorAt: null,
       },
     });
     console.log(`  ✓ ${s.slug}`);
+  }
+
+  // Retire sources no longer in the seed (dead feeds removed above). Soft
+  // disable rather than delete — Article rows cascade on Source delete, and
+  // disabling is enough to keep the fetcher from touching them.
+  const keepSlugs = sources.map((s) => s.slug);
+  const pruned = await prisma.source.updateMany({
+    where: { slug: { notIn: keepSlugs }, enabled: true },
+    data: { enabled: false, lastError: "retired: no longer in seed", lastErrorAt: new Date() },
+  });
+  if (pruned.count > 0) {
+    console.log(`  ⤵ disabled ${pruned.count} source(s) no longer in seed`);
   }
 
   console.log(`Seeding ${blogs.length} curated blogs (+ reading guides)...`);
