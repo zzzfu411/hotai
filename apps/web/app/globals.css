@@ -2798,6 +2798,11 @@ html[data-theme="dark"] .kz-nook .kz-feed-title > span {
 .kz-nook-item:nth-child(5) { animation-delay: 140ms; }
 .kz-nook-item:nth-child(6) { animation-delay: 175ms; }
 
+/* History and refresh restoration should not replay card entry motion. */
+.kz-nook-continuity .kz-nook-item {
+  animation: none;
+}
+
 .kz-nook-item:hover {
   transform: translate(-3px, -3px);
   box-shadow: var(--shadow-lg);

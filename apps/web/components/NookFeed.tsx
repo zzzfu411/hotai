@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CATALOG_BY_ID,
@@ -12,6 +12,14 @@ import {
   type CatalogCategoryId,
 } from "@/lib/catalog";
 import { timeAgo } from "@/lib/format";
+import {
+  createNookHistorySnapshot,
+  mergeNookHistoryState,
+  NOOK_PAGE_SIZE,
+  readNookHistorySnapshot,
+  visibleCountForAnchor,
+  type NookHistorySnapshot,
+} from "@/lib/nook-history";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
 
@@ -45,7 +53,6 @@ type PullSnapshot = {
 
 type PullError = "rate" | "fail";
 
-const PAGE_SIZE = 24;
 const ENABLED_KEY = "hotai.nook.enabled";
 const CLIENT_TTL_MS = 3 * 60 * 1000;
 const MAX_REMOTE_ITEMS = 80;
@@ -130,6 +137,29 @@ function publishedTs(iso: string | null): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function findNookCard(anchorKey?: string, nearestWhenMissing = true): HTMLElement | null {
+  const cards = document.querySelectorAll<HTMLElement>("[data-nook-key]");
+  if (anchorKey) {
+    for (const card of cards) {
+      if (card.dataset.nookKey === anchorKey) return card;
+    }
+    if (!nearestWhenMissing) return null;
+  }
+
+  let nearest: HTMLElement | null = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const card of cards) {
+    const rect = card.getBoundingClientRect();
+    if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue;
+    const distance = Math.abs(rect.top);
+    if (distance < nearestDistance) {
+      nearest = card;
+      nearestDistance = distance;
+    }
+  }
+  return nearest;
+}
+
 function mergeSources(sources: PullSource[]): Omit<PullSnapshot, "at"> {
   const merged: TimelineItem[] = [];
   const seen = new Set<string>();
@@ -167,16 +197,25 @@ const NookCard = memo(function NookCard({
   lang,
   index,
   featured,
+  onOpen,
 }: {
   item: TimelineItem;
   lang: "zh" | "en";
   index: number;
   featured?: boolean;
+  onOpen: (anchorKey: string) => void;
 }) {
   const when = item.publishedAt ? new Date(item.publishedAt) : null;
   return (
-    <li className={featured ? "kz-card kz-nook-item kz-nook-item-featured" : "kz-card kz-nook-item"}>
-      <Link href={readerHref(item)} className="kz-nook-link">
+    <li
+      className={featured ? "kz-card kz-nook-item kz-nook-item-featured" : "kz-card kz-nook-item"}
+      data-nook-key={item.url}
+    >
+      <Link
+        href={readerHref(item)}
+        className="kz-nook-link"
+        onNavigate={() => onOpen(item.url)}
+      >
         {item.image ? <Cover src={item.image} alt="" /> : null}
         <div className="kz-nook-copy">
           <p className="kz-nook-item-meta">
@@ -215,10 +254,13 @@ export function NookFeed() {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [okCount, setOkCount] = useState(0);
   const [failCount, setFailCount] = useState(0);
-  const [shown, setShown] = useState(PAGE_SIZE);
+  const [shown, setShown] = useState(NOOK_PAGE_SIZE);
   const [epoch, setEpoch] = useState(0);
   const [error, setError] = useState<PullError | null>(null);
+  const [suppressCardMotion, setSuppressCardMotion] = useState(false);
   const prevEpoch = useRef(0);
+  const previousViewKey = useRef<string | null>(null);
+  const pendingRestore = useRef<NookHistorySnapshot | null>(null);
 
   useEffect(() => {
     const next = loadEnabled();
@@ -227,14 +269,64 @@ export function NookFeed() {
   }, []);
 
   const pullIds = useMemo(() => idsForCategory(category, enabled), [category, enabled]);
+  const viewKey = useMemo(() => `${category}:${pullIds.join(",")}`, [category, pullIds]);
+  const shownRef = useRef(shown);
+  const viewKeyRef = useRef(viewKey);
+
+  useLayoutEffect(() => {
+    shownRef.current = shown;
+    viewKeyRef.current = viewKey;
+  }, [shown, viewKey]);
+
+  const captureProgress = useCallback((anchorKey?: string): NookHistorySnapshot | null => {
+    if (typeof window === "undefined") return null;
+    if (!document.querySelector("[data-nook-key]")) return null;
+    const anchor = findNookCard(anchorKey);
+    const rect = anchor?.getBoundingClientRect();
+    return createNookHistorySnapshot({
+      viewKey: viewKeyRef.current,
+      shown: shownRef.current,
+      scrollY: window.scrollY,
+      anchorKey: anchor?.dataset.nookKey ?? anchorKey ?? null,
+      anchorOffset: rect?.top ?? 0,
+    });
+  }, []);
+
+  const rememberProgress = useCallback((anchorKey?: string) => {
+    const snapshot = captureProgress(anchorKey);
+    if (!snapshot) return;
+    try {
+      window.history.replaceState(
+        mergeNookHistoryState(window.history.state, snapshot),
+        "",
+        window.location.href,
+      );
+    } catch {
+      // History state can be unavailable in locked-down/private contexts.
+    }
+  }, [captureProgress]);
 
   useEffect(() => {
     if (!ready) return;
     const key = cacheKey(pullIds);
     const force = epoch !== prevEpoch.current;
     prevEpoch.current = epoch;
+    const viewChanged = previousViewKey.current !== viewKey;
+    previousViewKey.current = viewKey;
+    let restored: NookHistorySnapshot | null = null;
+    if (viewChanged) {
+      restored = readNookHistorySnapshot(window.history.state, viewKey);
+      pendingRestore.current = restored;
+      setSuppressCardMotion(Boolean(restored));
+      setShown(restored?.shown ?? NOOK_PAGE_SIZE);
+    }
     const cached = clientPullCache.get(key);
-    const fresh = Boolean(cached && Date.now() - cached.at < CLIENT_TTL_MS && !force);
+    // A browser-history return should first recreate the exact list the user
+    // left. Reordering it immediately because the 3-minute TTL elapsed would
+    // defeat anchor restoration; the explicit refresh control remains available.
+    const fresh = Boolean(
+      cached && !force && (Date.now() - cached.at < CLIENT_TTL_MS || restored),
+    );
 
     if (cached) {
       setItems(cached.items);
@@ -246,8 +338,6 @@ export function NookFeed() {
       setOkCount(0);
       setFailCount(0);
     }
-    setShown(PAGE_SIZE);
-
     if (fresh) {
       setLoading(false);
       return;
@@ -280,6 +370,11 @@ export function NookFeed() {
           return;
         }
 
+        const continuity = pendingRestore.current ? null : captureProgress();
+        if (continuity) {
+          pendingRestore.current = continuity;
+          setSuppressCardMotion(true);
+        }
         const snap = { at: Date.now(), ...mergeSources(data.sources) };
         clientPullCache.set(key, snap);
         setItems(snap.items);
@@ -298,10 +393,42 @@ export function NookFeed() {
     })();
 
     return () => ac.abort();
-  }, [ready, pullIds, epoch]);
+  }, [ready, pullIds, viewKey, epoch, captureProgress]);
+
+  useLayoutEffect(() => {
+    const snapshot = pendingRestore.current;
+    if (!snapshot || snapshot.viewKey !== viewKey || items.length === 0 || loading) return;
+
+    if (snapshot.anchorKey) {
+      const anchorIndex = items.findIndex((item) => item.url === snapshot.anchorKey);
+      const expanded = visibleCountForAnchor(shown, anchorIndex, items.length);
+      if (expanded > shown) {
+        setShown(expanded);
+        return;
+      }
+    }
+
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        if (pendingRestore.current !== snapshot) return;
+        const anchor = snapshot.anchorKey ? findNookCard(snapshot.anchorKey, false) : null;
+        const target = anchor
+          ? window.scrollY + anchor.getBoundingClientRect().top - snapshot.anchorOffset
+          : snapshot.scrollY;
+        window.scrollTo({ top: Math.max(0, target), left: 0, behavior: "auto" });
+        pendingRestore.current = null;
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [items, shown, viewKey, loading]);
 
   const setCategory = useCallback(
     (id: CatalogCategoryId) => {
+      rememberProgress();
       const next = new URLSearchParams(params.toString());
       if (id === "mix") next.delete("c");
       else next.set("c", id);
@@ -310,7 +437,7 @@ export function NookFeed() {
       // returns to the previous lane instead of silently skipping it.
       router.push(q ? `${pathname}?${q}` : pathname, { scroll: false });
     },
-    [params, pathname, router],
+    [params, pathname, rememberProgress, router],
   );
 
   const visible = items.slice(0, shown);
@@ -342,7 +469,7 @@ export function NookFeed() {
       : "New signals will appear here after the sources sync.";
 
   return (
-    <div className="kz-nook" aria-busy={loading}>
+    <div className={suppressCardMotion ? "kz-nook kz-nook-continuity" : "kz-nook"} aria-busy={loading}>
       <header className="kz-nook-head">
         <div className="kz-nook-title-block">
           <p className="kz-signal-eyebrow">
@@ -423,6 +550,7 @@ export function NookFeed() {
             lang={lang}
             index={i + 1}
             featured={i === 0}
+            onOpen={rememberProgress}
           />
         ))}
       </ul>
@@ -442,7 +570,7 @@ export function NookFeed() {
 
       {!loading && shown < items.length ? (
         <div className="kz-nook-more">
-          <button type="button" className="kz-btn kz-btn-wide" onClick={() => setShown((n) => n + PAGE_SIZE)}>
+          <button type="button" className="kz-btn kz-btn-wide" onClick={() => setShown((n) => n + NOOK_PAGE_SIZE)}>
             {zh ? "继续读取下一组" : "Load the next signals"}
           </button>
           <span className="kz-nook-progress font-mono tabular-nums">
