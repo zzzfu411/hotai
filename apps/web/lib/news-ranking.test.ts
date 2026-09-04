@@ -106,6 +106,36 @@ describe("rankHomepageItems", () => {
     expect(counts["gnews-top"]).toBe(12);
   });
 
+  it("keeps a months-old dramatic story out of a full fresh front page", () => {
+    const staleDisaster = story(
+      "dw-zh",
+      "委内瑞拉发生连续两次强震 死亡人数恐将大幅上升",
+      24 * 70,
+    );
+    const freshSources = [
+      "gnews-top",
+      "gnews-world",
+      "gnews-biz",
+      "bbc-zh",
+      "theverge",
+      "ithome",
+    ];
+    const fresh = freshSources.flatMap((sourceId, sourceIndex) =>
+      Array.from({ length: 4 }, (_, index) => {
+        const marker = sourceIndex * 10 + index + 700;
+        return story(
+          sourceId,
+          `Dispatch${marker} bulletin${marker} context${marker} marker${marker}`,
+          1 + index,
+        );
+      }),
+    );
+
+    const firstPage = rankHomepageItems([staleDisaster, ...fresh], { now: NOW }).slice(0, 24);
+
+    expect(firstPage).not.toContain(staleDisaster);
+  });
+
   it("keeps malformed numeric entities from breaking a remote batch", () => {
     const malformed = story(
       "gnews-top",

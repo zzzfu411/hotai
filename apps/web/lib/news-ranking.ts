@@ -28,6 +28,8 @@ type RankOptions = {
 
 const HOUR_MS = 60 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 24;
+const FUTURE_TIMESTAMP_GRACE_HOURS = 6;
+const STALE_DECAY_START_HOURS = 72;
 export const EDITORIAL_ITEMS_PER_SOURCE = 4;
 
 const SOURCE_WEIGHT: Readonly<Record<string, number>> = {
@@ -240,9 +242,24 @@ function headlineSimilarity(a: Candidate<RankableNewsItem>, b: Candidate<Rankabl
 }
 
 function freshnessScore(publishedTs: number, now: number): number {
-  if (!publishedTs) return -0.45;
-  const ageHours = Math.max(0, (now - publishedTs) / HOUR_MS);
-  return Math.max(-1.5, 1.25 - Math.log2(1 + ageHours / 2) * 0.38);
+  if (!publishedTs) return -2.25;
+  const ageHours = (now - publishedTs) / HOUR_MS;
+  if (ageHours < -FUTURE_TIMESTAMP_GRACE_HOURS) {
+    const futureHours = Math.abs(ageHours) - FUTURE_TIMESTAMP_GRACE_HOURS;
+    return Math.max(-5, -2.25 - Math.log2(1 + futureHours / 24));
+  }
+
+  const effectiveAgeHours = Math.max(0, ageHours);
+  const recentScore = 1.25 - Math.log2(1 + effectiveAgeHours / 2) * 0.38;
+  if (effectiveAgeHours <= STALE_DECAY_START_HOURS) return recentScore;
+
+  // Major-event keywords remain useful, but should not keep months-old stories
+  // on today's front page after their normal freshness score has bottomed out.
+  const stalePenalty = Math.min(
+    5,
+    Math.log2(effectiveAgeHours / STALE_DECAY_START_HOURS) * 1.15,
+  );
+  return recentScore - stalePenalty;
 }
 
 function signalScore(title: string): number {
