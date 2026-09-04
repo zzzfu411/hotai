@@ -1,4 +1,5 @@
 import { lookup as dnsLookup } from "node:dns/promises";
+import type { LookupAddress, LookupOptions } from "node:dns";
 import { BlockList, isIPv4, isIPv6, isIP } from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
 
@@ -270,14 +271,32 @@ export async function assertPublicHostname(hostname: string): Promise<void> {
   await resolvePublicHostname(hostname);
 }
 
-function publicAgent(servername: string): Agent {
-  // Intentionally no custom `lookup` pin. On Node 22, undici 6's
-  // `cb(null, address, family)` form throws ERR_INVALID_IP_ADDRESS and
-  // the catalog timeline comes back empty. Hostname was already
-  // allowlisted by resolvePublicHostname() just above the connect.
+type LookupCallback = (
+  error: NodeJS.ErrnoException | null,
+  address: string | LookupAddress[],
+  family?: number,
+) => void;
+
+/**
+ * Return only the address that passed the SSRF check. Node 22's Happy
+ * Eyeballs path requests `all: true`, while older/single-family paths expect
+ * the legacy `(address, family)` callback shape.
+ */
+export function createPinnedLookup(address: string, family: number) {
+  return (_hostname: string, options: LookupOptions, callback: LookupCallback): void => {
+    if (options.all) {
+      callback(null, [{ address, family }]);
+      return;
+    }
+    callback(null, address, family);
+  };
+}
+
+function pinnedAgent(servername: string, address: string, family: number): Agent {
   return new Agent({
     connect: {
       servername,
+      lookup: createPinnedLookup(address, family),
     },
   });
 }
@@ -377,13 +396,13 @@ export async function fetchPublic(
       const host = current.hostname;
       const literal = isIPv4(host) || isIPv6(host) || isIPv6(stripZone(host)) || hostnameAsIPv4(host);
       if (!literal) {
-        await resolvePublicHostname(host);
-        dispatcher = publicAgent(host);
+        const pin = await resolvePublicHostname(host);
+        dispatcher = pinnedAgent(host, pin.address, pin.family);
       }
 
       // undici, not Next-patched fetch: Next would auto-follow redirects and
-      // skip the per-hop SSRF re-check. Hostname allowlisting happens before
-      // connect; we do not pin lookup() because Node 22 rejects that form.
+      // skip the per-hop SSRF re-check. The lookup callback is pinned to the
+      // address just allowlisted, with both Node 22 and legacy callback shapes.
       const res = await undiciFetch(current.href, {
         method: "GET",
         redirect: "manual",

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   UnsafeUrlError,
   assertPublicHttpUrl,
+  createPinnedLookup,
   isBlockedAddress,
   isBlockedHostname,
   isBlockedResolvedAddress,
@@ -73,6 +74,28 @@ describe("parsePublicHttpUrl", () => {
 describe("assertPublicHttpUrl", () => {
   it("rejects http://127.0.0.1/1 without DNS", async () => {
     await expect(assertPublicHttpUrl("http://127.0.0.1/1")).rejects.toBeInstanceOf(UnsafeUrlError);
+  });
+});
+
+describe("createPinnedLookup", () => {
+  it("returns an address array for Node 22 Happy Eyeballs lookups", () => {
+    expect.assertions(3);
+    const lookup = createPinnedLookup("93.184.216.34", 4);
+    lookup("example.com", { all: true }, (error, addresses, family) => {
+      expect(error).toBeNull();
+      expect(addresses).toEqual([{ address: "93.184.216.34", family: 4 }]);
+      expect(family).toBeUndefined();
+    });
+  });
+
+  it("keeps the legacy single-address callback shape", () => {
+    expect.assertions(3);
+    const lookup = createPinnedLookup("2606:2800:220:1:248:1893:25c8:1946", 6);
+    lookup("example.com", { all: false }, (error, address, family) => {
+      expect(error).toBeNull();
+      expect(address).toBe("2606:2800:220:1:248:1893:25c8:1946");
+      expect(family).toBe(6);
+    });
   });
 });
 
