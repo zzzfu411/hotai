@@ -13,7 +13,7 @@ import { loadRemoteFeed } from "@/lib/feed-cache";
 import { parseFeedQuery, pickFeedSummary } from "@/lib/feed";
 import { limitIp } from "@/lib/ip-rate-limit";
 import type { RemoteFeed, RemoteFeedItem } from "@/lib/parse-remote-feed";
-import { mapPool } from "@/lib/pool";
+import { mapPool, mapPoolProgress } from "@/lib/pool";
 import { getFeedArticles } from "@/lib/queries";
 import { UnsafeUrlError } from "@/lib/ssrf";
 import { readJsonBody } from "@/lib/request";
@@ -23,9 +23,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 /**
- * POST /api/catalog/pull  { ids: string[] }
+ * POST /api/catalog/pull  { ids: string[], stream?: boolean }
  * Live-fetch allowlisted catalog feeds. Never writes Article/Source.
  * Per-URL memory cache + coalescing lives in lib/feed-cache.ts.
+ * stream=true emits one JSON line per completed source, then a done event.
  */
 
 function slimItems(items: RemoteFeedItem[]): RemoteFeedItem[] {
@@ -84,6 +85,76 @@ export type CatalogPullSource = {
   error?: string;
 };
 
+async function pullCatalogSource(src: CatalogSource): Promise<CatalogPullSource> {
+  try {
+    const parsed = await loadCatalogFeed(src);
+    if (!parsed) {
+      return { id: src.id, name: src.name, ok: false, items: [], error: "unrecognized feed" };
+    }
+    return {
+      id: src.id,
+      name: src.name,
+      ok: true,
+      title: parsed.title,
+      items: slimItems(parsed.items),
+    };
+  } catch (err) {
+    if (err instanceof UnsafeUrlError) {
+      return { id: src.id, name: src.name, ok: false, items: [], error: "blocked url" };
+    }
+    return { id: src.id, name: src.name, ok: false, items: [], error: "fetch failed" };
+  }
+}
+
+function streamCatalogSources(sources: CatalogSource[]): Response {
+  const encoder = new TextEncoder();
+  let closed = false;
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let completed = 0;
+      const send = (value: unknown) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`));
+        } catch {
+          closed = true;
+        }
+      };
+
+      send({ total: sources.length });
+      try {
+        await mapPoolProgress(sources, CATALOG_CONCURRENCY, pullCatalogSource, (source, index) => {
+          completed++;
+          send({ source, index, completed, total: sources.length });
+        });
+        send({ done: true, completed, total: sources.length });
+      } finally {
+        if (!closed) {
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            // The browser can cancel between the last write and close.
+          }
+        }
+      }
+    },
+    cancel() {
+      closed = true;
+      // Upstream requests are shared through feed-cache and remain useful to
+      // other visitors even when this browser leaves before the stream ends.
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "content-type": "application/x-ndjson; charset=utf-8",
+      "cache-control": "no-store, no-transform",
+      "x-accel-buffering": "no",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
 export async function POST(req: Request) {
   const limited = await limitIp("catalog-pull", clientIp(req), { limit: 40, windowMs: 60_000 });
   if (!limited.ok) {
@@ -99,7 +170,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const parsed = await readJsonBody<{ ids?: unknown }>(req, 16 * 1024);
+  const parsed = await readJsonBody<{ ids?: unknown; stream?: unknown }>(req, 16 * 1024);
   if (!parsed.ok) return NextResponse.json({ ok: false, error: parsed.error }, { status: parsed.status });
   const body = parsed.value;
   const rawIds = Array.isArray(body?.ids)
@@ -110,26 +181,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "no catalog ids" }, { status: 400 });
   }
 
-  const results = await mapPool(sources, CATALOG_CONCURRENCY, async (src): Promise<CatalogPullSource> => {
-    try {
-      const parsed = await loadCatalogFeed(src);
-      if (!parsed) {
-        return { id: src.id, name: src.name, ok: false, items: [], error: "unrecognized feed" };
-      }
-      return {
-        id: src.id,
-        name: src.name,
-        ok: true,
-        title: parsed.title,
-        items: slimItems(parsed.items),
-      };
-    } catch (err) {
-      if (err instanceof UnsafeUrlError) {
-        return { id: src.id, name: src.name, ok: false, items: [], error: "blocked url" };
-      }
-      return { id: src.id, name: src.name, ok: false, items: [], error: "fetch failed" };
-    }
-  });
+  if (body?.stream === true) return streamCatalogSources(sources);
+
+  const results = await mapPool(sources, CATALOG_CONCURRENCY, pullCatalogSource);
 
   return NextResponse.json({ ok: true, sources: results });
 }

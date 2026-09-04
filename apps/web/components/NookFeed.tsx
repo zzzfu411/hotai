@@ -20,6 +20,8 @@ import {
   visibleCountForAnchor,
   type NookHistorySnapshot,
 } from "@/lib/nook-history";
+import { readJsonLines } from "@/lib/json-lines";
+import { preserveVisiblePrefix } from "@/lib/progressive-list";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
 
@@ -40,7 +42,7 @@ type PullSource = {
   id: string;
   name: string;
   ok: boolean;
-  items?: RemoteItem[];
+  items?: unknown;
   error?: string;
 };
 
@@ -81,6 +83,35 @@ function cacheKey(ids: string[]): string {
 function sameIds(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((id, i) => id === b[i]);
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function pullSourceFromEvent(value: unknown): PullSource | null {
+  const source = record(record(value)?.source);
+  if (
+    !source ||
+    typeof source.id !== "string" ||
+    typeof source.name !== "string" ||
+    typeof source.ok !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    id: source.id,
+    name: source.name,
+    ok: source.ok,
+    items: source.items,
+    error: typeof source.error === "string" ? source.error : undefined,
+  };
+}
+
+function isDoneEvent(value: unknown): boolean {
+  return record(value)?.done === true;
 }
 
 function readItems(raw: unknown): RemoteItem[] {
@@ -183,6 +214,22 @@ function mergeSources(sources: PullSource[]): Omit<PullSnapshot, "at"> {
   return { items: merged, okCount: ok, failCount: fail };
 }
 
+function sameTimelineItems(a: TimelineItem[], b: TimelineItem[]): boolean {
+  return a.length === b.length && a.every((item, index) => {
+    const next = b[index];
+    return Boolean(
+      next &&
+      item.url === next.url &&
+      item.title === next.title &&
+      item.summary === next.summary &&
+      item.publishedAt === next.publishedAt &&
+      item.image === next.image &&
+      item.sourceId === next.sourceId &&
+      item.sourceName === next.sourceName
+    );
+  });
+}
+
 const Cover = memo(function Cover({ src, alt }: { src: string; alt: string }) {
   const [ok, setOk] = useState(true);
   if (!ok) return null;
@@ -254,6 +301,7 @@ export function NookFeed() {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [okCount, setOkCount] = useState(0);
   const [failCount, setFailCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
   const [shown, setShown] = useState(NOOK_PAGE_SIZE);
   const [epoch, setEpoch] = useState(0);
   const [error, setError] = useState<PullError | null>(null);
@@ -337,13 +385,58 @@ export function NookFeed() {
       setItems([]);
       setOkCount(0);
       setFailCount(0);
+      setError(null);
     }
+    setCompletedCount(fresh ? pullIds.length : 0);
     if (fresh) {
       setLoading(false);
       return;
     }
 
     const ac = new AbortController();
+    const received = new Map<string, PullSource>();
+    const allowedIds = new Set(pullIds);
+    const keepCachedDuringStream = Boolean(cached?.items.length);
+    let committedItems = cached?.items ?? [];
+    let streamDone = false;
+
+    const mergeReceived = (complete: boolean) => {
+      const ordered = pullIds
+        .map((id) => received.get(id))
+        .filter((source): source is PullSource => Boolean(source));
+      const merged = mergeSources(ordered);
+      if (complete) merged.failCount += pullIds.length - received.size;
+      return merged;
+    };
+
+    const publish = (snapshot: Omit<PullSnapshot, "at">) => {
+      const nextItems = preserveVisiblePrefix(
+        committedItems,
+        snapshot.items,
+        shownRef.current,
+        (item) => item.url,
+      );
+      if (!sameTimelineItems(committedItems, nextItems)) {
+        const stableVisibleCount = Math.min(committedItems.length, shownRef.current);
+        const visibleCardsChanged = !sameTimelineItems(
+          committedItems.slice(0, stableVisibleCount),
+          nextItems.slice(0, stableVisibleCount),
+        );
+        const continuity = visibleCardsChanged && !pendingRestore.current
+          ? captureProgress()
+          : null;
+        if (continuity) {
+          pendingRestore.current = continuity;
+          setSuppressCardMotion(true);
+        }
+        committedItems = nextItems;
+        setItems(nextItems);
+      }
+      setOkCount(snapshot.okCount);
+      setFailCount(snapshot.failCount);
+      setError(null);
+    };
+
     setLoading(true);
 
     (async () => {
@@ -351,17 +444,13 @@ export function NookFeed() {
         const res = await fetch("/api/catalog/pull", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: pullIds }),
+          body: JSON.stringify({ ids: pullIds, stream: true }),
           signal: ac.signal,
         });
-        const data = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          sources?: PullSource[];
-        } | null;
         if (ac.signal.aborted) return;
-        if (!res.ok || !data?.ok || !Array.isArray(data.sources)) {
-          if (!cached) {
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          if (!keepCachedDuringStream) {
             setItems([]);
             setOkCount(0);
             setFailCount(pullIds.length);
@@ -369,23 +458,32 @@ export function NookFeed() {
           }
           return;
         }
+        if (!res.body) throw new Error("catalog stream unavailable");
 
-        const continuity = pendingRestore.current ? null : captureProgress();
-        if (continuity) {
-          pendingRestore.current = continuity;
-          setSuppressCardMotion(true);
-        }
-        const snap = { at: Date.now(), ...mergeSources(data.sources) };
+        await readJsonLines(res.body, (value) => {
+          if (isDoneEvent(value)) {
+            streamDone = true;
+            return;
+          }
+          const source = pullSourceFromEvent(value);
+          if (!source || !allowedIds.has(source.id)) return;
+          received.set(source.id, source);
+          setCompletedCount(received.size);
+          if (!keepCachedDuringStream) publish(mergeReceived(false));
+        });
+        if (!streamDone) throw new Error("catalog stream ended early");
+
+        const complete = mergeReceived(true);
+        publish(complete);
+        setCompletedCount(pullIds.length);
+        const snap = { at: Date.now(), ...complete, items: committedItems };
         clientPullCache.set(key, snap);
-        setItems(snap.items);
-        setOkCount(snap.okCount);
-        setFailCount(snap.failCount);
-        setError(null);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!ac.signal.aborted && !cached) {
-          setItems([]);
-          setError("fail");
+        if (!ac.signal.aborted && !keepCachedDuringStream) {
+          const partial = mergeReceived(true);
+          publish(partial);
+          if (partial.items.length === 0) setError("fail");
         }
       } finally {
         if (!ac.signal.aborted) setLoading(false);
@@ -397,15 +495,18 @@ export function NookFeed() {
 
   useLayoutEffect(() => {
     const snapshot = pendingRestore.current;
-    if (!snapshot || snapshot.viewKey !== viewKey || items.length === 0 || loading) return;
+    if (!snapshot || snapshot.viewKey !== viewKey || items.length === 0) return;
 
     if (snapshot.anchorKey) {
       const anchorIndex = items.findIndex((item) => item.url === snapshot.anchorKey);
+      if (anchorIndex < 0 && loading) return;
       const expanded = visibleCountForAnchor(shown, anchorIndex, items.length);
       if (expanded > shown) {
         setShown(expanded);
         return;
       }
+    } else if (loading) {
+      return;
     }
 
     let secondFrame = 0;
@@ -568,7 +669,7 @@ export function NookFeed() {
         </div>
       ) : null}
 
-      {!loading && shown < items.length ? (
+      {shown < items.length ? (
         <div className="kz-nook-more">
           <button type="button" className="kz-btn kz-btn-wide" onClick={() => setShown((n) => n + NOOK_PAGE_SIZE)}>
             {zh ? "继续读取下一组" : "Load the next signals"}
@@ -580,7 +681,9 @@ export function NookFeed() {
       ) : null}
       {loading && items.length > 0 ? (
         <p className="kz-nook-meta kz-nook-meta-center" role="status">
-          {zh ? "更新中…" : "Refreshing…"}
+          {zh
+            ? `后续来源同步中 · ${completedCount}/${pullIds.length}`
+            : `Syncing more sources · ${completedCount}/${pullIds.length}`}
         </p>
       ) : null}
     </div>
