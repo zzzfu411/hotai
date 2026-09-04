@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "hotai-theme";
-const THEME_COLOR = { light: "#ffd60a", dark: "#090b12" } as const;
+const THEME_COLOR = { light: "#f4f0e8", dark: "#171513" } as const;
 
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";
@@ -71,7 +71,7 @@ export function ThemeToggle() {
           // Keep the current session usable when persistent storage is unavailable.
         }
       }}
-      className="kz-btn kz-btn-icon"
+      className="ha-btn ha-btn-icon"
       aria-label={next === "dark" ? "Switch to dark mode" : "Switch to light mode"}
       title={next === "dark" ? "Dark" : "Light"}
     >

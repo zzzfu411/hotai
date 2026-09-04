@@ -6,14 +6,14 @@ import { LangProvider } from "@/components/LangContext";
 import { ThemeNoFlashScript } from "@/components/ThemeToggle";
 
 const GOOGLE_FONTS =
-  "https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;700;900&display=swap";
+  "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;700;900&display=swap";
 
 export const metadata: Metadata = {
   title: {
     default: `${SITE.name} — ${SITE.tagline_zh}`,
     template: `%s · ${SITE.name}`,
   },
-  description: "每日 AI 新闻、研究与开源热度榜 — 按热度排序，Claude 摘要。",
+  description: "给 Ria 的私有 LAMDA AI 研究简报。",
   metadataBase: new URL(SITE.url),
   manifest: "/manifest.webmanifest",
   icons: {
@@ -47,8 +47,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffd60a" },
-    { media: "(prefers-color-scheme: dark)", color: "#090b12" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f0e8" },
+    { media: "(prefers-color-scheme: dark)", color: "#171513" },
   ],
 };
 

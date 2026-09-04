@@ -1,12 +1,12 @@
 # Hot AI
 
-NewsNook 式多源速闻阅读器；Hot AI（打分热榜 / 简报 / 问答）作为其中一块模块。数据源涵盖谷歌要闻、BBC、科技媒体，以及 fetcher 聚合的 AI 行业源。
+给 Ria 的私有 LAMDA AI briefing：把 AI 论文、Hugging Face Daily Papers 和实验室更新收拢成一张安静的阅读桌。它不是公共 HN/SaaS 展示、机器之心或通用速闻门户。
 
 生产站 [`https://hotai.yeuxark.com`](https://hotai.yeuxark.com)。
 
 ## 产品预览
 
-截图来自一次真实的本地抓取 + 前端运行。首页已改为 NewsNook 式「速闻」时间线，热榜移到 `/hot`；下面几张是改版前的热榜 / 博客 / 搜索界面。
+截图来自一次真实的本地抓取 + 前端运行。首页是数据库 briefing corpus；`/hot` 是同一 corpus 的可信度热榜。
 
 <p align="center">
   <img src="docs/screenshots/home.png" alt="Hot AI 热榜" />
@@ -39,13 +39,13 @@ NewsNook 式多源速闻阅读器；Hot AI（打分热榜 / 简报 / 问答）�
 ## 架构
 
 ```
-apps/web        Next.js 16。默认「速闻」直连多源 RSS 混排；`/hot` 才是 Hot AI 热榜模块；站内阅读 + /api/ask
+apps/web        Next.js 16。首页服务端读取启用 AI 来源的 Article briefing corpus；`/hot` 是排名版；站内阅读 + /api/ask
 apps/fetcher    Node.js worker — 每小时抓取 / 去重 / 打分 / AI 摘要 / 生成今日简报
 packages/db     共享 Prisma client 和 schema (含 Article.ai* 字段 + Digest 表)
 packages/ai     Anthropic SDK 封装 — enrichArticle / generateDigest / 流式客户端
 ```
 
-首页是 NewsNook 式时间线（分类轨、大量条目、站内读原文）；Hot AI 热榜 / 简报 / Ask 在「热榜」「简报」里。视觉对齐 [KAZAM](https://music.yeuxark.com)。
+首页是给 Ria 的今日 AI 阅读简报；`/hot` 保留最近 14 天的可信度排名，`/digest` 是编辑摘要。可选的 catalog 仅服务本机 OPML 订阅，不构成首页内容，也不写入 `Article`。
 
 数据流：`fetcher` 负责文章、来源健康和 AI 字段写入；`web` 仍会在首访缺少当日简报时
 生成并缓存 Digest，并为 `/api/ask` 写入问答缓存。每轮抓取结束后 fetcher 调
@@ -83,11 +83,11 @@ pnpm dev:web             # http://localhost:3000
 
 | 路径                 | 说明                                              |
 | -------------------- | ------------------------------------------------- |
-| `/`                  | 速闻：多源 RSS 按时间混排（分类轨，可一次刷上百篇） |
-| `/hot`               | Hot AI 模块：最近 14 天入库热榜 + 今日脉搏          |
+| `/`                  | 今日 LAMDA AI briefing：启用 AI 来源的 Article corpus |
+| `/hot`               | 最近 14 天启用来源的可信度热榜 + 今日脉搏             |
 | `/digest`            | 今日 AI 简报 + AskBox                             |
 | `/juya`              | 橘鸦 AI 早报（daily.juya.uk RSS，不入库）         |
-| `/r`                 | 速闻条目的站内阅读（Readability，不入库）         |
+| `/r`                 | 自定义订阅条目的站内阅读（Readability，不入库）   |
 | `/a/[id]`            | 热榜条目站内阅读（AI 摘要 + 正文）                |
 | `/search?q=…`        | 标题 / 摘要 / 主题标签检索（当前为子串匹配）    |
 | `/category/{slug}`   | 分类时间线（publishedAt：research / industry / opensource / media） |
@@ -101,7 +101,7 @@ pnpm dev:web             # http://localhost:3000
 | `/api/digest`        | GET  — 今日简报 JSON                              |
 | `/api/readability`   | POST `{url}` — 抽取正文（SSRF 防护）              |
 | `/api/proxy/feed`    | GET `?url=` — 代理用户自建源（不入库）            |
-| `/api/catalog/pull`  | POST `{ids}` — 速闻 live RSS（不入库）            |
+| `/api/catalog/pull`  | POST `{ids}` — 订阅页按需拉取 RSS（不入库）       |
 | `/api/revalidate`    | POST — fetcher 用,需 `x-revalidate-secret`       |
 | `/api/live`          | GET — Web 进程 liveness（不访问 DB）             |
 | `/api/health`        | GET — DB/readiness、抓取新鲜度、AI/Ask 聚合状态  |

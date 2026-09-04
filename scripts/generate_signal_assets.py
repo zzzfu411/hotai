@@ -6,12 +6,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1] / "apps" / "web" / "public"
-INK = "#10131f"
-PAPER = "#f3eedf"
-CARD = "#fffdf6"
-YELLOW = "#ffd60a"
-BLUE = "#2f6bff"
-RED = "#ff3b57"
+INK = "#27231f"
+PAPER = "#f4f0e8"
+CARD = "#fffdf8"
+VERMILLION = "#b4473f"
+BLUE = "#365d70"
+RED = "#b4473f"
 
 
 def font(*names: str, size: int) -> ImageFont.FreeTypeFont:
@@ -31,20 +31,14 @@ def icon(size: int) -> Image.Image:
         scaled = tuple(round(v * size * scale / 32) for v in box)
         draw.rectangle(scaled, fill=fill, outline=outline, width=max(1, round(width * size * scale / 32)) if outline else 1)
 
+    rect((3.5, 3.5, 28.5, 28.5), PAPER, INK, 2)
     def line(points: list[tuple[float, float]], fill: str, width: float) -> None:
         scaled = [(round(x * size * scale / 32), round(y * size * scale / 32)) for x, y in points]
         draw.line(scaled, fill=fill, width=max(1, round(width * size * scale / 32)), joint="curve")
-
-    rect((5, 5, 30, 30), BLUE)
-    rect((2, 2, 27, 27), YELLOW, INK, 2.5)
-    line([(8, 21), (8, 12)], INK, 4)
-    line([(14.5, 21), (14.5, 7)], INK, 4)
-    line([(21, 21), (21, 15)], INK, 4)
+    line([(8, 18), (22, 18)], INK, 3)
     draw.ellipse(
-        tuple(round(v * size * scale / 32) for v in (21, 3, 28, 10)),
-        fill=RED,
-        outline=INK,
-        width=max(1, round(2 * size * scale / 32)),
+        tuple(round(v * size * scale / 32) for v in (20.25, 8.75, 24.75, 13.25)),
+        fill=INK,
     )
     return canvas.resize((size, size), Image.Resampling.LANCZOS)
 
@@ -69,11 +63,9 @@ def draw_grid(draw: ImageDraw.ImageDraw, size: tuple[int, int]) -> None:
 
 
 def draw_mark(draw: ImageDraw.ImageDraw, x: int, y: int, scale: int = 1) -> None:
-    draw.rectangle((x + 6 * scale, y + 6 * scale, x + 52 * scale, y + 52 * scale), fill=BLUE)
-    draw.rectangle((x, y, x + 46 * scale, y + 46 * scale), fill=YELLOW, outline=INK, width=3 * scale)
-    for offset, end in ((12, 34), (23, 22), (34, 30)):
-        draw.line((x + offset * scale, y + 35 * scale, x + offset * scale, y + end * scale), fill=INK, width=6 * scale)
-    draw.ellipse((x + 37 * scale, y + 3 * scale, x + 51 * scale, y + 17 * scale), fill=RED, outline=INK, width=3 * scale)
+    draw.rectangle((x + 7 * scale, y + 7 * scale, x + 57 * scale, y + 57 * scale), fill=PAPER, outline=INK, width=3 * scale)
+    draw.line((x + 17 * scale, y + 36 * scale, x + 45 * scale, y + 36 * scale), fill=INK, width=5 * scale)
+    draw.ellipse((x + 41 * scale, y + 19 * scale, x + 49 * scale, y + 27 * scale), fill=INK)
 
 
 def og_image(language: str) -> Image.Image:
@@ -83,38 +75,38 @@ def og_image(language: str) -> Image.Image:
     draw_grid(draw, (width, height))
 
     draw.rectangle((740, 0, width, height), fill=INK)
-    draw.rectangle((708, 0, 740, height), fill=YELLOW)
+    draw.rectangle((708, 0, 740, height), fill=VERMILLION)
     draw.rectangle((760, 64, 1118, 68), fill=BLUE)
-    draw.rectangle((760, 570, 1118, 574), fill=YELLOW)
+    draw.rectangle((760, 570, 1118, 574), fill=VERMILLION)
 
     draw_mark(draw, 88, 72, 2)
-    draw.text((214, 92), "SIGNAL DESK", fill=INK, font=font("arialbd.ttf", "NotoSans-Bold.ttf", size=24))
-    draw.text((214, 126), "HOT AI / HOURLY SIGNALS", fill=INK, font=font("arial.ttf", "NotoSans-Regular.ttf", size=16))
+    draw.text((214, 92), "LAMDA / RIA", fill=INK, font=font("arialbd.ttf", "NotoSans-Bold.ttf", size=24))
+    draw.text((214, 126), "PRIVATE AI BRIEFING", fill=INK, font=font("arial.ttf", "NotoSans-Regular.ttf", size=16))
 
     title_font = font("arialbd.ttf", "NotoSans-Bold.ttf", size=88)
     title_y = 220
     if language == "zh":
-        draw.text((88, title_y), "信号印刷室", fill=INK, font=font("msyhbd.ttc", "NotoSansSC-VF.ttf", "NotoSans-Bold.ttf", size=82))
-        draw.text((92, title_y + 108), "从噪声里挑出 AI", fill=INK, font=font("msyhbd.ttc", "NotoSansSC-VF.ttf", "NotoSans-Bold.ttf", size=36))
+        draw.text((88, title_y), "LAMDA 简报", fill=INK, font=font("msyhbd.ttc", "NotoSansSC-VF.ttf", "NotoSans-Bold.ttf", size=82))
+        draw.text((92, title_y + 108), "给 Ria 的 AI 研究", fill=INK, font=font("msyhbd.ttc", "NotoSansSC-VF.ttf", "NotoSans-Bold.ttf", size=36))
     else:
         draw.text((88, title_y), "SIGNAL", fill=INK, font=title_font)
-        draw.text((92, title_y + 108), "PRESS / AI", fill=INK, font=font("arialbd.ttf", "NotoSans-Bold.ttf", size=42))
+        draw.text((92, title_y + 108), "FOR RIA / AI", fill=INK, font=font("arialbd.ttf", "NotoSans-Bold.ttf", size=42))
 
-    draw.rectangle((88, 454, 500, 488), fill=YELLOW, outline=INK, width=3)
-    tagline = "LIVE CROSS-SOURCE NEWS DESK" if language == "en" else "实时多源新闻编辑台"
+    draw.rectangle((88, 454, 500, 488), fill=VERMILLION, outline=INK, width=3)
+    tagline = "PAPERS / LAB UPDATES" if language == "en" else "论文与实验室更新"
     tagline_font = font("arialbd.ttf", "NotoSans-Bold.ttf", size=17) if language == "en" else font("msyhbd.ttc", "NotoSansSC-VF.ttf", size=17)
     draw.text((104, 460), tagline, fill=INK, font=tagline_font)
 
     side_font = font("arialbd.ttf", "NotoSans-Bold.ttf", size=48)
     side_small = font("arial.ttf", "NotoSans-Regular.ttf", size=18)
-    draw.text((790, 116), "00/", fill=YELLOW, font=side_font)
-    draw.text((790, 178), "LIVE DESK", fill=CARD, font=font("arialbd.ttf", size=28))
-    draw.text((790, 226), "Signal over noise", fill=(245, 241, 230, 220), font=side_small)
-    hourly = "Re-edited every hour" if language == "en" else "每小时重排版"
+    draw.text((790, 116), "LAMDA", fill=VERMILLION, font=side_font)
+    draw.text((790, 178), "FOR RIA", fill=CARD, font=font("arialbd.ttf", size=28))
+    draw.text((790, 226), "A quiet research desk", fill=(245, 241, 230, 220), font=side_small)
+    hourly = "Today's reading, retained 14 days" if language == "en" else "今日阅读，保留 14 天"
     hourly_font = font("arial.ttf", "NotoSans-Regular.ttf", size=18) if language == "en" else font("msyh.ttc", "NotoSansSC-VF.ttf", size=20)
     draw.text((790, 264), hourly, fill=(245, 241, 230, 180), font=hourly_font)
 
-    labels = ["OPENAI", "ANTHROPIC", "ARXIV", "GITHUB", "机器之心"]
+    labels = ["OPENAI", "ARXIV", "HUGGING FACE", "JUYA"]
     chip_x = 790
     for label in labels:
         bbox = draw.textbbox((0, 0), label, font=font("arialbd.ttf", "NotoSans-Bold.ttf", size=14))
@@ -127,7 +119,7 @@ def og_image(language: str) -> Image.Image:
 
     draw.rectangle((790, 466, 1008, 512), fill=RED, outline=INK, width=3)
     draw.text((808, 478), "●  NOW PRINTING", fill=CARD, font=font("arialbd.ttf", size=17))
-    draw.text((790, 536), "HOT AI · SIGNAL DESK", fill=(245, 241, 230, 180), font=font("arial.ttf", size=16))
+    draw.text((790, 536), "LAMDA AI BRIEFING", fill=(245, 241, 230, 180), font=font("arial.ttf", size=16))
     return image.convert("RGB")
 
 

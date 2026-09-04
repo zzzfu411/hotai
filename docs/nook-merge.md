@@ -1,5 +1,9 @@
 # Hot AI × NewsNook 合并方案（v1 · 落地到 hotai.yeuxark.com）
 
+> **已被 2026-09-01 的 P0 identity reset 取代。** 当前产品是给 Ria 的私有
+> LAMDA AI briefing；首页读取启用 AI 来源的 Article corpus。本文保留历史
+> catalog / OPML 约束，旧的公共速闻首页、KAZAM chrome 和黄色视觉规格均不再适用。
+
 > 状态：已批准执行。本文档是实现的唯一规格。改核心行为前先改这里。
 > 相关：[`design.md`](./design.md)、[`../CLAUDE.md`](../CLAUDE.md)、参考站点 [music.yeuxark.com](https://music.yeuxark.com)（KAZAM）、[news.aizeek.com](https://news.aizeek.com)（NewsNook Web）。
 
@@ -7,7 +11,7 @@
 
 ## 0. 一句话
 
-**默认产品是 NewsNook 式速闻（分类轨 + 多源时间线 + 站内读 + OPML）。Hot AI 的打分热榜 / 简报 / 问答收成 `/hot` + `/digest` 小模块。** 部署 `https://hotai.yeuxark.com`。速闻条目不进 `Article` 表。
+**当前默认产品是给 Ria 的 LAMDA AI briefing（论文 + 实验室更新 + 站内读）。** `/hot` 和 `/digest` 读取同一 Article corpus；自定义 OPML 仍只在订阅页使用，不进 `Article` 表。
 
 不是把 NewsNook Capacitor 工程搬进来，也不是做 Android 包。NewsNook 的网页版本来就是同一套 React SPA（`news.aizeek.com` + Cloudflare Functions 反代）；我们把它的 **信息架构** 移植进现有 `apps/web`。
 
@@ -214,9 +218,10 @@ fetcher cycle 仍 POST `["/", "/digest"]`。阅读器走 `force-dynamic` 或 `re
 
 ---
 
-## 6. 视觉规格（对齐 KAZAM / music.yeuxark.com）
+## 6. 历史视觉规格（已废弃）
 
-从 `https://music.yeuxark.com/static/style.css` 抽 token，**不要**再走现在的橙紫渐变 Hero。
+以下 token 只记录历史背景；实现以 `apps/web/app/globals.css` 的纸张、墨色和
+vermillion briefing system 为准。
 
 ### 6.1 颜色
 

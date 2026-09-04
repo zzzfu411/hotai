@@ -94,26 +94,26 @@ export function ReaderBody({ url, fallbackSummary }: ReaderBodyProps) {
 
   if (status === "loading") {
     return (
-      <div className="kz-reader-loading" aria-busy="true" aria-live="polite">
-        <p className="kz-reader-loading-label">
+      <div className="ha-reader-loading" aria-busy="true" aria-live="polite">
+        <p className="ha-reader-loading-label">
           {zh ? "正在抽取正文…" : "Extracting article…"}
         </p>
-        <div className="skeleton kz-reader-skel" />
-        <div className="skeleton kz-reader-skel" />
-        <div className="skeleton kz-reader-skel kz-reader-skel-short" />
+        <div className="skeleton ha-reader-skel" />
+        <div className="skeleton ha-reader-skel" />
+        <div className="skeleton ha-reader-skel ha-reader-skel-short" />
       </div>
     );
   }
 
   return (
-    <div className="kz-card kz-reader-fallback">
+    <div className="ha-card ha-reader-fallback">
       {status === "fail" ? (
-        <p className="kz-reader-fallback-msg">
+        <p className="ha-reader-fallback-msg">
           {zh ? "未能抽取正文，可阅读摘要或打开原文。" : "Couldn’t extract the article. Read the summary or open the original."}
         </p>
       ) : null}
-      {fallbackSummary ? <p className="kz-reader-fallback-summary">{fallbackSummary}</p> : null}
-      <a className="kz-btn" href={url} target="_blank" rel="noopener noreferrer">
+      {fallbackSummary ? <p className="ha-reader-fallback-summary">{fallbackSummary}</p> : null}
+      <a className="ha-btn" href={url} target="_blank" rel="noopener noreferrer">
         打开原文
       </a>
     </div>
@@ -132,10 +132,10 @@ export function ReadingFlags({ id }: { id: number }) {
   }, [id]);
 
   return (
-    <div className="kz-reader-flags">
+    <div className="ha-reader-flags">
       <button
         type="button"
-        className={later ? "kz-btn kz-btn-sm active" : "kz-btn kz-btn-sm"}
+        className={later ? "ha-btn ha-btn-sm active" : "ha-btn ha-btn-sm"}
         aria-pressed={later}
         onClick={() => {
           const on = toggleLater(id);
@@ -147,7 +147,7 @@ export function ReadingFlags({ id }: { id: number }) {
       </button>
       <button
         type="button"
-        className={read ? "kz-btn kz-btn-sm active" : "kz-btn kz-btn-sm"}
+        className={read ? "ha-btn ha-btn-sm active" : "ha-btn ha-btn-sm"}
         aria-pressed={read}
         onClick={() => {
           const on = toggleRead(id);

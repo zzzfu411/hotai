@@ -1,4 +1,4 @@
-import { prisma } from "./index.js";
+import { BRIEFING_SOURCE_SLUG_SET, prisma } from "./index.js";
 
 type SourceSeed = {
   slug: string;
@@ -11,6 +11,11 @@ type SourceSeed = {
   category: "research" | "industry" | "opensource" | "media";
 };
 
+// Seed is the allowlist writer. Rows stay in the table so a source can be
+// added later, but re-enablement means adding the slug to BRIEFING_SOURCE_SLUGS
+// — a routine seed always rewrites Source.enabled from that set.
+const DEFAULT_ENABLED_SOURCE_SLUGS = BRIEFING_SOURCE_SLUG_SET;
+
 const sources: SourceSeed[] = [
   // ===== Research =====
   {
@@ -20,7 +25,7 @@ const sources: SourceSeed[] = [
     homepage: "https://arxiv.org/list/cs.AI/recent",
     type: "rss",
     lang: "en",
-    weight: 1.2,
+    weight: 1.5,
     category: "research",
   },
   {
@@ -40,7 +45,7 @@ const sources: SourceSeed[] = [
     homepage: "https://arxiv.org/list/cs.LG/recent",
     type: "rss",
     lang: "en",
-    weight: 1.1,
+    weight: 1.5,
     category: "research",
   },
 
@@ -52,7 +57,7 @@ const sources: SourceSeed[] = [
     homepage: "https://openai.com/news/",
     type: "rss",
     lang: "en",
-    weight: 2.0,
+    weight: 2.4,
     category: "industry",
   },
   {
@@ -219,7 +224,27 @@ const sources: SourceSeed[] = [
     homepage: "https://huggingface.co/papers",
     type: "api",
     lang: "en",
-    weight: 1.4,
+    weight: 1.8,
+    category: "research",
+  },
+  {
+    slug: "huggingface-blog",
+    name: "Hugging Face Blog",
+    url: "https://huggingface.co/blog/feed.xml",
+    homepage: "https://huggingface.co/blog",
+    type: "rss",
+    lang: "en",
+    weight: 2.4,
+    category: "industry",
+  },
+  {
+    slug: "juya-daily",
+    name: "橘鸦早报",
+    url: "https://daily.juya.uk/rss.xml",
+    homepage: "https://daily.juya.uk/",
+    type: "rss",
+    lang: "zh",
+    weight: 2.2,
     category: "research",
   },
 ];
@@ -1294,7 +1319,7 @@ async function main() {
   for (const s of sources) {
     await prisma.source.upsert({
       where: { slug: s.slug },
-      create: s,
+      create: { ...s, enabled: DEFAULT_ENABLED_SOURCE_SLUGS.has(s.slug) },
       update: {
         name: s.name,
         url: s.url,
@@ -1303,6 +1328,7 @@ async function main() {
         lang: s.lang,
         weight: s.weight,
         category: s.category,
+        enabled: DEFAULT_ENABLED_SOURCE_SLUGS.has(s.slug),
       },
     });
     console.log(`  ✓ ${s.slug}`);

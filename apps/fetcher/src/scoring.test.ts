@@ -12,6 +12,7 @@ function score(overrides: Partial<Parameters<typeof computeScore>[0]> = {}) {
   return computeScore(
     {
       sourceWeight: 1.0,
+      sourceSlug: "test-source",
       publishedAt: NOW,
       title: "a quiet day in tech",
       now: NOW,
@@ -39,25 +40,46 @@ describe("computeScore", () => {
   it("keyword boost caps at 2.0", () => {
     const wide: ScoringConfig = { ...cfg, keywords: ["a1", "b2", "c3", "d4", "e5", "f6"] };
     const s = computeScore(
-      { sourceWeight: 1, publishedAt: NOW, title: "a1 b2 c3 d4 e5 f6", now: NOW },
+      {
+        sourceWeight: 1,
+        sourceSlug: "test-source",
+        publishedAt: NOW,
+        title: "a1 b2 c3 d4 e5 f6",
+        now: NOW,
+      },
       wide,
     );
     expect(s).toBeCloseTo((1 + 2.0) * 1 + 0.1, 6);
   });
 
-  it("signals are log-compressed", () => {
+  it("signals are bounded and log-compressed", () => {
     const s = score({ signals: { points: 100 } });
-    expect(s).toBeCloseTo(1 + Math.log1p(100) + 0.1, 6);
+    expect(s).toBeCloseTo(1 + Math.log1p(10) * 0.15 + 0.1, 6);
     // monotonic but sublinear
     const s10x = score({ signals: { points: 1000 } });
     expect(s10x).toBeGreaterThan(s);
     expect(s10x - s).toBeLessThan(s - score());
   });
 
-  it("weights signal kinds (comments 0.5, stars 0.8, downloads 0.01 capped)", () => {
+  it("weights signal kinds and caps the aggregate", () => {
     const s = score({ signals: { comments: 10, stars: 10, downloads: 500_000 } });
-    const expected = 1 + Math.log1p(10 * 0.5 + 10 * 0.8 + 100_000 * 0.01) + 0.1;
+    const expected = 1 + Math.log1p(25) * 0.15 + 0.1;
     expect(s).toBeCloseTo(expected, 6);
+  });
+
+  it("keeps a high-karma HN post below a fresh trusted paper", () => {
+    const hn = score({
+      sourceWeight: 1,
+      sourceSlug: "hn-frontpage",
+      title: "Fastpotify is a RuneScape client",
+      signals: { points: 100_000 },
+    });
+    const paper = score({
+      sourceWeight: 1.5,
+      sourceSlug: "arxiv-cs-ai",
+      title: "A quiet research result",
+    });
+    expect(paper).toBeGreaterThan(hn);
   });
 
   it("aiImportance feeds the formula with the configured weight", () => {

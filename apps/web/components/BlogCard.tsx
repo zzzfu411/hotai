@@ -100,9 +100,9 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
   const timeline = zh ? blog.guideTimelineZh : blog.guideTimelineEn;
 
   return (
-    <article id={blog.slug} className="kz-card kz-blog-card">
-      <div className="kz-blog-top">
-        <div className="kz-blog-fav">
+    <article id={blog.slug} className="ha-card ha-blog-card">
+      <div className="ha-blog-top">
+        <div className="ha-blog-fav">
           {fav ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={fav} alt="" width={28} height={28} loading="lazy" />
@@ -111,32 +111,32 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="kz-blog-name">
+          <h3 className="ha-blog-name">
             {blogUrl ? (
               <a href={blogUrl} target="_blank" rel="noopener noreferrer">{blog.name}</a>
             ) : blog.name}
           </h3>
-          <p className="kz-blog-by">
+          <p className="ha-blog-by">
             <strong>{blog.author}</strong>
             {blog.affiliation ? ` · ${blog.affiliation}` : ""}
           </p>
         </div>
-        {blog.featured && <span className="kz-chip kz-chip-yellow">{zh ? "精选" : "Featured"}</span>}
+        {blog.featured && <span className="ha-chip ha-chip-accent">{zh ? "精选" : "Featured"}</span>}
         {blog.lang === "zh" && (
-          <span className="kz-chip" title="Primarily Chinese">
+          <span className="ha-chip" title="Primarily Chinese">
             中
           </span>
         )}
       </div>
 
-      <p className="kz-blog-bio">{bio}</p>
+      <p className="ha-blog-bio">{bio}</p>
 
       {blog.tags.length > 0 && (
-        <div className="kz-blog-tags">
+        <div className="ha-blog-tags">
           {blog.tags.slice(0, 5).map((t) => {
             const label = TAG_LABEL[t];
             return (
-              <span key={t} className="kz-chip">
+              <span key={t} className="ha-chip">
                 {label ? (zh ? label.zh : label.en) : t}
               </span>
             );
@@ -145,19 +145,19 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
       )}
 
       {guide && (
-        <div className="kz-blog-guide">
+        <div className="ha-blog-guide">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className={open ? "kz-btn kz-blog-guide-toggle active" : "kz-btn kz-blog-guide-toggle"}
+            className={open ? "ha-btn ha-blog-guide-toggle active" : "ha-btn ha-blog-guide-toggle"}
           >
             <span>{zh ? "食用指南" : "Reading guide"}</span>
             <span aria-hidden>{open ? "▴" : "▾"}</span>
           </button>
 
           {open && (
-            <div className="kz-blog-guide-panel">
+            <div className="ha-blog-guide-panel">
               {cadence && (
                 <section>
                   <h4>{zh ? "更新节奏" : "Cadence"}</h4>
@@ -182,7 +182,7 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
               {blog.guideStartHere.length > 0 && (
                 <section>
                   <h4>{zh ? "推荐从这里开始" : "Start here"}</h4>
-                  <ol className="kz-blog-start">
+                  <ol className="ha-blog-start">
                     {blog.guideStartHere.map((item, i) => {
                       const note = zh ? item.noteZh : item.noteEn;
                       const inner = (
@@ -190,7 +190,7 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
                           <span>
                             {i + 1}. {item.title}
                           </span>
-                          {note && <span className="kz-blog-start-note">{note}</span>}
+                          {note && <span className="ha-blog-start-note">{note}</span>}
                         </>
                       );
                       return (
@@ -198,7 +198,7 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
                           {item.url && safeHttpUrl(item.url) ? (
                             <a href={safeHttpUrl(item.url)!} target="_blank" rel="noopener noreferrer">
                               {inner}
-                              <span className="kz-blog-start-note">{zh ? "打开 ↗" : "Open ↗"}</span>
+                              <span className="ha-blog-start-note">{zh ? "打开 ↗" : "Open ↗"}</span>
                             </a>
                           ) : (
                             <div>{inner}</div>
@@ -211,7 +211,7 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
               )}
 
               {feedUrl && (
-                <p className="kz-blog-rss">
+                <p className="ha-blog-rss">
                   {zh ? "订阅：" : "Subscribe: "}
                   <a href={feedUrl} target="_blank" rel="noopener noreferrer">
                     RSS
@@ -223,13 +223,13 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
         </div>
       )}
 
-      <div className="kz-blog-foot">
+      <div className="ha-blog-foot">
         {blogUrl ? (
-          <a href={blogUrl} target="_blank" rel="noopener noreferrer" className="kz-btn kz-btn-sm">
+          <a href={blogUrl} target="_blank" rel="noopener noreferrer" className="ha-btn ha-btn-sm">
             {zh ? "打开博客" : "Visit blog"} ↗
           </a>
         ) : null}
-        <span className="kz-blog-host">{host}</span>
+        <span className="ha-blog-host">{host}</span>
       </div>
     </article>
   );

@@ -1,5 +1,5 @@
 import type { Source } from "@hotai/db";
-import { prisma } from "@hotai/db";
+import { BRIEFING_SOURCE_SLUGS, prisma } from "@hotai/db";
 import { AI_ENABLED } from "@hotai/ai";
 import { fetchSource } from "./dispatch.js";
 import { persistItems, type PersistStats } from "./store.js";
@@ -98,7 +98,9 @@ async function runCycleUnlocked(): Promise<CycleReport> {
     note(report, "purge coordination leases", e),
   );
 
-  const sources = await prisma.source.findMany({ where: { enabled: true } });
+  const sources = await prisma.source.findMany({
+    where: { enabled: true, slug: { in: [...BRIEFING_SOURCE_SLUGS] } },
+  });
   const sourceSet = assessEnabledSources(sources.length);
   if (sourceSet.status === "degraded") note(report, "sources", sourceSet.reason);
   console.log(

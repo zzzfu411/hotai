@@ -1,4 +1,4 @@
-import { prisma } from "@hotai/db";
+import { BRIEFING_SOURCE_SLUGS, prisma } from "@hotai/db";
 import { AI_ENABLED, enrichArticle, enrichArticles, type EnrichInput, type EnrichResult } from "@hotai/ai";
 import { config } from "./config.js";
 import { computeScore } from "./scoring.js";
@@ -13,7 +13,7 @@ export type CandidateArticle = {
   publishedAt: Date;
   signals: unknown;
   aiAttempts: number;
-  source: { name: string; weight: number };
+  source: { name: string; slug: string; weight: number };
 };
 
 type PendingArticle = CandidateArticle & {
@@ -57,6 +57,7 @@ export async function enrichPendingArticles(): Promise<{ analyzed: number; skipp
 
   const candidates = await prisma.article.findMany({
     where: {
+      source: { enabled: true, slug: { in: [...BRIEFING_SOURCE_SLUGS] } },
       aiAttempts: { lt: MAX_AI_ATTEMPTS },
       OR: [
         { aiStatus: "pending" },
@@ -83,7 +84,7 @@ export async function enrichPendingArticles(): Promise<{ analyzed: number; skipp
       publishedAt: true,
       signals: true,
       aiAttempts: true,
-      source: { select: { name: true, weight: true } },
+      source: { select: { name: true, slug: true, weight: true } },
     },
   });
   if (candidates.length === 0) return { analyzed: 0, skipped: 0 };
@@ -238,6 +239,7 @@ async function persistEnrichment(article: PendingArticle, result: EnrichResult |
   // aiImportance=0 — write the re-scored value back alongside the AI fields.
   const score = computeScore({
     sourceWeight: article.source.weight,
+    sourceSlug: article.source.slug,
     publishedAt: article.publishedAt,
     title: article.title,
     summary: article.summary,

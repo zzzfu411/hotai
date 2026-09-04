@@ -69,16 +69,10 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
   const cross = a.crossPostCount ?? 0;
 
   return (
-    <article className="kz-card kz-article">
-      {rank > 0 ? (
-        <div className={rank <= 3 ? "kz-rank kz-rank-top" : "kz-rank"}>
-          {rank.toString().padStart(2, "0")}
-        </div>
-      ) : null}
-
-      <div className="kz-article-body">
-        <Link href={readerHref} className="kz-article-main">
-          <span className="kz-article-title-row">
+    <article className="ha-card ha-article">
+      <div className="ha-article-body">
+        <Link href={readerHref} className="ha-article-main">
+          <span className="ha-article-title-row">
             {fav ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -87,7 +81,7 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
                 width={16}
                 height={16}
                 loading="lazy"
-                className="kz-article-fav"
+                className="ha-article-fav"
                 onError={(e) => {
                   const img = e.currentTarget;
                   if (img.src.endsWith("/source-fallback.svg")) {
@@ -98,13 +92,23 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
                 }}
               />
             ) : null}
-            <span className="kz-article-title">{a.title}</span>
+            <span className="ha-article-title">{a.title}</span>
           </span>
-          {summary ? <span className="kz-article-summary">{summary}</span> : null}
+          {summary ? <span className="ha-article-summary">{summary}</span> : null}
         </Link>
 
-        <div className="kz-article-meta">
-          <Link href={`/source/${a.source.slug}`} className="kz-chip">
+        <div className="ha-article-meta">
+          {rank > 0 ? (
+            <span className="ha-rank" aria-label={lang === "zh" ? `排名 ${rank}` : `Rank ${rank}`}>
+              #{rank.toString().padStart(2, "0")}
+            </span>
+          ) : null}
+          {rank > 0 ? (
+            <span className="ha-article-score font-mono tabular-nums">
+              {lang === "zh" ? "评分 " : "Score "}{formatScore(a.score)}
+            </span>
+          ) : null}
+          <Link href={`/source/${a.source.slug}`} className="ha-chip">
             {a.source.name}
           </Link>
           {externalUrl ? (
@@ -112,26 +116,25 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
               href={externalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="kz-chip kz-host"
+              className="ha-chip ha-host"
               title={lang === "zh" ? "打开原文" : "Open original"}
             >
               {host}
             </a>
           ) : null}
           <time dateTime={a.publishedAt}>{timeAgo(date, lang)}</time>
-          <span className="kz-article-score font-mono tabular-nums">{formatScore(a.score)}</span>
           {cross > 0 ? (
             <span
-              className="kz-chip"
+              className="ha-chip"
               title={lang === "zh" ? "其他来源转载了同一新闻" : "Also reported by other sources"}
             >
               ⇄ {lang === "zh" ? `${cross} 源转载` : `+${cross}`}
             </span>
           ) : null}
           {sentiment ? (
-            <span className="kz-chip">
+            <span className="ha-chip">
               <span
-                className="kz-sentiment-icon"
+                className="ha-sentiment-icon"
                 style={iconMask(`/sentiment/${a.aiSentiment}.svg`)}
                 aria-hidden
               />
@@ -139,7 +142,7 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
             </span>
           ) : null}
           {topics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="ha-chip">
               {t}
             </Link>
           ))}

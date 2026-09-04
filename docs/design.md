@@ -7,9 +7,9 @@
 
 ## 项目宗旨(范围声明)
 
-**站点默认是 NewsNook 式「速闻」阅读器（多源 RSS 按时间混排）。Hot AI（打分热榜 / LLM 摘要 / digest / ask）是其中一块模块，入口在 `/hot` 与 `/digest`。**
+**站点默认是给 Ria 的私有 LAMDA AI briefing。首页与 `/hot` 共享 fetcher 写入的 `Article` corpus：首页按今日阅读顺序，`/hot` 按可信度排名，`/digest` 生成编辑简报。**
 
-Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇过 LLM、全局同一份热榜。速闻时间线直连上游 Feed，**不入库、不过 LLM。**
+Postgres 里的 `Article` 是默认 briefing corpus：14 天硬删除、每篇过 LLM、全局同一份排名。可选 catalog 只服务本机 OPML 阅读，**不入库、不过 LLM。**
 
 围绕这个目标的硬性边界:
 
@@ -23,9 +23,9 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
 
 下面所有的优化和扩展方案都必须服务于上面这些边界。**任何引入"用户态"或"长期归档"的方案默认不做。**
 
-**阅读壳升级（2026-08 · NewsNook 交互 + KAZAM 视觉）：** 站点仍是「今日 AI 热榜」，不是综合新闻 App。交互改成分类轨 / 场景 / 站内阅读 / 本机 OPML 订阅（localStorage，不进 Postgres）；视觉对齐 [music.yeuxark.com](https://music.yeuxark.com)。规格见 [`nook-merge.md`](./nook-merge.md)。这不改变上表四条硬边界——本机偏好不是账号系统，自定义源不进入全局排名。
+**阅读边界：** 站点不是公共 HN/SaaS 展示、机器之心、通用速闻门户或 KAZAM 音乐播放器。保留本机 OPML 订阅与橘鸦独立页面，但自定义源不进入全局排名，也不改变 briefing corpus。
 
-> **实现校准（2026-09-01）**：默认 `/` 是客户端实时速闻目录，按需调用 `/api/catalog/pull`，不依赖 `Article`；数据库热榜位于 `/hot`。Fetcher 负责主要内容写入，但 Web 会在缺少当日简报时写入 `Digest`，并由 `/api/ask` 写入 `AskCache`。当前 AI 配置、Ask 配额、公开抓取限流、AI lease/retry、retention、URL/HTML 边界和 CI 已有代码与测试；本文后面的历史更新记录保留原始决策背景，若与本段冲突，以代码、`README.md` 和最新安全审计为准。
+> **实现校准（2026-09-01）**：默认 `/` 服务端读取启用 AI 来源的 `Article` corpus，优先今天、无今天时回看 14 天保留窗口；`/hot` 读取同一启用 corpus 并按可信度排名。`/api/catalog/pull` 只为 `/subscribe` 的自定义 OPML 按需保留。Fetcher 负责主要内容写入，Web 会在缺少当日简报时写入 `Digest`，并由 `/api/ask` 写入 `AskCache`。
 
 ---
 
@@ -76,7 +76,7 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
                        └──────────────────────┘
 ```
 
-**关键设计:** 内容主链路仍由 fetcher 写入，Web 只保留两个有意的写路径：缺少当日简报时生成 `Digest`，以及 `/api/ask` 的 `AskCache`。两边通过 `/api/revalidate` 弱耦合；实时速闻目录不写 `Article`。**没有用户表、没有 session、没有冷归档** —— `Article` 永远只保留约 14 天内容，体量上限可预测。
+**关键设计:** 内容主链路由 fetcher 写入，Web 首页与 `/hot` 只读启用来源的 `Article`；Web 仅保留两个有意的写路径：缺少当日简报时生成 `Digest`，以及 `/api/ask` 的 `AskCache`。**没有用户表、没有 session、没有冷归档** —— `Article` 永远只保留约 14 天内容，体量上限可预测。
 
 ## 1.2 一轮 fetcher cycle 干了什么
 
@@ -127,13 +127,12 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
 定义于 `apps/fetcher/src/scoring.ts`:
 
 ```
-score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay + sourceWeight × 0.1
-       │              │              │               │                 │
-       │              │              │               │                 └── exp 衰减,半衰期 24h
-       │              │              │               └── aiImportance × AI_IMPORTANCE_WEIGHT(默认 2.0)
-       │              │              └── 标题/摘要命中 keywords 每个 +0.4(封顶 2.0)
-       │              └── log1p(points + comments×0.5 + stars×0.8 + min(downloads,100k)×0.01)
-       └── 源权重,seed 里手填:OpenAI/Anthropic 2.0,arXiv 1.2,reddit 0.9
+score = (trustedSource + boundedSignal + keywordBoost) × decay + sourceWeight × 0.1
+       │                   │                 │               │
+       │                   │                 │               └── exp 衰减,半衰期 24h
+       │                   │                 └── 标题/摘要 keywords（封顶 2.0；社区源再降权）
+       │                   └── log1p(engagement) × 0.15，封顶；HN/Reddit karma 更低
+       └── trustedSource = sourceWeight × (1 + aiImportance × AI_IMPORTANCE_WEIGHT)
 ```
 
 **特性:**
@@ -172,8 +171,8 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 
 | 路由 | 渲染 | 缓存 | 数据源 |
 |---|---|---|---|
-| `/` | Client live catalog | 客户端 3min SWR + 服务端 feed cache | allowlisted RSS/Atom/JSON Feed；不写 Article |
-| `/hot` | RSC + ISR | `revalidate=600` | Postgres,top 50 by score（最近 14 天入库） |
+| `/` | RSC + ISR | `revalidate=600` | Postgres, today-first enabled AI corpus |
+| `/hot` | RSC + ISR | `revalidate=600` | Postgres, top 50 enabled articles by trusted score |
 | `/digest` | 动态 RSC | `force-dynamic` | DB hit → 缺则在线生成 + 落库 |
 | `/category/{slug}` | RSC + ISR + SSG params | `revalidate=600` | DB,filter by category |
 | `/source/{slug}` | RSC + ISR | `revalidate=600` | DB,filter by source |

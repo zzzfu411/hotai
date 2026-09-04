@@ -1,5 +1,6 @@
 import {
   acquireCoordinationLease,
+  BRIEFING_SOURCE_SLUGS,
   finishCoordinationLease,
   prisma,
   type CoordinationLeaseClaim,
@@ -25,7 +26,10 @@ export async function ensureTodayDigest(opts: { force?: boolean } = {}): Promise
   }
 
   const articles = await prisma.article.findMany({
-    where: { publishedAt: { gte: today, lt: tomorrow } },
+    where: {
+      publishedAt: { gte: today, lt: tomorrow },
+      source: { enabled: true, slug: { in: [...BRIEFING_SOURCE_SLUGS] } },
+    },
     orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
     take: 40,
     select: {

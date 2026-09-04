@@ -33,7 +33,7 @@ function AnswerContent({
           <Link
             key={`${part}:${index}`}
             href={`/a/${source.id}`}
-            className="kz-ask-cite"
+            className="ha-ask-cite"
             title={source.title}
           >
             {part}
@@ -42,17 +42,17 @@ function AnswerContent({
           <span key={`${part}:${index}`}>{part}</span>
         );
       })}
-      {busy && <span className="kz-ask-caret" />}
-      {error && <p className="kz-ask-error">⚠ {error}</p>}
+      {busy && <span className="ha-ask-caret" />}
+      {error && <p className="ha-ask-error">⚠ {error}</p>}
       {cited.length > 0 ? (
-        <div className="kz-ask-sources">
-          <p className="kz-ask-sources-label">{lang === "zh" ? "答案来源" : "Answer sources"}</p>
-          <div className="kz-ask-source-list">
+        <div className="ha-ask-sources">
+          <p className="ha-ask-sources-label">{lang === "zh" ? "答案来源" : "Answer sources"}</p>
+          <div className="ha-ask-source-list">
             {cited.map((source) => (
-              <Link key={source.index} href={`/a/${source.id}`} className="kz-ask-source">
-                <span className="kz-ask-source-index">[{source.index}]</span>
-                <span className="kz-ask-source-title">{source.title}</span>
-                <span className="kz-ask-source-name">{source.source}</span>
+              <Link key={source.index} href={`/a/${source.id}`} className="ha-ask-source">
+                <span className="ha-ask-source-index">[{source.index}]</span>
+                <span className="ha-ask-source-title">{source.title}</span>
+                <span className="ha-ask-source-name">{source.source}</span>
               </Link>
             ))}
           </div>
@@ -139,14 +139,14 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
 
   if (compact) {
     return (
-      <div className="kz-ask-compact">
-        <p className="kz-pulse-kicker">{lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}</p>
+      <div className="ha-ask-compact">
+        <p className="ha-pulse-kicker">{lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (q.trim()) ask(q.trim());
           }}
-          className="kz-search kz-ask-form"
+          className="ha-search ha-ask-form"
         >
           <input
             type="text"
@@ -154,20 +154,20 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
             onChange={(e) => setQ(e.target.value)}
             placeholder={lang === "zh" ? "提个问题…" : "Ask a question…"}
             disabled={busy}
-            className="kz-input"
+            className="ha-input"
             aria-label={lang === "zh" ? "提问" : "Ask"}
           />
           <button
             type="submit"
             disabled={busy || !q.trim()}
-            className="kz-search-go"
+            className="ha-search-go"
             aria-label={lang === "zh" ? "发送" : "Send"}
           >
             {busy ? "…" : "→"}
           </button>
         </form>
         {(answer || error) && (
-          <div className="kz-ask-answer">
+          <div className="ha-ask-answer">
             <AnswerContent answer={answer} busy={busy} error={error} sources={sources} lang={lang} />
           </div>
         )}
@@ -176,9 +176,9 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className="kz-card kz-ask">
-      <p className="kz-ask-kicker">{lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}</p>
-      <p className="kz-ask-hint">
+    <div className="ha-card ha-ask">
+      <p className="ha-ask-kicker">{lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}</p>
+      <p className="ha-ask-hint">
         {lang === "zh"
           ? "基于过去 48 小时的头条文章，由 Claude 实时回答。"
           : "Streamed by Claude, grounded in the last 48 hours of headlines."}
@@ -188,7 +188,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
           e.preventDefault();
           if (q.trim()) ask(q.trim());
         }}
-        className="kz-search kz-ask-form"
+        className="ha-search ha-ask-form"
       >
         <input
           type="text"
@@ -196,27 +196,27 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
           onChange={(e) => setQ(e.target.value)}
           placeholder={lang === "zh" ? "提个问题…" : "Ask a question…"}
           disabled={busy}
-          className="kz-input"
+          className="ha-input"
           aria-label={lang === "zh" ? "提问" : "Ask"}
         />
         <button
           type="submit"
           disabled={busy || !q.trim()}
-          className="kz-search-go"
+          className="ha-search-go"
           aria-label={lang === "zh" ? "发送" : "Send"}
         >
           {busy ? "…" : "→"}
         </button>
       </form>
 
-      <div className="kz-ask-suggestions">
+      <div className="ha-ask-suggestions">
         {suggestions.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => ask(s)}
             disabled={busy}
-            className="kz-chip"
+            className="ha-chip"
           >
             {s}
           </button>
@@ -224,7 +224,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
       </div>
 
       {(answer || error) && (
-        <div className="kz-ask-answer">
+        <div className="ha-ask-answer">
           <AnswerContent answer={answer} busy={busy} error={error} sources={sources} lang={lang} />
         </div>
       )}

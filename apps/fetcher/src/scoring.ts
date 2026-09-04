@@ -9,6 +9,7 @@ export type Signals = {
 
 export type ScoreInput = {
   sourceWeight: number;
+  sourceSlug?: string;
   publishedAt: Date;
   title: string;
   summary?: string | null;
@@ -33,11 +34,12 @@ export function defaultScoringConfig(): ScoringConfig {
 }
 
 /**
- * score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay
+ * score = (trustedSource + boundedSignal + keywordBoost) × decay
  *         + sourceWeight × 0.1
  *
  * - decay: exponential, half-life SCORING_HALFLIFE_HOURS (default 24h)
- * - signalBoost: log-compressed engagement (points/comments/stars/downloads)
+ * - signalBoost: bounded, source-aware engagement hint. HN/Reddit-style
+ *   karma is deliberately tiny so popularity cannot outrank source trust.
  * - keywordBoost: +0.4 per keyword hit, capped at 2.0
  * - importanceBoost: aiImportance × AI_IMPORTANCE_WEIGHT — 0 until the article
  *   has been enriched; enrichment recomputes and writes the score back.
@@ -51,12 +53,15 @@ export function computeScore(args: ScoreInput, cfg: ScoringConfig = defaultScori
   const decay = Math.pow(0.5, ageH / cfg.halfLifeHours);
 
   const s = args.signals ?? {};
+  const communitySource = /^(hn-frontpage|reddit-)/.test(args.sourceSlug ?? "");
   const signalVal =
-    (s.points ?? 0) +
-    (s.comments ?? 0) * 0.5 +
-    (s.stars ?? 0) * 0.8 +
-    Math.min(s.downloads ?? 0, 100_000) * 0.01;
-  const signalBoost = Math.log1p(Math.max(0, signalVal));
+    (s.points ?? 0) * (communitySource ? 0.02 : 0.1) +
+    (s.comments ?? 0) * (communitySource ? 0.01 : 0.05) +
+    (s.stars ?? 0) * (communitySource ? 0.02 : 0.08) +
+    Math.min(s.downloads ?? 0, 100_000) * (communitySource ? 0.0005 : 0.001);
+  // Community karma is a weak freshness hint, never a substitute for source
+  // trust. Keep its contribution below the gap to the lowest trusted paper.
+  const signalBoost = Math.log1p(Math.min(25, Math.max(0, signalVal))) * (communitySource ? 0.03 : 0.15);
 
   const text = `${args.title} ${args.summary ?? ""}`.toLowerCase();
   let kw = 0;
@@ -68,7 +73,9 @@ export function computeScore(args: ScoreInput, cfg: ScoringConfig = defaultScori
   const importanceBoost = clamp01(args.aiImportance ?? 0) * cfg.aiImportanceWeight;
 
   const base = args.sourceWeight;
-  return (base + signalBoost + kw + importanceBoost) * decay + base * 0.1;
+  const trustedSource = base * (1 + importanceBoost);
+  const keywordBoost = communitySource ? Math.min(0.1, kw * 0.05) : kw;
+  return (trustedSource + signalBoost + keywordBoost) * decay + base * 0.1;
 }
 
 function clamp01(n: number): number {

@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Hot AI signal mark">
-  <rect x="5" y="5" width="25" height="25" fill="#2f6bff"/>
-  <rect x="2" y="2" width="25" height="25" fill="#ffd60a" stroke="#10131f" stroke-width="2.5"/>
-  <path d="M8 21V12M14.5 21V7M21 21V15" fill="none" stroke="#10131f" stroke-width="4" stroke-linecap="square"/>
-  <circle cx="24.5" cy="6.5" r="3.5" fill="#ff3b57" stroke="#10131f" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Quiet ink mark">
+  <rect x="3.5" y="3.5" width="25" height="25" fill="#f4f0e8" stroke="#27231f" stroke-width="2"/>
+  <path d="M8 18h14" fill="none" stroke="#27231f" stroke-width="3" stroke-linecap="square"/>
+  <circle cx="22.5" cy="11" r="2.25" fill="#27231f"/>
 </svg>
