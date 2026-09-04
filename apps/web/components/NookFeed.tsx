@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CATALOG_BY_ID,
   CATALOG_CATEGORIES,
+  CATALOG_ITEMS_PER_SOURCE,
   DEFAULT_ENABLED_IDS,
   idsForCategory,
   isCatalogCategoryId,
@@ -21,6 +22,7 @@ import {
   type NookHistorySnapshot,
 } from "@/lib/nook-history";
 import { readJsonLines } from "@/lib/json-lines";
+import { editorialProgressiveLimit, rankHomepageItems } from "@/lib/news-ranking";
 import { preserveVisiblePrefix } from "@/lib/progressive-list";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
@@ -168,6 +170,10 @@ function publishedTs(iso: string | null): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function isEditorialLane(category: CatalogCategoryId): boolean {
+  return category === "mix" || category === "hot";
+}
+
 function findNookCard(anchorKey?: string, nearestWhenMissing = true): HTMLElement | null {
   const cards = document.querySelectorAll<HTMLElement>("[data-nook-key]");
   if (anchorKey) {
@@ -191,7 +197,11 @@ function findNookCard(anchorKey?: string, nearestWhenMissing = true): HTMLElemen
   return nearest;
 }
 
-function mergeSources(sources: PullSource[]): Omit<PullSnapshot, "at"> {
+function mergeSources(
+  sources: PullSource[],
+  category: CatalogCategoryId,
+  complete: boolean,
+): Omit<PullSnapshot, "at"> {
   const merged: TimelineItem[] = [];
   const seen = new Set<string>();
   let ok = 0;
@@ -210,7 +220,17 @@ function mergeSources(sources: PullSource[]): Omit<PullSnapshot, "at"> {
       merged.push({ ...it, sourceId: src.id, sourceName: name });
     }
   }
-  merged.sort((a, b) => publishedTs(b.publishedAt) - publishedTs(a.publishedAt));
+  if (isEditorialLane(category)) {
+    const ranked = rankHomepageItems(merged, { pageSize: NOOK_PAGE_SIZE });
+    merged.splice(0, merged.length, ...ranked);
+    if (!complete) {
+      merged.splice(
+        editorialProgressiveLimit(ok, NOOK_PAGE_SIZE, CATALOG_ITEMS_PER_SOURCE),
+      );
+    }
+  } else {
+    merged.sort((a, b) => publishedTs(b.publishedAt) - publishedTs(a.publishedAt));
+  }
   return { items: merged, okCount: ok, failCount: fail };
 }
 
@@ -397,25 +417,33 @@ export function NookFeed() {
     const received = new Map<string, PullSource>();
     const allowedIds = new Set(pullIds);
     const keepCachedDuringStream = Boolean(cached?.items.length);
+    const editorialLane = isEditorialLane(category);
+    const editorialSettleSourceCount = Math.min(8, pullIds.length);
     let committedItems = cached?.items ?? [];
+    let editorialSettled = keepCachedDuringStream || !editorialLane;
     let streamDone = false;
 
     const mergeReceived = (complete: boolean) => {
       const ordered = pullIds
         .map((id) => received.get(id))
         .filter((source): source is PullSource => Boolean(source));
-      const merged = mergeSources(ordered);
+      const merged = mergeSources(ordered, category, complete);
       if (complete) merged.failCount += pullIds.length - received.size;
       return merged;
     };
 
-    const publish = (snapshot: Omit<PullSnapshot, "at">) => {
-      const nextItems = preserveVisiblePrefix(
-        committedItems,
-        snapshot.items,
-        shownRef.current,
-        (item) => item.url,
-      );
+    const publish = (
+      snapshot: Omit<PullSnapshot, "at">,
+      allowVisibleRerank = false,
+    ) => {
+      const nextItems = allowVisibleRerank
+        ? snapshot.items
+        : preserveVisiblePrefix(
+            committedItems,
+            snapshot.items,
+            shownRef.current,
+            (item) => item.url,
+          );
       if (!sameTimelineItems(committedItems, nextItems)) {
         const stableVisibleCount = Math.min(committedItems.length, shownRef.current);
         const visibleCardsChanged = !sameTimelineItems(
@@ -469,12 +497,26 @@ export function NookFeed() {
           if (!source || !allowedIds.has(source.id)) return;
           received.set(source.id, source);
           setCompletedCount(received.size);
-          if (!keepCachedDuringStream) publish(mergeReceived(false));
+          if (!keepCachedDuringStream) {
+            const partial = mergeReceived(false);
+            const allowVisibleRerank = editorialLane && !editorialSettled;
+            publish(partial, allowVisibleRerank);
+            const hasEditorialAnchor = ["gnews-top", "bbc-zh", "dw-zh"].some(
+              (id) => received.get(id)?.ok,
+            );
+            if (
+              partial.okCount >= editorialSettleSourceCount &&
+              hasEditorialAnchor
+            ) {
+              editorialSettled = true;
+            }
+          }
         });
         if (!streamDone) throw new Error("catalog stream ended early");
 
         const complete = mergeReceived(true);
-        publish(complete);
+        publish(complete, editorialLane && !editorialSettled);
+        editorialSettled = true;
         setCompletedCount(pullIds.length);
         const snap = { at: Date.now(), ...complete, items: committedItems };
         clientPullCache.set(key, snap);
@@ -482,7 +524,7 @@ export function NookFeed() {
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (!ac.signal.aborted && !keepCachedDuringStream) {
           const partial = mergeReceived(true);
-          publish(partial);
+          publish(partial, editorialLane && !editorialSettled);
           if (partial.items.length === 0) setError("fail");
         }
       } finally {
@@ -491,7 +533,7 @@ export function NookFeed() {
     })();
 
     return () => ac.abort();
-  }, [ready, pullIds, viewKey, epoch, captureProgress]);
+  }, [ready, pullIds, viewKey, category, epoch, captureProgress]);
 
   useLayoutEffect(() => {
     const snapshot = pendingRestore.current;
