@@ -81,6 +81,13 @@ jobs:
       - name: Validate Prisma schema
         run: corepack pnpm --filter @hotai/db exec prisma validate --schema prisma/schema.prisma
 
+      - name: Build shared package entry points
+        # Workspace exports point at dist; fresh checkouts must build them
+        # before tests import @hotai/db or @hotai/ai.
+        run: |
+          corepack pnpm --filter @hotai/db build
+          corepack pnpm --filter @hotai/ai build
+
       - name: Unit tests
         run: corepack pnpm test
 
