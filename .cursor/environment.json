@@ -1,0 +1,19 @@
+{
+  "name": "Hot AI",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "corepack pnpm dev:web",
+      "description": "Next.js dev server for apps/web on http://localhost:3000"
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 3000
+    }
+  ]
+}
