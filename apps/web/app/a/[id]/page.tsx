@@ -1,3 +1,4 @@
+import { serverLang } from "@/lib/server-lang";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -9,7 +10,7 @@ import { formatUtcDateTime, hostname } from "@/lib/format";
 import { getArticleById, getRelatedArticles } from "@/lib/queries";
 import { safeHttpUrl } from "@/lib/safe-url";
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -35,6 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ArticlePage({ params }: PageProps) {
+  const zh = (await serverLang()) === "zh";
   const id = parseArticleId((await params).id);
   if (id == null) notFound();
 
@@ -49,8 +51,8 @@ export default async function ArticlePage({ params }: PageProps) {
     return (
       <div className="kz-page">
         <div className="kz-card kz-feed-empty">
-          <p className="kz-feed-empty-title">文章暂时不可用 · Article unavailable</p>
-          <p className="kz-feed-empty-copy">数据库连接失败；请稍后重试。</p>
+          <p className="kz-feed-empty-title">{zh ? "文章暂时不可用" : "Article unavailable"}</p>
+          <p className="kz-feed-empty-copy">{zh ? "内容服务暂时不可用，请稍后重试。" : "The content service is unavailable. Please retry shortly."}</p>
         </div>
       </div>
     );
@@ -75,7 +77,7 @@ export default async function ArticlePage({ params }: PageProps) {
   const publishedIso = article.publishedAt.toISOString();
   const cat = CATEGORIES.find((c) => c.slug === article.category);
   const fallbackSummary =
-    article.aiSummaryZh || article.aiSummaryEn || article.summary || "";
+    (zh ? article.aiSummaryZh : article.aiSummaryEn) || article.summary || article.aiSummaryEn || article.aiSummaryZh || "";
   const importancePct =
     article.aiImportance != null && Number.isFinite(article.aiImportance)
       ? Math.round(Math.min(1, Math.max(0, article.aiImportance)) * 100)
@@ -91,11 +93,11 @@ export default async function ArticlePage({ params }: PageProps) {
           {cat ? (
             <>
               <span aria-hidden> · </span>
-              <Link href={`/category/${cat.slug}`}>{cat.label_zh}</Link>
+              <Link href={`/category/${cat.slug}`}>{zh ? cat.label_zh : cat.label_en}</Link>
             </>
           ) : null}
         </p>
-        <h1 className="kz-reader-title">{article.title}</h1>
+        <h1 lang={article.lang} className="kz-reader-title">{article.title}</h1>
         <div className="kz-reader-meta">
           <time dateTime={publishedIso}>{formatUtcDateTime(article.publishedAt)}</time>
           <a
@@ -103,12 +105,12 @@ export default async function ArticlePage({ params }: PageProps) {
             target="_blank"
             rel="noopener noreferrer"
             className="kz-chip kz-host"
-            title="打开原文"
+            title={zh ? "打开原文" : "Open original"}
           >
             {host}
           </a>
           {importancePct != null ? (
-            <span className="kz-chip font-mono tabular-nums">重要度 {importancePct}</span>
+            <span className="kz-chip font-mono tabular-nums">{zh ? "重要度" : "Importance"} {importancePct}</span>
           ) : null}
           {article.aiTopics.map((t) => (
             <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
@@ -118,9 +120,9 @@ export default async function ArticlePage({ params }: PageProps) {
         </div>
         <div className="kz-reader-toolbar">
           <a className="kz-btn" href={articleUrl} target="_blank" rel="noopener noreferrer">
-            打开原文
+            {zh ? "打开原文" : "Open original"}
           </a>
-          <ReadingFlags id={article.id} />
+          <ReadingFlags story={{ articleId: article.id, url: articleUrl, title: article.title, source: article.source.name, summary: fallbackSummary }} />
         </div>
       </header>
 
@@ -128,7 +130,7 @@ export default async function ArticlePage({ params }: PageProps) {
         <div className="kz-reader-summaries">
           {article.aiSummaryZh ? (
             <section className="kz-card kz-reader-summary" lang="zh">
-              <h2>中文摘要</h2>
+              <h2>{zh ? "中文摘要" : "Chinese summary"}</h2>
               <p>{article.aiSummaryZh}</p>
             </section>
           ) : null}
@@ -140,7 +142,7 @@ export default async function ArticlePage({ params }: PageProps) {
           ) : null}
           {!hasAiSummaries && article.summary ? (
             <section className="kz-card kz-reader-summary">
-              <h2>摘要</h2>
+              <h2>{zh ? "摘要" : "Summary"}</h2>
               <p>{article.summary}</p>
             </section>
           ) : null}
@@ -149,7 +151,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
       {crossPosts.length > 0 ? (
         <div className="kz-reader-cross">
-          <span className="kz-reader-cross-label">转载</span>
+          <span className="kz-reader-cross-label">{zh ? "转载" : "Also covered by"}</span>
           {crossPosts.map((c) => (
             <a
               key={c.url}

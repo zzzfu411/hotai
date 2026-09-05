@@ -66,13 +66,14 @@ describe("Prometheus formatter", () => {
       checkedAt: "2026-08-31T12:00:00.000Z",
       collectionMs: 9,
       database: { ok: true, latencyMs: 4 },
+      catalog: { scope: "process", status: "unknown", fresh: 0, stale: 0, failed: 0, unknown: 35, lastSuccessAt: null },
       freshness: {
         articles24h: 12,
         lastFetchAt: "2026-08-31T11:59:00.000Z",
         lastFetchAgeSec: 60,
         maxFetchAgeSec: 10_800,
       },
-      sources: { total: 5, enabled: 4, disabled: 1, failing: 1, degraded: 1, staleEnabled: 0 },
+      sources: { total: 5, enabled: 4, disabled: 1, autoPaused: 0, failing: 1, degraded: 1, staleEnabled: 0 },
       ai: {
         enabled: true,
         digestEnabled: true,

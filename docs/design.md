@@ -1,5 +1,7 @@
 # Hot AI · 设计文档
 
+> 历史设计与演进记录。2026-09-05 起，当前运行规格以 [CURRENT_BEHAVIOR.md](CURRENT_BEHAVIOR.md) 为准；以下旧阶段描述不作为新实现要求。
+
 > 本文档涵盖项目当前的运行逻辑、已知痛点,以及按 ROI 排序的优化与扩展方案。
 > 与 [`ART_REQUIREMENTS.md`](./ART_REQUIREMENTS.md)(美术资产清单)、[`../CLAUDE.md`](../CLAUDE.md)(给 Claude Code 的编码约定)互为补充。
 
@@ -7,9 +9,9 @@
 
 ## 项目宗旨(范围声明)
 
-**站点默认是 NewsNook 式「速闻」阅读器（多源 RSS 按时间混排）。Hot AI（打分热榜 / LLM 摘要 / digest / ask）是其中一块模块，入口在 `/hot` 与 `/digest`。**
+**站点默认是 NewsNook 式「速闻」阅读器（综合按编辑信号、其他频道按最新排序）。Hot AI（打分热榜 / LLM 摘要 / digest / ask）是其中一块模块，入口在 `/hot` 与 `/digest`。**
 
-Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇过 LLM、全局同一份热榜。速闻时间线直连上游 Feed，**不入库、不过 LLM。**
+Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、AI 开启后按预算排队 enrichment、全局同一份热榜。速闻时间线直连上游 Feed，**不入库、不过 LLM。**
 
 围绕这个目标的硬性边界:
 
@@ -18,12 +20,12 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
 | **保留窗口** | 文章硬性保留 **14 天**,过期自动删除 | 站点是"今日热度",不是档案馆;DB 体积可控,查询永远快 |
 | **用户系统** | **不做** | 没有账号 = 没有登录 / 找回 / 反垃圾的运维成本;也不需要个性化引擎 |
 | **个性化推荐** | **不做** | 所有用户看到的"今日热门"是同一份;靠源权重 + 时间衰减 + 信号 + AI 重要度排序 |
-| **AI 介入粒度** | **每一篇** 新文章都过一次 LLM,产出摘要 / 主题 / 类型 / 重要度 | 重要度评分要进入排序公式,所以必须每篇都打 |
+| **AI 介入粒度** | AI 开启后，新文章按预算和并发限制排队，产出摘要 / 主题 / 类型 / 重要度 | 重要度评分要进入排序公式,所以必须每篇都打 |
 | **AI 编辑产出** | 每日 **digest** —— 一份给所有人看的"今天发生了什么"简报 | digest 就是"推送"的主体 |
 
 下面所有的优化和扩展方案都必须服务于上面这些边界。**任何引入"用户态"或"长期归档"的方案默认不做。**
 
-**阅读壳升级（2026-08 · NewsNook 交互 + KAZAM 视觉）：** 站点仍是「今日 AI 热榜」，不是综合新闻 App。交互改成分类轨 / 场景 / 站内阅读 / 本机 OPML 订阅（localStorage，不进 Postgres）；视觉对齐 [music.yeuxark.com](https://music.yeuxark.com)。规格见 [`nook-merge.md`](./nook-merge.md)。这不改变上表四条硬边界——本机偏好不是账号系统，自定义源不进入全局排名。
+**阅读壳升级（2026-08 · NewsNook 交互 + KAZAM 视觉）：** 站点包含综合速闻与独立的 AI 热榜模块。交互改成分类轨 / 场景 / 站内阅读 / 本机 OPML 订阅（localStorage，不进 Postgres）；视觉对齐 [music.yeuxark.com](https://music.yeuxark.com)。规格见 [`nook-merge.md`](./nook-merge.md)。这不改变上表四条硬边界——本机偏好不是账号系统，自定义源不进入全局排名。
 
 > **实现校准（2026-09-01）**：默认 `/` 是客户端实时速闻目录，按需调用 `/api/catalog/pull`，不依赖 `Article`；数据库热榜位于 `/hot`。Fetcher 负责主要内容写入，但 Web 会在缺少当日简报时写入 `Digest`，并由 `/api/ask` 写入 `AskCache`。当前 AI 配置、Ask 配额、公开抓取限流、AI lease/retry、retention、URL/HTML 边界和 CI 已有代码与测试；本文后面的历史更新记录保留原始决策背景，若与本段冲突，以代码、`README.md` 和最新安全审计为准。
 
@@ -103,7 +105,7 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、每篇
   │     │     └── 否则 create      → computeScore(见 1.3)
   │     │
   │     └── 源健康:成功→ lastFetch + fails 清零;失败→ fails+1,
-  │           连续 ≥SOURCE_FAIL_THRESHOLD(默认 5)自动 enabled=false
+  │           连续 ≥SOURCE_FAIL_THRESHOLD(默认 5)自动设置 autoPausedUntil，到期探测
   │
   ├── enrichPendingArticles()             ← AI 流水线 1/2
   │     ├── 认领 pending/retry/过期 processing 文章 (按 score DESC, 软上限 AI_ENRICH_PER_RUN)
@@ -173,14 +175,14 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 | 路由 | 渲染 | 缓存 | 数据源 |
 |---|---|---|---|
 | `/` | Client live catalog | 客户端 3min SWR + 服务端 feed cache | allowlisted RSS/Atom/JSON Feed；不写 Article |
-| `/hot` | RSC + ISR | `revalidate=600` | Postgres,top 50 by score（最近 14 天入库） |
+| `/hot` | 动态 RSC | `force-dynamic` | Postgres,top 50 by score（最近 14 天入库） |
 | `/digest` | 动态 RSC | `force-dynamic` | DB hit → 缺则在线生成 + 落库 |
-| `/category/{slug}` | RSC + ISR + SSG params | `revalidate=600` | DB,filter by category |
-| `/source/{slug}` | RSC + ISR | `revalidate=600` | DB,filter by source |
+| `/category/{slug}` | 动态 RSC | `force-dynamic` | DB,filter by category |
+| `/source/{slug}` | 动态 RSC | `force-dynamic` | DB,filter by source |
 | `/search` | RSC | `force-dynamic` | DB `ILIKE` |
 | `/api/ask` | Node runtime | AskCache 24h + IP 限流 + 相同问题单飞租约 + PostgreSQL 预约（日配额/并发） | DB + 流式 LLM (SSE)，来源快照随答案返回 |
-| `/api/digest` | RSC | `revalidate=600` | DB |
-| `/feed.xml` | RSC | `revalidate=600` | DB,RSS 2.0 输出 |
+| `/api/digest` | RSC | `force-dynamic` | DB |
+| `/feed.xml` | RSC | `force-dynamic` | DB,RSS 2.0 输出 |
 
 ---
 
@@ -533,7 +535,7 @@ ASK_RATE_PER_IP=5/60
 
 **/api/ask 防护(3.4)** — IP token bucket(`ASK_RATE_PER_IP`,默认 5/60s)→ `AskCache` 表按归一化问题 hash 缓存 24h(命中免 LLM、免配额)→相同问题的短时 PostgreSQL 协调租约→日 token/并发预约(`ASK_DAILY_TOKEN_LIMIT`,默认 50 万,0=不限)。预约带 TTL，断连、异常和 worker 崩溃按保守预算结算；AskCache 保存生成时的来源快照，SSE 发送 `sources` 事件，前端把 `[n]` 映射为站内文章链接。
 
-**失效源监控(3.5)** — `Source` 加 `consecutiveFails / lastError / lastErrorAt`;失败递增、成功清零;连续 ≥`SOURCE_FAIL_THRESHOLD`(默认 5)自动 `enabled=false`。dispatch 对未知源、scrape 抓到 0 条也按失败计。admin 页面未做(Prisma Studio 手动 re-enable)。
+**失效源监控(3.5)** — `Source` 加 `consecutiveFails / lastError / lastErrorAt`;失败递增、成功清零;连续 ≥`SOURCE_FAIL_THRESHOLD`(默认 5)自动设置 `autoPausedUntil`，到期探测。dispatch 对未知源、scrape 抓到 0 条也按失败计。admin 页面未做(Prisma Studio 手动 re-enable)。
 
 **arXiv 归一化(3.6)** — `normalizeUrl` 对 arxiv.org 强制 https、去 `vN` 版本后缀、`/pdf/x(.pdf)` 归到 `/abs/x`。注意:已入库的旧 hash 不迁移,新旧文章会短暂并存,14 天保留期内自然冲掉。
 

@@ -1,0 +1,9 @@
+.kz-saved { margin-bottom: 36px; }
+.kz-saved-list { display: grid; gap: 12px; list-style: none; padding: 0; }
+.kz-saved-item { padding: 16px; }
+.kz-saved-item > a { display: block; font-size: 17px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+.kz-saved-item .kz-article-meta { margin-top: 10px; }
+.kz-reader-flags { flex-wrap: wrap; }
+.kz-reader-flags [role="status"] { flex-basis: 100%; color: var(--red); font-size: 13px; }
+.kz-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; margin-top: 24px; }
+.kz-pagination p { color: var(--mild); font-size: 13px; }

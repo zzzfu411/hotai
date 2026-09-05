@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { consumeAskStream } from "@/lib/ask-stream";
 import { useEffect, useRef, useState } from "react";
 import {
   sanitizeAskCitationSources,
@@ -101,37 +102,17 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error ?? `HTTP ${res.status}`);
       }
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No stream");
-      const decoder = new TextDecoder();
-      let buf = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n\n");
-        buf = lines.pop() ?? "";
-        for (const line of lines) {
-          const m = line.match(/^data:\s*(.+)$/);
-          if (!m) continue;
-          try {
-            const obj = JSON.parse(m[1]!);
-            if (obj.sources) setSources(sanitizeAskCitationSources(obj.sources));
-            if (typeof obj.delta === "string") setAnswer((a) => a + obj.delta);
-            if (obj.error) throw new Error(obj.error);
-            if (obj.done) {
-              setBusy(false);
-              return;
-            }
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }
-      }
+      if (!res.body) throw new Error("No stream");
+      await consumeAskStream(res.body, (obj) => {
+        if (obj.sources) setSources(sanitizeAskCitationSources(obj.sources));
+        if (typeof obj.delta === "string") { const delta = obj.delta; setAnswer(a => a + delta); }
+      });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       if (ac.signal.aborted) return;
-      setError((err as Error).message);
+      setError((err as Error).message === "incomplete-answer"
+        ? (lang === "zh" ? "连接中断，以下回答尚未完成，请重试。" : "Connection interrupted. This answer is incomplete; please retry.")
+        : (err as Error).message);
     } finally {
       if (!ac.signal.aborted) setBusy(false);
     }

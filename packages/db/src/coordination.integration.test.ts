@@ -4,6 +4,7 @@ import {
   finishCoordinationLease,
   prisma,
   renewCoordinationLease,
+  withCoordinationLease,
 } from "./index.js";
 
 const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
@@ -12,9 +13,19 @@ const names = [
   "test:coordination:recovery",
   "test:coordination:degraded",
   "test:coordination:expired-renew",
+  "test:coordination:fenced-write",
 ];
 
 describeDb("coordination leases (PostgreSQL)", () => {
+  it("prevents an expired owner from committing after takeover", async () => {
+    const first = await acquireCoordinationLease(names[4]!, 30_000, { ownerId: "old", now: new Date(Date.now() - 60_000) });
+    const replacement = await acquireCoordinationLease(names[4]!, 30_000, { ownerId: "new" });
+    expect(first.acquired && replacement.acquired).toBe(true);
+    let called = false;
+    await expect(withCoordinationLease(first, async () => { called = true; })).rejects.toThrow("lost before commit");
+    expect(called).toBe(false);
+    expect(await withCoordinationLease(replacement, async () => "saved")).toBe("saved");
+  });
   beforeEach(async () => {
     await prisma.coordinationLease.deleteMany({ where: { name: { in: names } } });
   });

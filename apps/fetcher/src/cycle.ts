@@ -13,7 +13,7 @@ import {
   purgeStaleAskCache,
 } from "./purge.js";
 import { rescoreAllArticles } from "./rescore.js";
-import { recordFetchSuccess, recordFetchDegraded, recordFetchFailure } from "./sourceHealth.js";
+import { recordFetchSuccess, recordFetchDegraded, recordFetchFailure, getDueSources } from "./sourceHealth.js";
 import { config } from "./config.js";
 import { mapPool } from "./pool.js";
 import type { RawItem } from "./types.js";
@@ -23,7 +23,7 @@ import { assessEnabledSources, assessSourceContent } from "./content-quality.js"
 export type CycleReport = {
   status: "ok" | "degraded";
   errors: string[];
-  sources: { ok: number; degraded: number; failed: number; disabled: number };
+  sources: { ok: number; degraded: number; failed: number; autoPaused: number };
   articles: PersistStats;
   enrich: { analyzed: number; skipped: number };
   purged: number;
@@ -62,7 +62,7 @@ async function runCycleUnlocked(): Promise<CycleReport> {
   const report: CycleReport = {
     status: "ok",
     errors: [],
-    sources: { ok: 0, degraded: 0, failed: 0, disabled: 0 },
+    sources: { ok: 0, degraded: 0, failed: 0, autoPaused: 0 },
     articles: {
       created: 0,
       refreshed: 0,
@@ -98,7 +98,7 @@ async function runCycleUnlocked(): Promise<CycleReport> {
     note(report, "purge coordination leases", e),
   );
 
-  const sources = await prisma.source.findMany({ where: { enabled: true } });
+  const sources = await getDueSources();
   const sourceSet = assessEnabledSources(sources.length);
   if (sourceSet.status === "degraded") note(report, "sources", sourceSet.reason);
   console.log(
@@ -130,9 +130,9 @@ async function runCycleUnlocked(): Promise<CycleReport> {
     if (!out.ok) {
       report.sources.failed++;
       note(report, `source ${out.src.slug}`, out.err);
-      const { fails, disabled } = await recordFailureHealth(report, out.src, out.err);
-      if (disabled) {
-        report.sources.disabled++;
+      const { fails, autoPaused } = await recordFailureHealth(report, out.src, out.err);
+      if (autoPaused) {
+        report.sources.autoPaused++;
         console.error(
           `    ✗ ${out.src.slug}: ${out.err.message} — ${fails} consecutive fails, SOURCE AUTO-DISABLED`,
         );
@@ -162,8 +162,8 @@ async function runCycleUnlocked(): Promise<CycleReport> {
         report.sources.failed++;
         const persistErr = new Error(assessment.reason ?? "source content failed validation");
         note(report, `source ${out.src.slug} persistence`, persistErr);
-        const { fails, disabled } = await recordFailureHealth(report, out.src, persistErr);
-        if (disabled) report.sources.disabled++;
+        const { fails, autoPaused } = await recordFailureHealth(report, out.src, persistErr);
+        if (autoPaused) report.sources.autoPaused++;
         console.warn(
           `    ! ${out.src.slug}: ${out.items.length} items — ${assessment.reason} (source fail ${fails}/${config.sourceFailThreshold})`,
         );
@@ -187,9 +187,9 @@ async function runCycleUnlocked(): Promise<CycleReport> {
     } catch (err) {
       report.sources.failed++;
       note(report, `source ${out.src.slug} persistence`, err);
-      const { fails, disabled } = await recordFailureHealth(report, out.src, err);
-      if (disabled) {
-        report.sources.disabled++;
+      const { fails, autoPaused } = await recordFailureHealth(report, out.src, err);
+      if (autoPaused) {
+        report.sources.autoPaused++;
         console.error(
           `    ✗ ${out.src.slug}: ${errorMessage(err)} — ${fails} consecutive fails, SOURCE AUTO-DISABLED`,
         );
@@ -262,7 +262,7 @@ async function recordFailureHealth(
   report: CycleReport,
   source: Source,
   error: unknown,
-): Promise<{ fails: number; disabled: boolean }> {
+): Promise<{ fails: number; autoPaused: boolean }> {
   const result = await recordFetchFailure(source, error);
   if (!result.persisted) {
     note(report, `source ${source.slug} health`, "health state was not fully persisted or confirmed");

@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { AI_DIGEST_ENABLED, AI_ENABLED } from "@hotai/ai";
 import { prisma } from "./db";
+import { catalogHealth } from "./catalog-health";
 
 const AI_STATES = ["pending", "processing", "retry", "success", "failed"] as const;
 type AiState = (typeof AI_STATES)[number];
@@ -12,6 +13,7 @@ export type HealthSnapshot = {
   checkedAt: string;
   collectionMs: number;
   database: { ok: true; latencyMs: number };
+  catalog: ReturnType<typeof catalogHealth>;
   freshness: {
     articles24h: number;
     lastFetchAt: string | null;
@@ -22,6 +24,7 @@ export type HealthSnapshot = {
     total: number;
     enabled: number;
     disabled: number;
+    autoPaused: number;
     failing: number;
     degraded: number;
     staleEnabled: number;
@@ -153,7 +156,7 @@ export async function collectHealthSnapshot(now = new Date()): Promise<HealthSna
   ] = await Promise.all([
     prisma.article.count({ where: { publishedAt: { gte: since24h } } }),
     prisma.source.findMany({
-      select: { enabled: true, lastFetch: true, consecutiveFails: true, lastError: true },
+      select: { enabled: true, lastFetch: true, consecutiveFails: true, lastError: true, autoPausedUntil: true },
     }),
     prisma.article.groupBy({ by: ["aiStatus"], _count: { _all: true } }),
     prisma.article.count({
@@ -216,6 +219,9 @@ export async function collectHealthSnapshot(now = new Date()): Promise<HealthSna
     fetcherLeaseExpired,
   });
   const warnings = [...readiness.warnings];
+  const catalog = catalogHealth(now.getTime());
+  if (catalog.status !== "ok") warnings.push(`catalog-${catalog.status}`);
+  if (AI_ENABLED && AI_DIGEST_ENABLED && !digest) warnings.push("digest-not-published");
   const degradedSources = enabledRows.filter(
     (source) => source.consecutiveFails === 0 && Boolean(source.lastError),
   ).length;
@@ -233,6 +239,7 @@ export async function collectHealthSnapshot(now = new Date()): Promise<HealthSna
     checkedAt: now.toISOString(),
     collectionMs: Date.now() - collectionStarted,
     database: { ok: true, latencyMs: databaseLatencyMs },
+    catalog,
     freshness: {
       articles24h,
       lastFetchAt: latestFetchMs === null ? null : new Date(latestFetchMs).toISOString(),
@@ -243,6 +250,7 @@ export async function collectHealthSnapshot(now = new Date()): Promise<HealthSna
       total: sourceRows.length,
       enabled: enabledRows.length,
       disabled: sourceRows.length - enabledRows.length,
+      autoPaused: enabledRows.filter(source => source.autoPausedUntil && source.autoPausedUntil > now).length,
       failing: enabledRows.filter((source) => source.consecutiveFails > 0).length,
       degraded: degradedSources,
       staleEnabled,
@@ -313,6 +321,10 @@ export function formatPrometheus(snapshot: HealthSnapshot): string {
     "# TYPE hotai_sources gauge",
     `hotai_sources{state="enabled"} ${snapshot.sources.enabled}`,
     `hotai_sources{state="disabled"} ${snapshot.sources.disabled}`,
+    `hotai_sources{state="auto_paused"} ${snapshot.sources.autoPaused}`,
+    "# HELP hotai_catalog_sources Process-local live RSS observations; unknown includes cold cache.",
+    "# TYPE hotai_catalog_sources gauge",
+    ...(["fresh", "stale", "failed", "unknown"] as const).map(state => `hotai_catalog_sources{state="${state}"} ${snapshot.catalog[state]}`),
     `hotai_sources{state="failing"} ${snapshot.sources.failing}`,
     `hotai_sources{state="degraded"} ${snapshot.sources.degraded}`,
     `hotai_sources{state="stale"} ${snapshot.sources.staleEnabled}`,

@@ -1,5 +1,7 @@
 # Hot AI × NewsNook 合并方案（v1 · 落地到 hotai.yeuxark.com）
 
+> 历史设计与演进记录。2026-09-05 起，当前运行规格以 [CURRENT_BEHAVIOR.md](CURRENT_BEHAVIOR.md) 为准；以下旧阶段描述不作为新实现要求。
+
 > 状态：已批准执行。本文档是实现的唯一规格。改核心行为前先改这里。
 > 相关：[`design.md`](./design.md)、[`../CLAUDE.md`](../CLAUDE.md)、参考站点 [music.yeuxark.com](https://music.yeuxark.com)（KAZAM）、[news.aizeek.com](https://news.aizeek.com)（NewsNook Web）。
 
@@ -45,7 +47,7 @@ Web 版没有 App 内 SOCKS 隧道，国际源依赖 Functions 代理。Hot AI �
 | NewsNook | 中文优先、阅读器衬线正文 | 默认 `zh`；阅读器 `Noto Serif SC` |
 | KAZAM | 奶油底 + 3px 黑框 + 硬阴影；暗色虚空黑 + 藏青 | 全站 token，见 §6 |
 
-**热榜排序不会污染混合时间线。** 作者原话是「按时间顺序展示」。处理：
+**历史方案：以下为最初的纯时间排序设计；现综合/头条采用编辑排序，分类保留时间排序。**
 
 - 场景 `hot`：`ORDER BY score DESC`（Hot AI 的理由存在这里）
 - 其它场景：`ORDER BY publishedAt DESC`
@@ -210,7 +212,7 @@ Hot AI
 
 ### 5.7 revalidate
 
-fetcher cycle 仍 POST `["/", "/digest"]`。阅读器走 `force-dynamic` 或 `revalidate=600` 按 id。
+fetcher cycle 仍 POST `["/", "/digest"]`。阅读器走 `force-dynamic` 或 `force-dynamic` 按 id。
 
 ---
 

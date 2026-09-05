@@ -1,4 +1,4 @@
-import { AI_ENABLED, type DigestBullet } from "@hotai/ai";
+import { AI_ENABLED, AI_DIGEST_ENABLED, type DigestBullet } from "@hotai/ai";
 import { AskBox } from "@/components/AskBox";
 import { DigestHeader } from "@/components/DigestHeader";
 import { FeedList } from "@/components/FeedList";
@@ -34,7 +34,7 @@ export default async function DigestPage() {
 
   return (
     <div className="kz-page">
-      <DigestHeader digest={digest} aiEnabled={AI_ENABLED} />
+      <DigestHeader digest={digest} aiEnabled={AI_ENABLED && AI_DIGEST_ENABLED} unavailable={dbUnavailable} />
 
       {digest && (
         <ol className="kz-digest-bullets">
@@ -89,8 +89,8 @@ export default async function DigestPage() {
           titleEn="Today's hottest"
           emptyTitleZh={dbUnavailable ? "入库热榜暂时不可用" : undefined}
           emptyTitleEn={dbUnavailable ? "Stored hot list unavailable" : undefined}
-          emptyCopyZh={dbUnavailable ? "数据库连接失败；首页实时速闻仍可使用。" : undefined}
-          emptyCopyEn={dbUnavailable ? "The database is unavailable; the live feed still works." : undefined}
+          emptyCopyZh={dbUnavailable ? "内容服务暂时不可用，请稍后重试。" : undefined}
+          emptyCopyEn={dbUnavailable ? "The content service is unavailable. Please try again shortly." : undefined}
         />
       </section>
 

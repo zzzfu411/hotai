@@ -56,9 +56,9 @@ export const config = {
   // Cross-source repost dedupe: a new item whose titleHash matches an article
   // published within this window is merged into it instead of creating a row.
   titleDedupeWindowDays: bounded(process.env.TITLE_DEDUPE_WINDOW_DAYS, 3, 0, 30),
-  // A source failing this many consecutive cycles is auto-disabled
-  // (Source.enabled=false) so dead feeds surface instead of rotting silently.
+  // Automatic circuits retain enabled=true so manual disables never auto-restart.
   sourceFailThreshold: bounded(process.env.SOURCE_FAIL_THRESHOLD, 5, 1, 100),
+  sourceRetryMs: bounded(process.env.SOURCE_RETRY_MINUTES, 60, 5, 1440) * 60_000,
   // AI enrichment knobs — only used when ANTHROPIC_API_KEY is set.
   aiEnrichPerRun: bounded(process.env.AI_ENRICH_PER_RUN, 30, 0, 1_000),
   aiConcurrency: bounded(process.env.AI_CONCURRENCY, 4, 1, 16),
@@ -69,7 +69,7 @@ export const config = {
   aiImportanceWeight: bounded(process.env.AI_IMPORTANCE_WEIGHT, 2.0, 0, 10),
   aiDigestEnabled: (process.env.AI_DIGEST_ENABLED ?? "true").toLowerCase() !== "false",
   // Durable singleton leases. The fetcher renews its cycle lease while work
-  // is running; digest generation is short enough to use one fixed lease.
+  // is running; digest generation also renews and fences its final write.
   cycleLeaseMs:
     bounded(process.env.FETCHER_CYCLE_LEASE_SECONDS, 300, 120, 3_600) * 1000,
   digestLeaseMs:

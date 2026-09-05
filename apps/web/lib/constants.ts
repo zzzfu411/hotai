@@ -23,7 +23,7 @@ export const BLOG_TAGS = [
 
 export const SITE = {
   name: "Hot AI",
-  tagline_en: "The pulse of AI, every hour.",
-  tagline_zh: "每小时,一份 AI 脉搏。",
+  tagline_en: "Live news, AI headlines, one reading desk.",
+  tagline_zh: "多源速闻，AI 热榜，站内阅读。",
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://hotai.yeuxark.com",
 };

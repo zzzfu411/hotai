@@ -28,17 +28,17 @@ jobs:
         env:
           POSTGRES_USER: hotai
           POSTGRES_PASSWORD: hotai
-          POSTGRES_DB: hotai
+          POSTGRES_DB: hotai_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U hotai -d hotai"
+          --health-cmd "pg_isready -U hotai -d hotai_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://hotai:hotai@localhost:5432/hotai?schema=public
+      DATABASE_URL: postgresql://hotai:hotai@localhost:5432/hotai_test?schema=public
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       NEXT_PUBLIC_SITE_NAME: Hot AI
       # CI must never make an external model request.
@@ -92,6 +92,26 @@ jobs:
 
       - name: Build production artifacts
         run: corepack pnpm build
+
+      - name: Seed deterministic browser corpus
+        run: corepack pnpm test:seed
+
+      - name: Install Chromium
+        run: corepack pnpm exec playwright install --with-deps chromium
+
+      - name: Browser user-path regression
+        run: corepack pnpm smoke:browser
+
+      - name: Save browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-evidence
+          path: output/playwright/
+          retention-days: 7
+
+      - name: Read-only release content gate
+        run: corepack pnpm release:check
 
       - name: Smoke-test compiled fetcher
         run: corepack pnpm --filter @hotai/fetcher smoke

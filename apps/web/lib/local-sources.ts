@@ -148,12 +148,14 @@ export function loadCustomSources(): CustomSource[] {
   }
 }
 
-export function saveCustomSources(sources: CustomSource[]): void {
-  if (typeof window === "undefined") return;
+export function saveCustomSources(sources: CustomSource[]): boolean {
+  if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(CUSTOM_SOURCES_KEY, JSON.stringify(sources));
+    return true;
   } catch {
     /* quota / private mode */
+    return false;
   }
 }
 

@@ -102,8 +102,8 @@ function earliestResetSec(now: number): number {
 }
 
 /** Cache key for a question — trims, lowercases, hashes. */
-export function questionKey(question: string): string {
-  return createHash("sha1").update(question.trim().toLowerCase()).digest("hex");
+export function questionKey(question: string, corpusVersion = ""): string {
+  return createHash("sha256").update(JSON.stringify([question.trim().toLowerCase(), corpusVersion])).digest("hex");
 }
 
 /**

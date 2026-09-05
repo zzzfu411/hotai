@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLang } from "./LangContext";
-import { isLater, isRead, toggleLater, toggleRead } from "@/lib/reading-flags";
+import { storyState, toggleReading, hydrateReadingStory } from "@/lib/reading-list";
+import type { ReadableStory } from "@/lib/reader-link";
+import { useReadingEntries } from "./ReadingList";
 
 type BodyStatus = "ssr" | "loading" | "ok" | "fail";
 
@@ -114,22 +116,24 @@ export function ReaderBody({ url, fallbackSummary }: ReaderBodyProps) {
       ) : null}
       {fallbackSummary ? <p className="kz-reader-fallback-summary">{fallbackSummary}</p> : null}
       <a className="kz-btn" href={url} target="_blank" rel="noopener noreferrer">
-        打开原文
+        {zh ? "打开原文" : "Open original"}
       </a>
     </div>
   );
 }
 
-export function ReadingFlags({ id }: { id: number }) {
+export function ReadingFlags({ story }: { story: ReadableStory }) {
   const { lang } = useLang();
   const zh = lang === "zh";
-  const [later, setLater] = useState(false);
-  const [read, setRead] = useState(false);
-
+  const entries = useReadingEntries();
+  const state = storyState(entries, story);
+  const later = state === "later";
+  const read = state === "read";
+  const [failed, setFailed] = useState(false);
+  const { articleId, url, title, source, summary } = story;
   useEffect(() => {
-    setLater(isLater(id));
-    setRead(isRead(id));
-  }, [id]);
+    if (!hydrateReadingStory({ articleId, url, title, source, summary })) setFailed(true);
+  }, [articleId, url, title, source, summary]);
 
   return (
     <div className="kz-reader-flags">
@@ -138,9 +142,7 @@ export function ReadingFlags({ id }: { id: number }) {
         className={later ? "kz-btn kz-btn-sm active" : "kz-btn kz-btn-sm"}
         aria-pressed={later}
         onClick={() => {
-          const on = toggleLater(id);
-          setLater(on);
-          if (on) setRead(false);
+          setFailed(!toggleReading(story, "later"));
         }}
       >
         {zh ? (later ? "已稍后" : "稍后读") : later ? "Saved" : "Read later"}
@@ -150,13 +152,12 @@ export function ReadingFlags({ id }: { id: number }) {
         className={read ? "kz-btn kz-btn-sm active" : "kz-btn kz-btn-sm"}
         aria-pressed={read}
         onClick={() => {
-          const on = toggleRead(id);
-          setRead(on);
-          if (on) setLater(false);
+          setFailed(!toggleReading(story, "read"));
         }}
       >
         {zh ? (read ? "已读" : "标为已读") : read ? "Read" : "Mark read"}
       </button>
+      {failed && <p role="status">{zh ? "无法保存到浏览器，标记仅在本次会话有效。" : "Could not save to this browser. This mark lasts only for this session."}</p>}
     </div>
   );
 }

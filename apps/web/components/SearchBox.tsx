@@ -25,6 +25,8 @@ export function SearchBox({
   const [sort, setSort] = useState<"hot" | "recent">(initialSort);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => { setQ(initialQuery); setSort(initialSort); }, [initialQuery, initialSort]);
+
   // ⌘K / Ctrl+K focuses the input.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -44,6 +46,7 @@ export function SearchBox({
     else params.delete("q");
     if (nextSort === "recent") params.set("sort", "recent");
     else params.delete("sort");
+    params.delete("page");
     router.push(`/search?${params.toString()}`);
   };
 
@@ -113,8 +116,8 @@ export function SearchBox({
       {resultCount != null && (
         <p className="kz-search-count">
           {zh
-            ? `${resultCount} 条结果 · 「${initialQuery}」`
-            : `${resultCount} result${resultCount === 1 ? "" : "s"} for “${initialQuery}”`}
+            ? `本页 ${resultCount} 条结果 · 「${initialQuery}」`
+            : `${resultCount} results on this page for “${initialQuery}”`}
         </p>
       )}
       {unavailable && (
@@ -124,8 +127,8 @@ export function SearchBox({
           </p>
           <p>
             {zh
-              ? "数据库暂时连不上；速闻时间线仍可继续浏览。"
-              : "The database is offline; the live feed remains available."}
+              ? "内容服务暂时不可用，请稍后重试。"
+              : "The content service is unavailable. Please try again shortly."}
           </p>
         </div>
       )}

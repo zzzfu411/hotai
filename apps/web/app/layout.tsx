@@ -1,9 +1,13 @@
 import "./globals.css";
+import "./signal.css";
+import "./reading.css";
 import type { Metadata, Viewport } from "next";
 import { SITE } from "@/lib/constants";
 import { AppShell } from "@/components/AppShell";
 import { LangProvider } from "@/components/LangContext";
 import { ThemeNoFlashScript } from "@/components/ThemeToggle";
+import { serverLang } from "@/lib/server-lang";
+import { ReadingProvider } from "@/components/ReadingList";
 
 const GOOGLE_FONTS =
   "https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;700;900&display=swap";
@@ -13,7 +17,7 @@ export const metadata: Metadata = {
     default: `${SITE.name} — ${SITE.tagline_zh}`,
     template: `%s · ${SITE.name}`,
   },
-  description: "每日 AI 新闻、研究与开源热度榜 — 按热度排序，Claude 摘要。",
+  description: "多源实时速闻、AI 入库热榜、带引用的简报与本机阅读记录。",
   metadataBase: new URL(SITE.url),
   manifest: "/manifest.webmanifest",
   icons: {
@@ -52,9 +56,10 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await serverLang();
   return (
-    <html lang="zh" suppressHydrationWarning>
+    <html lang={lang} suppressHydrationWarning>
       <head>
         <ThemeNoFlashScript />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -65,8 +70,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </noscript>
       </head>
       <body>
-        <LangProvider>
-          <AppShell>{children}</AppShell>
+        <LangProvider initialLang={lang}>
+          <ReadingProvider><AppShell>{children}</AppShell></ReadingProvider>
         </LangProvider>
       </body>
     </html>

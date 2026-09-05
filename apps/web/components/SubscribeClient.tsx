@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { readerLink } from "@/lib/reader-link";
+import { ReadingList, ReadingBadge } from "./ReadingList";
 import { hostname, timeAgo } from "@/lib/format";
 import { safeHttpUrl } from "@/lib/safe-url";
 import {
@@ -24,12 +27,14 @@ type FeedItem = {
   publishedAt: string | null;
 };
 
-type CachedFeed = { title: string; items: FeedItem[] };
+type CachedFeed = { title: string; items: FeedItem[]; stale: boolean; fetchedAt?: string };
 
 type SourceStatus = {
   state: "idle" | "loading" | "ok" | "error";
   message?: string;
   count?: number;
+  stale?: boolean;
+  fetchedAt?: string;
 };
 
 type TimelineItem = FeedItem & { sourceId: string; sourceName: string };
@@ -112,6 +117,10 @@ export function SubscribeClient() {
   const [loading, setLoading] = useState(false);
   const [epoch, setEpoch] = useState(0);
   const cacheRef = useRef(new Map<string, CachedFeed>());
+  const sourcesRef = useRef(sources);
+  useLayoutEffect(() => { sourcesRef.current = sources; }, [sources]);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [storageFailed, setStorageFailed] = useState(false);
 
   useEffect(() => {
     setSources(loadCustomSources());
@@ -120,7 +129,7 @@ export function SubscribeClient() {
 
   const persist = useCallback((next: CustomSource[]) => {
     setSources(next);
-    saveCustomSources(next);
+    setStorageFailed(!saveCustomSources(next));
   }, []);
 
   const enabled = useMemo(() => sources.filter((s) => s.enabled), [sources]);
@@ -172,7 +181,8 @@ export function SubscribeClient() {
         if (cancelled) return;
         const cached = cacheRef.current.get(src.url);
         if (cached) {
-          nextStatus[src.id] = { state: "ok", count: cached.items.length };
+          nextStatus[src.id] = { state: "ok", count: cached.items.length, fetchedAt: cached.fetchedAt,
+            stale: cached.stale || Boolean(cached.fetchedAt && Date.now() - Date.parse(cached.fetchedAt) > 8 * 60_000) };
           for (const it of cached.items) {
             merged.push({ ...it, sourceId: src.id, sourceName: cached.title || src.name });
           }
@@ -186,7 +196,7 @@ export function SubscribeClient() {
 
         try {
           let res: Response | null = null;
-          let body: { ok?: boolean; title?: string; items?: unknown; error?: string } = {};
+          let body: { ok?: boolean; title?: string; items?: unknown; error?: string; stale?: boolean; fetchedAt?: string } = {};
           for (let attempt = 0; attempt < 3; attempt++) {
             res = await fetch(`/api/proxy/feed?url=${encodeURIComponent(src.url)}`, {
               signal: ac.signal,
@@ -217,8 +227,8 @@ export function SubscribeClient() {
 
           const feedItems = readItems(body.items);
           const title = typeof body.title === "string" ? body.title.trim() : "";
-          cacheRef.current.set(src.url, { title, items: feedItems });
-          nextStatus[src.id] = { state: "ok", count: feedItems.length };
+          cacheRef.current.set(src.url, { title, items: feedItems, stale: body.stale === true, fetchedAt: body.fetchedAt });
+          nextStatus[src.id] = { state: "ok", count: feedItems.length, stale: body.stale === true, fetchedAt: body.fetchedAt };
           for (const it of feedItems) {
             merged.push({ ...it, sourceId: src.id, sourceName: title || src.name });
           }
@@ -236,13 +246,9 @@ export function SubscribeClient() {
 
       if (cancelled) return;
       if (namePatches.size > 0) {
-        setSources((prev) => {
-          const next = prev.map((s) =>
-            namePatches.has(s.id) ? { ...s, name: namePatches.get(s.id)! } : s,
-          );
-          saveCustomSources(next);
-          return next;
-        });
+        persist(sourcesRef.current.map((s) =>
+          namePatches.has(s.id) ? { ...s, name: namePatches.get(s.id)! } : s,
+        ));
       }
       publish();
       setLoading(false);
@@ -316,8 +322,12 @@ export function SubscribeClient() {
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
-    const text = await file.text();
-    onImportOpml(text);
+    if (file.size > 1024 * 1024) {
+      setBanner(zh ? "OPML 文件不能超过 1 MB。" : "OPML files must be at most 1 MB.");
+      return;
+    }
+    try { onImportOpml(await file.text()); }
+    catch { setBanner(zh ? "无法读取此文件，请重试。" : "Could not read this file. Try again."); }
   };
 
   const refresh = () => {
@@ -336,30 +346,29 @@ export function SubscribeClient() {
 
   return (
     <div className="kz-page">
+      <h1 className="sr-only">{zh ? "我的阅读与订阅" : "My reading and subscriptions"}</h1>
+      <ReadingList />
       <header className="kz-page-head">
         <div>
           <p className="kz-page-kicker">{zh ? "我的订阅 · 仅本机" : "Subscribe · this browser"}</p>
-          <h1 className="kz-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h1>
+          <h2 className="kz-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h2>
           <p className="kz-page-lede">
             {zh ? (
               <>
-                源存在浏览器 localStorage（键 <code>hotai.customSources</code>），条目经{" "}
-                <code>/api/proxy/feed</code> 拉取。
-                <strong> 不会写入 Postgres，也不会进入全站热榜。</strong>
-                编辑源目录：
+                订阅仅保存在此浏览器，可导出 OPML 备份或带到其他设备。
+                <strong> 不影响全站热榜。</strong>
+                推荐源目录：
                 <a href="/hotai.opml" download>
-                  /hotai.opml
+                  下载 OPML
                 </a>
                 。
               </>
             ) : (
               <>
-                Sources live in localStorage (<code>hotai.customSources</code>) and items are pulled
-                through <code>/api/proxy/feed</code>.
-                <strong> Nothing is written to Postgres or the global hot list.</strong> Editorial
-                catalog:{" "}
+                Subscriptions stay in this browser. Export OPML to back them up or move to another device.
+                <strong> They do not affect the global hot list.</strong> Recommended feeds:{" "}
                 <a href="/hotai.opml" download>
-                  /hotai.opml
+                  Download OPML
                 </a>
                 .
               </>
@@ -445,9 +454,11 @@ export function SubscribeClient() {
             <button className="kz-btn" type="submit">
               {zh ? "导入 OPML" : "Import OPML"}
             </button>
-            <label className="kz-btn">
+            <button type="button" className="kz-btn" onClick={() => fileRef.current?.click()}>
               {zh ? "选择文件" : "Choose file"}
+            </button>
               <input
+                ref={fileRef}
                 type="file"
                 accept=".opml,.xml,text/xml,application/xml,text/x-opml+xml"
                 hidden
@@ -457,7 +468,6 @@ export function SubscribeClient() {
                   void onFile(file);
                 }}
               />
-            </label>
           </div>
         </form>
       </section>
@@ -467,6 +477,7 @@ export function SubscribeClient() {
           {banner}
         </p>
       ) : null}
+      {storageFailed && <p className="kz-sub-error" role="status">{zh ? "浏览器未能保存订阅。当前修改仅在本次会话有效，请导出 OPML 备份。" : "This browser could not save your subscriptions. Changes last for this session; export OPML to keep a backup."}</p>}
       {notice ? <p className="kz-sub-notice">{notice}</p> : null}
 
       {sources.length === 0 ? (
@@ -513,6 +524,8 @@ export function SubscribeClient() {
                     {st?.state === "ok" ? (
                       <p className="kz-sub-status">
                         {zh ? `${st.count ?? 0} 条` : `${st.count ?? 0} items`}
+                        {st.stale ? (zh ? " · 陈旧缓存" : " · stale cache") : ""}
+                        {st.fetchedAt ? ` · ${new Date(st.fetchedAt).toLocaleString(zh ? "zh-CN" : "en-GB")}` : ""}
                       </p>
                     ) : null}
                     {st?.state === "error" && st.message ? (
@@ -584,14 +597,15 @@ export function SubscribeClient() {
                     {(() => {
                       const safe = safeHttpUrl(it.url);
                       if (!safe) return <span className="kz-article-main">{it.title}</span>;
-                      return <a href={safe} target="_blank" rel="noopener noreferrer" className="kz-article-main">
+                      return <Link href={readerLink({ ...it, source: it.sourceName })} className="kz-article-main">
                       <span className="kz-article-title-row">
                         <span className="kz-article-title">{it.title}</span>
                       </span>
                       {it.summary ? <span className="kz-article-summary">{it.summary}</span> : null}
-                      </a>;
+                      </Link>;
                     })()}
                     <div className="kz-article-meta">
+                      <ReadingBadge story={it} />
                       <span className="kz-chip">{it.sourceName}</span>
                       {safeHttpUrl(it.url) ? <span className="kz-chip kz-host">{hostname(it.url)}</span> : null}
                       {it.publishedAt && !Number.isNaN(Date.parse(it.publishedAt)) ? (

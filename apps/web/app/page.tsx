@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "速闻",
-  description: "多源新闻按时间混排，站内阅读。Hot AI 热榜在「热榜」模块。",
+  description: "多源实时速闻，综合频道按编辑信号排序，分类频道按最新排序。支持站内阅读和本机稍后读。",
 };
 
 export default function HomePage() {

@@ -8,6 +8,7 @@ import {
   peekFeedCache,
   putFeedCache,
   resetFeedCache,
+  readableFeedSnapshot,
 } from "./feed-cache";
 import type { PublicFetchInit, PublicFetchResult } from "./ssrf";
 
@@ -37,6 +38,15 @@ function okFetch(etag = '"v1"'): PublicFetchResult {
 
 describe("feed-cache", () => {
   beforeEach(() => resetFeedCache());
+
+  it("serves only a bounded cached snapshot during a dependency outage", async () => {
+    expect(readableFeedSnapshot("https://ex.com/rss")).toBeNull();
+    await loadRemoteFeed("https://ex.com/rss", { fetch: async () => okFetch() });
+    const at = peekFeedCache("https://ex.com/rss")!.at;
+    expect(readableFeedSnapshot("https://ex.com/rss", at + 1)?.stale).toBe(false);
+    expect(readableFeedSnapshot("https://ex.com/rss", at + FEED_CACHE_TTL_MS + 1)?.stale).toBe(true);
+    expect(readableFeedSnapshot("https://ex.com/rss", at + FEED_CACHE_STALE_MS)).toBeNull();
+  });
 
   it("reports a fresh hit via isFreshFeedCache", async () => {
     expect(isFreshFeedCache("https://ex.com/rss")).toBe(false);

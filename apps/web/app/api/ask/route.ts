@@ -3,6 +3,7 @@ import {
   acquireCoordinationLease,
   finishCoordinationLease,
   renewCoordinationLease,
+  withCoordinationLease,
   type CoordinationLeaseClaim,
   type Prisma,
 } from "@hotai/db";
@@ -65,7 +66,26 @@ export async function POST(req: Request) {
     );
   }
 
-  const key = questionKey(question);
+  let articles: Awaited<ReturnType<typeof getAskCorpus>>;
+  try {
+    articles = await getAskCorpus(48, 25);
+  } catch (error) {
+    // Do not reserve quota or invoke the provider when the grounding corpus
+    // cannot be read; expose a retryable dependency failure instead of a
+    // generic 500.
+    console.warn("[ask] corpus unavailable:", safeError(error));
+    return NextResponse.json(
+      { error: "AI article corpus is temporarily unavailable." },
+      { status: 503, headers: { "retry-after": "5" } },
+    );
+  }
+  if (articles.length === 0) return sseResponse(async send => {
+    send({ sources: [] });
+    send({ delta: "过去 48 小时没有可引用的入库文章，请稍后再试。 / No stored articles in the last 48 hours. Please try later." });
+    send({ done: true });
+  });
+  const version = JSON.stringify(["ask-v2", AI_MODELS.fast, new Date().toISOString().slice(0, 10), articles.map(a => [a.id, a.title, a.url, a.aiSummaryEn || a.summary, a.source.name])]);
+  const key = questionKey(question, version);
   const cached = await readFreshCache(key);
   if (cached) return cachedAnswerResponse(cached);
 
@@ -101,20 +121,6 @@ export async function POST(req: Request) {
     return cachedAnswerResponse(raced);
   }
 
-  let articles: Awaited<ReturnType<typeof getAskCorpus>>;
-  try {
-    articles = await getAskCorpus(48, 25);
-  } catch (error) {
-    // Do not reserve quota or invoke the provider when the grounding corpus
-    // cannot be read; expose a retryable dependency failure instead of a
-    // generic 500.
-    console.warn("[ask] corpus unavailable:", safeError(error));
-    await finishAskLease(askLease, "failed", error);
-    return NextResponse.json(
-      { error: "AI article corpus is temporarily unavailable." },
-      { status: 503, headers: { "retry-after": "5" } },
-    );
-  }
   const citationSources = buildAskCitationSources(articles);
   const corpus = articles
     .map(
@@ -210,7 +216,7 @@ export async function POST(req: Request) {
       send({ done: true });
       if (answer.trim().length > 0) {
         try {
-          await prisma.askCache.upsert({
+          await withCoordinationLease(askLease, tx => tx.askCache.upsert({
             where: { hash: key },
             create: {
               hash: key,
@@ -226,7 +232,7 @@ export async function POST(req: Request) {
               createdAt: new Date(),
               hits: { increment: 1 },
             },
-          });
+          }));
           leaseStatus = "success";
         } catch (cacheError) {
           console.warn("[ask] answer cache write failed:", safeError(cacheError));
@@ -283,7 +289,7 @@ function cachedAnswerResponse(cached: Exclude<AskCacheRow, null>): Response {
     const sources = sanitizeAskCitationSources(cached.sources);
     if (sources.length > 0) send({ sources });
     send({ delta: cached.answer });
-    send({ done: true, cached: true });
+    send({ done: true, cached: true, generatedAt: cached.createdAt.toISOString() });
   });
 }
 

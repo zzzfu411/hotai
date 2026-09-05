@@ -29,7 +29,7 @@
 ```
 
 Fetcher 负责文章与来源健康写入；Web 还会在首访生成 Digest，并写入 AskCache。
-每小时(默认 `:07`)抓一轮所有源,做 AI 摘要,生成当日 digest,然后 POST `/api/revalidate` 通知 web 刷新 ISR。
+每小时(默认 `:07`)抓一轮所有源,做 AI 摘要,生成当日 digest,然后 POST `/api/revalidate` 发送兼容的缓存失效通知；DB 内容页现为动态渲染。
 
 ---
 
@@ -99,7 +99,7 @@ AI_PROMPT_CACHE="false"
 （默认 4）、`ARTICLE_RETENTION_DAYS`（默认 14）按需调整。公开 Ask 的持久化成本阀还可用
 `ASK_DAILY_TOKEN_LIMIT`（默认 500000）、`ASK_MAX_CONCURRENT`（默认 8）和
 `ASK_RESERVATION_TTL_SECONDS`（默认 600，低于 300 会被钳制）配置。`FETCHER_CYCLE_LEASE_SECONDS` 与
-`DIGEST_GENERATION_LEASE_SECONDS` 控制跨进程任务的崩溃恢复窗口；前者会在 cycle 运行中续租。
+`DIGEST_GENERATION_LEASE_SECONDS` 控制跨进程任务的崩溃恢复窗口；两者都会在工作期间续租，Digest 提交还会核验归属。
 
 建议同时生成监控 token（不要提交）：
 
@@ -131,10 +131,17 @@ pnpm fetch:once
 # 6) 构建生产产物
 pnpm build
 
+# 发布内容门槛：构建成功不代表 DB / 迁移 / 数据已就绪
+pnpm release:check
+
 # 7) 起 PM2
 mkdir -p logs
 pm2 start ecosystem.config.js
 pm2 save
+
+# 在接入公网前检查运行服务和实际 RSS 通路
+RELEASE_BASE_URL=http://127.0.0.1:3000 pnpm release:check
+
 pm2 startup     # 按提示执行它输出的 sudo 命令,实现开机自启
 ```
 
@@ -354,3 +361,11 @@ pm2 reload all
 ```
 
 **注意 schema 回滚:** Prisma 不会自动回滚 migration。如果回退跨过 schema 变更,需手动 `psql` 修复或 `prisma migrate resolve --rolled-back <name>`。所以重要的 schema 变更前请 `pg_dump` 一份全量。
+
+## 2026-09-05 迁移与回滚
+
+新增迁移仅向 Source 添加可空的 autoPausedUntil。先备份，再迁移并部署新代码；旧 enabled=false 的记录保持停用，需核实后人工恢复。新字段可被旧版本忽略，回滚代码时无需删除列。阅读记录使用浏览器 hotai.reading.v2，兼容导入旧数字 ID；回滚前端不会删除原有旧标记。
+
+发布依次运行安装、迁移、seed、抓取、类型检查、Lint、测试、构建、release:check；启动候选服务后带 RELEASE_BASE_URL 再运行 gate。仅 gate 全部通过后切换反向代理。RSS 探测受目标网络影响，可设置 SMOKE_CATALOG_IDS，但不得用空列表跳过检查。真实 AI 效果需要在有配额的预发布环境单独验收。
+
+自动验证说明见 ../docs/CURRENT_BEHAVIOR.md；同一主机并行测试时使用独立测试库和端口，测试库名必须以 _test 结尾。

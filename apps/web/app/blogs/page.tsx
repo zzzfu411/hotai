@@ -1,10 +1,11 @@
+import { serverLang } from "@/lib/server-lang";
 import type { Metadata } from "next";
 import { BlogDirectory } from "@/components/BlogDirectory";
 import { BlogHero } from "@/components/BlogHero";
 import { getCuratedBlogs } from "@/lib/queries";
 
-// Curated list changes only on seed/deploy — long ISR is fine.
-export const revalidate = 3600;
+// Dependency failures must never become successful static cache entries.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "精选博客",
@@ -33,6 +34,7 @@ function parseStartHere(raw: unknown) {
 }
 
 export default async function BlogsPage() {
+  const zh = (await serverLang()) === "zh";
   let rows: Awaited<ReturnType<typeof getCuratedBlogs>> = [];
   let unavailable = false;
   try {
@@ -68,8 +70,8 @@ export default async function BlogsPage() {
       <BlogHero total={blogs.length} featured={featured} />
       {unavailable ? (
         <div className="kz-card kz-feed-empty kz-blog-empty">
-          <p className="kz-feed-empty-title">精选博客暂时不可用 · Directory unavailable</p>
-          <p className="kz-feed-empty-copy">数据库连接失败；请稍后重试。</p>
+          <p className="kz-feed-empty-title">{zh ? "精选博客暂时不可用" : "Directory unavailable"}</p>
+          <p className="kz-feed-empty-copy">{zh ? "内容服务暂时不可用，请稍后重试。" : "The content service is unavailable. Please retry shortly."}</p>
         </div>
       ) : (
         <BlogDirectory blogs={blogs} />

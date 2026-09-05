@@ -139,6 +139,36 @@ export async function finishCoordinationLease(
   return result.count === 1;
 }
 
+/** Commit under the same lock as acquisition: an expired/replaced owner cannot write. */
+export async function withCoordinationLease<T>(
+  lease: { name: string; ownerId: string },
+  commit: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await lockCoordination(tx);
+    const current = await tx.coordinationLease.findUnique({ where: { name: lease.name } });
+    if (!current || current.ownerId !== lease.ownerId || current.lastStatus !== "running" || current.leaseUntil.getTime() <= Date.now()) {
+      throw new Error("Coordination lease lost before commit");
+    }
+    return commit(tx);
+  });
+}
+
+/** Renew long network work without holding a database transaction open. */
+export function startCoordinationHeartbeat(lease: { name: string; ownerId: string }, ttlMs: number) {
+  let pending: Promise<void> | undefined;
+  let healthy = true;
+  const timer = setInterval(() => {
+    if (pending || !healthy) return;
+    pending = renewCoordinationLease(lease, ttlMs)
+      .then(ok => { if (!ok) healthy = false; })
+      .catch(() => { healthy = false; })
+      .finally(() => { pending = undefined; });
+  }, Math.max(1000, Math.min(30_000, Math.floor(ttlMs / 3))));
+  timer.unref?.();
+  return { async stop() { clearInterval(timer); await pending; return healthy; } };
+}
+
 function safeError(error: unknown): string {
   if (error instanceof Error) return error.message.slice(0, 500);
   if (typeof error === "string") return error.slice(0, 500);

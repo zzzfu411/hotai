@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { formatScore, hostname, timeAgo } from "@/lib/format";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
+import { ReadingBadge } from "./ReadingList";
 
 export type ArticleCardData = {
   id: number;
@@ -104,6 +105,7 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
         </Link>
 
         <div className="kz-article-meta">
+          <ReadingBadge story={{ url: a.url, title: a.title, articleId: a.id }} />
           <Link href={`/source/${a.source.slug}`} className="kz-chip">
             {a.source.name}
           </Link>

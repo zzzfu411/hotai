@@ -61,10 +61,11 @@ export function getArticlesSince(since: Date, limit = 20) {
 }
 
 /** Category timeline — chronological (NewsNook), not the hot-list score. */
-export function getCategoryArticles(category: string, limit = 80) {
+export function getCategoryArticles(category: string, limit = 80, skip = 0) {
   return prisma.article.findMany({
     where: { category, publishedAt: articleWindow() },
-    orderBy: [{ publishedAt: "desc" }],
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip,
     take: limit,
     include: WITH_SOURCE,
   });
@@ -74,16 +75,17 @@ export const getSourceBySlug = cache(function getSourceBySlug(slug: string) {
   return prisma.source.findUnique({ where: { slug } });
 });
 
-export function getArticlesBySource(sourceId: number, limit = 80) {
+export function getArticlesBySource(sourceId: number, limit = 80, skip = 0) {
   return prisma.article.findMany({
     where: { sourceId, publishedAt: articleWindow() },
-    orderBy: [{ publishedAt: "desc" }],
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip,
     take: limit,
     include: WITH_SOURCE,
   });
 }
 
-export function searchArticles(q: string, sort: "hot" | "recent", limit = 60) {
+export function searchArticles(q: string, sort: "hot" | "recent", limit = 60, skip = 0) {
   const needle = q.trim().slice(0, 80);
   if (needle.length < 2) return Promise.resolve([]);
   return prisma.article.findMany({
@@ -100,8 +102,9 @@ export function searchArticles(q: string, sort: "hot" | "recent", limit = 60) {
     },
     orderBy:
       sort === "recent"
-        ? [{ publishedAt: "desc" as const }]
-        : [{ score: "desc" as const }, { publishedAt: "desc" as const }],
+        ? [{ publishedAt: "desc" as const }, { id: "desc" as const }]
+        : [{ score: "desc" as const }, { publishedAt: "desc" as const }, { id: "desc" as const }],
+    skip,
     take: limit,
     include: WITH_SOURCE,
   });

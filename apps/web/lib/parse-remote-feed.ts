@@ -2,6 +2,8 @@ import Parser from "rss-parser";
 import { safeHttpUrl } from "./safe-url";
 
 export type RemoteFeedItem = {
+  /** Only the trusted internal catalog adapter supplies this field. */
+  articleId?: number;
   title: string;
   url: string;
   summary: string;

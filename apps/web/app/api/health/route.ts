@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { collectHealthSnapshotCached } from "@/lib/health";
+import { catalogHealth } from "@/lib/catalog-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function GET() {
         status: "unavailable",
         checkedAt: new Date().toISOString(),
         database: { ok: false },
+        catalog: catalogHealth(),
         warnings: ["database-unavailable"],
       },
       { status: 503, headers: { "cache-control": "no-store", "retry-after": "5" } },

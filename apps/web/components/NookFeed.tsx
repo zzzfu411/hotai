@@ -26,8 +26,11 @@ import { editorialProgressiveLimit, rankHomepageItems } from "@/lib/news-ranking
 import { preserveVisiblePrefix } from "@/lib/progressive-list";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
+import { readerLink } from "@/lib/reader-link";
+import { ReadingBadge } from "./ReadingList";
 
 type RemoteItem = {
+  articleId?: number;
   title: string;
   url: string;
   summary: string;
@@ -46,6 +49,8 @@ type PullSource = {
   ok: boolean;
   items?: unknown;
   error?: string;
+  stale?: boolean;
+  fetchedAt?: string;
 };
 
 type PullSnapshot = {
@@ -53,9 +58,11 @@ type PullSnapshot = {
   items: TimelineItem[];
   okCount: number;
   failCount: number;
+  staleCount: number;
+  fetchedAt: string | null;
 };
 
-type PullError = "rate" | "fail";
+type PullError = "rate" | "fail" | "service";
 
 const ENABLED_KEY = "hotai.nook.enabled";
 const CLIENT_TTL_MS = 3 * 60 * 1000;
@@ -109,6 +116,8 @@ function pullSourceFromEvent(value: unknown): PullSource | null {
     ok: source.ok,
     items: source.items,
     error: typeof source.error === "string" ? source.error : undefined,
+    stale: source.stale === true,
+    fetchedAt: typeof source.fetchedAt === "string" ? source.fetchedAt : undefined,
   };
 }
 
@@ -127,6 +136,7 @@ function readItems(raw: unknown): RemoteItem[] {
     if (!title || !url) continue;
     const image = safeHttpUrl(typeof rec.image === "string" ? rec.image : null);
     out.push({
+      articleId: typeof rec.articleId === "number" && Number.isInteger(rec.articleId) && rec.articleId > 0 ? rec.articleId : undefined,
       title,
       url,
       summary: typeof rec.summary === "string" ? rec.summary.slice(0, MAX_REMOTE_SUMMARY) : "",
@@ -152,16 +162,7 @@ function loadEnabled(): string[] {
 }
 
 function readerHref(item: TimelineItem): string {
-  if (item.sourceId === "juya-daily") {
-    const d = /(\d{4}-\d{2}-\d{2})/.exec(item.title)?.[1];
-    if (d) return `/juya?date=${d}`;
-  }
-  const q = new URLSearchParams();
-  q.set("url", item.url);
-  q.set("title", item.title);
-  if (item.summary) q.set("summary", item.summary);
-  q.set("src", item.sourceId);
-  return `/r?${q.toString()}`;
+  return readerLink({ ...item, articleId: item.sourceId === "hotai-feed" ? item.articleId : undefined });
 }
 
 function publishedTs(iso: string | null): number {
@@ -206,12 +207,17 @@ function mergeSources(
   const seen = new Set<string>();
   let ok = 0;
   let fail = 0;
+  let stale = 0;
+  let oldest: string | null = null;
   for (const src of sources) {
     if (!src.ok) {
-      fail++;
+      if (src.error !== "service unavailable") fail++;
       continue;
     }
-    ok++;
+    if (src.stale) stale++;
+    else ok++;
+    if (src.fetchedAt && Number.isFinite(Date.parse(src.fetchedAt)) &&
+        (!oldest || Date.parse(src.fetchedAt) < Date.parse(oldest))) oldest = src.fetchedAt;
     const name = src.name || CATALOG_BY_ID.get(src.id)?.name || src.id;
     for (const it of readItems(src.items)) {
       const key = it.url.replace(/#.*$/, "");
@@ -225,13 +231,13 @@ function mergeSources(
     merged.splice(0, merged.length, ...ranked);
     if (!complete) {
       merged.splice(
-        editorialProgressiveLimit(ok, NOOK_PAGE_SIZE, CATALOG_ITEMS_PER_SOURCE),
+        editorialProgressiveLimit(ok + stale, NOOK_PAGE_SIZE, CATALOG_ITEMS_PER_SOURCE),
       );
     }
   } else {
     merged.sort((a, b) => publishedTs(b.publishedAt) - publishedTs(a.publishedAt));
   }
-  return { items: merged, okCount: ok, failCount: fail };
+  return { items: merged, okCount: ok, failCount: fail, staleCount: stale, fetchedAt: oldest };
 }
 
 function sameTimelineItems(a: TimelineItem[], b: TimelineItem[]): boolean {
@@ -287,6 +293,7 @@ const NookCard = memo(function NookCard({
         <div className="kz-nook-copy">
           <p className="kz-nook-item-meta">
             <span className="kz-source-mark">{item.sourceName}</span>
+            <ReadingBadge story={{ ...item, source: item.sourceName }} />
             {when && Number.isFinite(when.getTime()) ? (
               <time dateTime={item.publishedAt ?? undefined}>{timeAgo(when, lang)}</time>
             ) : null}
@@ -321,6 +328,8 @@ export function NookFeed() {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [okCount, setOkCount] = useState(0);
   const [failCount, setFailCount] = useState(0);
+  const [staleCount, setStaleCount] = useState(0);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
   const [shown, setShown] = useState(NOOK_PAGE_SIZE);
   const [epoch, setEpoch] = useState(0);
@@ -400,11 +409,15 @@ export function NookFeed() {
       setItems(cached.items);
       setOkCount(cached.okCount);
       setFailCount(cached.failCount);
+      setStaleCount(cached.staleCount);
+      setFetchedAt(cached.fetchedAt);
       setError(null);
     } else {
       setItems([]);
       setOkCount(0);
       setFailCount(0);
+      setStaleCount(0);
+      setFetchedAt(null);
       setError(null);
     }
     setCompletedCount(fresh ? pullIds.length : 0);
@@ -422,13 +435,13 @@ export function NookFeed() {
     let committedItems = cached?.items ?? [];
     let editorialSettled = keepCachedDuringStream || !editorialLane;
     let streamDone = false;
+    let serviceDegraded = false;
 
     const mergeReceived = (complete: boolean) => {
       const ordered = pullIds
         .map((id) => received.get(id))
         .filter((source): source is PullSource => Boolean(source));
       const merged = mergeSources(ordered, category, complete);
-      if (complete) merged.failCount += pullIds.length - received.size;
       return merged;
     };
 
@@ -450,7 +463,7 @@ export function NookFeed() {
           committedItems.slice(0, stableVisibleCount),
           nextItems.slice(0, stableVisibleCount),
         );
-        const continuity = visibleCardsChanged && !pendingRestore.current
+        const continuity = !force && visibleCardsChanged && !pendingRestore.current
           ? captureProgress()
           : null;
         if (continuity) {
@@ -462,6 +475,8 @@ export function NookFeed() {
       }
       setOkCount(snapshot.okCount);
       setFailCount(snapshot.failCount);
+      setStaleCount(snapshot.staleCount);
+      setFetchedAt(snapshot.fetchedAt);
       setError(null);
     };
 
@@ -477,13 +492,8 @@ export function NookFeed() {
         });
         if (ac.signal.aborted) return;
         if (!res.ok) {
-          const data = (await res.json().catch(() => null)) as { error?: string } | null;
-          if (!keepCachedDuringStream) {
-            setItems([]);
-            setOkCount(0);
-            setFailCount(pullIds.length);
-            setError(data?.error === "rate limited" ? "rate" : "fail");
-          }
+          setError(res.status === 429 ? "rate" : res.status === 503 ? "service" : "fail");
+          if (keepCachedDuringStream) { setStaleCount(pullIds.length); setOkCount(0); }
           return;
         }
         if (!res.body) throw new Error("catalog stream unavailable");
@@ -491,6 +501,7 @@ export function NookFeed() {
         await readJsonLines(res.body, (value) => {
           if (isDoneEvent(value)) {
             streamDone = true;
+            serviceDegraded = record(value)?.degraded === "service";
             return;
           }
           const source = pullSourceFromEvent(value);
@@ -515,17 +526,26 @@ export function NookFeed() {
         if (!streamDone) throw new Error("catalog stream ended early");
 
         const complete = mergeReceived(true);
-        publish(complete, editorialLane && !editorialSettled);
+        if (complete.items.length === 0 && keepCachedDuringStream && complete.failCount > 0) {
+          setOkCount(0);
+          setStaleCount(pullIds.length);
+          setFailCount(complete.failCount);
+          setError("fail");
+          return;
+        }
+        publish(complete, force || (editorialLane && !editorialSettled));
+        if (serviceDegraded) setError("service");
+        if (force) { pendingRestore.current = null; setShown(NOOK_PAGE_SIZE); }
         editorialSettled = true;
         setCompletedCount(pullIds.length);
         const snap = { at: Date.now(), ...complete, items: committedItems };
         clientPullCache.set(key, snap);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!ac.signal.aborted && !keepCachedDuringStream) {
-          const partial = mergeReceived(true);
-          publish(partial, editorialLane && !editorialSettled);
-          if (partial.items.length === 0) setError("fail");
+        if (!ac.signal.aborted) {
+          if (!keepCachedDuringStream) publish(mergeReceived(true), editorialLane && !editorialSettled);
+          else { setStaleCount(pullIds.length); setOkCount(0); }
+          setError("fail");
         }
       } finally {
         if (!ac.signal.aborted) setLoading(false);
@@ -591,6 +611,8 @@ export function NookFeed() {
       ? zh
         ? "刷新太勤，等一会儿。"
         : "Slow down a moment."
+      : error === "service"
+        ? zh ? "更新服务暂时不可用，请稍后重试。" : "The update service is unavailable. Try again shortly."
       : error === "fail"
         ? zh
           ? "时间线拉取失败。"
@@ -676,6 +698,13 @@ export function NookFeed() {
       </nav>
 
       {errorText ? <p className="kz-nook-error" role="status">{errorText}</p> : null}
+      {(staleCount > 0 || (error && items.length > 0)) ? (
+        <p className="kz-nook-meta" role="status">
+          {zh ? "显示上次缓存的内容" : "Showing previously cached stories"}
+          {fetchedAt ? ` · ${new Date(fetchedAt).toLocaleString(zh ? "zh-CN" : "en-GB")}` : ""}
+          {staleCount ? (zh ? ` · ${staleCount} 个缓存源` : ` · ${staleCount} cached sources`) : ""}
+        </p>
+      ) : null}
 
       {loading && items.length === 0 ? (
         <div className="kz-nook-list" aria-hidden>

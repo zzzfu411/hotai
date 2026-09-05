@@ -4,14 +4,16 @@ import { CATEGORIES } from "@/lib/constants";
 import { toCard } from "@/lib/article";
 import { getCategoryArticles } from "@/lib/queries";
 import type { Metadata } from "next";
+import { parsePage } from "@/lib/pagination";
+import { Pagination } from "@/components/Pagination";
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   return CATEGORIES.map((c) => ({ slug: c.slug }));
 }
 
-type PageProps = { params: Promise<{ slug: string }> };
+type PageProps = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -20,7 +22,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: `${c.label_zh} · ${c.label_en}` };
 }
 
-export default async function CategoryPage({ params }: PageProps) {
+export default async function CategoryPage({ params, searchParams }: PageProps) {
+  const page = parsePage((await searchParams).page);
   const { slug } = await params;
   const cat = CATEGORIES.find((c) => c.slug === slug);
   if (!cat) notFound();
@@ -28,7 +31,7 @@ export default async function CategoryPage({ params }: PageProps) {
   let articles: ReturnType<typeof toCard>[] = [];
   let unavailable = false;
   try {
-    const rows = await getCategoryArticles(cat.slug);
+    const rows = await getCategoryArticles(cat.slug, 81, (page - 1) * 80);
     articles = rows.map(toCard);
   } catch (error) {
     unavailable = true;
@@ -41,7 +44,7 @@ export default async function CategoryPage({ params }: PageProps) {
   return (
     <div className="kz-page">
       <FeedList
-        articles={articles}
+        articles={articles.slice(0, 80)}
         ranked={false}
         kickerZh="分类 · 最近 14 天入库 · 按时间"
         kickerEn="Category · stored 14 days · chronological"
@@ -49,9 +52,10 @@ export default async function CategoryPage({ params }: PageProps) {
         titleEn={cat.label_en}
         emptyTitleZh={unavailable ? "分类暂时不可用" : undefined}
         emptyTitleEn={unavailable ? "Category temporarily unavailable" : undefined}
-        emptyCopyZh={unavailable ? "数据库连接失败；首页实时速闻仍可使用。" : undefined}
-        emptyCopyEn={unavailable ? "The database is unavailable; the live feed still works." : undefined}
+        emptyCopyZh={unavailable ? "内容服务暂时不可用，请稍后重试。" : undefined}
+        emptyCopyEn={unavailable ? "The content service is unavailable. Please try again shortly." : undefined}
       />
+      {!unavailable && <Pagination page={page} hasMore={articles.length > 80} path={`/category/${cat.slug}`} />}
     </div>
   );
 }

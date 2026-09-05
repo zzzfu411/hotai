@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLang } from "./LangContext";
 
 type Theme = "light" | "dark";
 
@@ -47,6 +48,7 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeToggle() {
+  const { lang } = useLang();
   const [theme, setTheme] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
@@ -72,8 +74,8 @@ export function ThemeToggle() {
         }
       }}
       className="kz-btn kz-btn-icon"
-      aria-label={next === "dark" ? "Switch to dark mode" : "Switch to light mode"}
-      title={next === "dark" ? "Dark" : "Light"}
+      aria-label={next === "dark" ? (lang === "zh" ? "切换深色模式" : "Switch to dark mode") : (lang === "zh" ? "切换浅色模式" : "Switch to light mode")}
+      title={next === "dark" ? (lang === "zh" ? "深色" : "Dark") : (lang === "zh" ? "浅色" : "Light")}
     >
       {mounted && theme === "dark" ? (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

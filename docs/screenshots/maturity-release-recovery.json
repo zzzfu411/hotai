@@ -1,0 +1,19 @@
+[
+  {
+    "check": "release gate including real RSS",
+    "exit": 0
+  },
+  {
+    "check": "dynamic page exposes dependency failure",
+    "pass": true
+  },
+  {
+    "check": "catalog during DB outage",
+    "status": 200,
+    "degraded": "service"
+  },
+  {
+    "check": "same production process recovers without rebuild",
+    "pass": true
+  }
+]

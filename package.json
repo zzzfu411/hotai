@@ -13,15 +13,20 @@
     "typecheck": "tsc -p packages/db --noEmit && tsc -p packages/ai --noEmit && tsc -p apps/fetcher --noEmit && tsc -p apps/web --noEmit",
     "lint": "corepack pnpm --filter @hotai/web lint",
     "smoke:dist": "corepack pnpm run build:runtime && corepack pnpm --filter @hotai/fetcher smoke",
+    "release:check": "node scripts/release-check.mjs",
     "db:generate": "corepack pnpm --filter @hotai/db generate",
     "db:migrate": "corepack pnpm --filter @hotai/db migrate",
     "db:seed": "corepack pnpm --filter @hotai/db seed",
-    "db:studio": "corepack pnpm --filter @hotai/db studio"
+    "db:studio": "corepack pnpm --filter @hotai/db studio",
+    "smoke:browser": "node scripts/smoke-browser.mjs",
+    "smoke:catalog": "node scripts/smoke-catalog.mjs",
+    "test:seed": "node scripts/seed-test-content.mjs"
   },
   "devDependencies": {
-    "typescript": "5.5.4",
-    "tsx": "4.19.1",
     "@types/node": "20.14.11",
+    "playwright": "1.63.0",
+    "tsx": "4.19.1",
+    "typescript": "5.5.4",
     "vitest": "2.1.9"
   },
   "engines": {

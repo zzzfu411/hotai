@@ -1,8 +1,10 @@
 # Hot AI
 
-NewsNook 式多源速闻阅读器；Hot AI（打分热榜 / 简报 / 问答）作为其中一块模块。数据源涵盖谷歌要闻、BBC、科技媒体，以及 fetcher 聚合的 AI 行业源。
+多源速闻阅读器；Hot AI（打分热榜 / 简报 / 问答）作为其中一块模块。数据源涵盖谷歌要闻、BBC、科技媒体，以及 fetcher 聚合的 AI 行业源。
 
 生产站 [`https://hotai.yeuxark.com`](https://hotai.yeuxark.com)。
+
+当前行为以 [CURRENT_BEHAVIOR.md](docs/CURRENT_BEHAVIOR.md) 为准；完整整改计划见 [MATURITY_PLAN_2026-09-05.md](docs/MATURITY_PLAN_2026-09-05.md)，验收证据见 [整改报告](docs/REMEDIATION_REPORT_2026-09-05.md)。
 
 ## 产品预览
 
@@ -45,11 +47,11 @@ packages/db     共享 Prisma client 和 schema (含 Article.ai* 字段 + Digest
 packages/ai     Anthropic SDK 封装 — enrichArticle / generateDigest / 流式客户端
 ```
 
-首页是 NewsNook 式时间线（分类轨、大量条目、站内读原文）；Hot AI 热榜 / 简报 / Ask 在「热榜」「简报」里。视觉对齐 [KAZAM](https://music.yeuxark.com)。
+综合速闻采用编辑信号排序，其他频道按最新排序；Hot AI 热榜 / 简报 / Ask 在「热榜」「简报」里。视觉沿用 Signal Press 的纸色、黄色、墨色和暗色蓝影。
 
 数据流：`fetcher` 负责文章、来源健康和 AI 字段写入；`web` 仍会在首访缺少当日简报时
 生成并缓存 Digest，并为 `/api/ask` 写入问答缓存。每轮抓取结束后 fetcher 调
-`/api/revalidate` 刷新 Next.js ISR 缓存。自定义源只存在访问者 localStorage，不入库、不进热榜。
+`/api/revalidate` 发送兼容的失效通知。DB 内容页现按请求动态渲染，构建不预存故障页面。自定义源只存在访问者 localStorage，不入库、不进热榜。
 AI 字段为可选 —— 不配置 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` 时全站功能正常，
 只是没有摘要、简报和问答。
 
@@ -83,7 +85,7 @@ pnpm dev:web             # http://localhost:3000
 
 | 路径                 | 说明                                              |
 | -------------------- | ------------------------------------------------- |
-| `/`                  | 速闻：多源 RSS 按时间混排（分类轨，可一次刷上百篇） |
+| `/`                  | 速闻：多源 RSS；综合/头条按编辑信号，其他频道按最新 |
 | `/hot`               | Hot AI 模块：最近 14 天入库热榜 + 今日脉搏          |
 | `/digest`            | 今日 AI 简报 + AskBox                             |
 | `/juya`              | 橘鸦 AI 早报（daily.juya.uk RSS，不入库）         |
@@ -93,7 +95,7 @@ pnpm dev:web             # http://localhost:3000
 | `/category/{slug}`   | 分类时间线（publishedAt：research / industry / opensource / media） |
 | `/source/{slug}`     | 单源时间线                                        |
 | `/blogs`             | 精选博客目录                                      |
-| `/subscribe`         | 本机自定义源 + OPML 导入导出（不入库）            |
+| `/subscribe`         | 本机阅读记录 + 自定义源 + OPML 导入导出            |
 | `/feed.xml`          | RSS 2.0（优先 AI 摘要，无 AI 时回退源摘要）       |
 | `/feed.json`         | JSON Feed 1.1                                     |
 | `/hotai.opml`        | 编辑源 + 博客 OPML                                |
@@ -116,18 +118,18 @@ pnpm dev:web             # http://localhost:3000
    `failed`；成功写回 `Article.ai*` 并重新计算热度分。
 2. `ensureTodayDigest()` 取当日 top-40,用 `LLM_MODEL_SMART` 生成 headline / overview /
    bullets,写入 `Digest`。Web 首访兜底和 fetcher 共用 PostgreSQL 协调 lease，跨进程只允许
-   一个生成者；崩溃后按 TTL 自动恢复，同日内 6 小时内不重复刷新。
+   一个生成者；网络工作期间续租，提交事务检查租约归属；崩溃后按 TTL 恢复，同日内 6 小时内不重复刷新。
 
 调整 `AI_ENRICH_PER_RUN` / `AI_BATCH_SIZE` / `AI_CONCURRENCY` 控制成本与延迟。
 
-`/api/ask` 先使用单 IP 限流和答案缓存；相同问题的并发 miss 由 PostgreSQL 协调租约合并，
+`/api/ask` 先使用单 IP 限流和关联当前语料版本的答案缓存；相同问题的并发 miss 由 PostgreSQL 协调租约合并，
 再原子预约每日 token 预算与全局并发槽。答案缓存同时保存引用来源快照，避免热榜重排后
 `[n]` 指向另一篇文章。`ASK_DAILY_TOKEN_LIMIT`、`ASK_MAX_CONCURRENT` 和
 `ASK_RESERVATION_TTL_SECONDS`（低于 300 秒会被钳制）分别控制日预算、跨 Web 进程并发和崩溃预约回收；数据库
 不可用时该成本阀 fail-closed，不会绕过配额继续调用模型。
 
 `/api/proxy/feed`、`/api/readability`、`/api/catalog/pull` 的 IP 计数也保存在 PostgreSQL；
-多 Web 实例共享窗口和容量上限，数据库不可用时返回 503，而不是退化为无限制抓取。
+多 Web 实例共享窗口和容量上限，数据库不可用时不启动新抓取；速闻可返回仍在安全窗口内的陈旧快照，否则返回 503。
 
 ## 健康与指标
 

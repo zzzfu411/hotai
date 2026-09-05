@@ -52,6 +52,21 @@ export function peekFeedCache(url: string): FeedCacheEntry | undefined {
   return box().entries.get(url);
 }
 
+/** A bounded, previously validated snapshot; never starts network work. */
+export function readableFeedSnapshot(url: string, now = Date.now()): {
+  feed: RemoteFeed; fetchedAt: string; stale: boolean;
+} | null {
+  const hit = peekFeedCache(url);
+  if (!hit?.feed || hit.fail) return null;
+  const originAt = hit.staleSince ?? hit.at;
+  if (now - originAt >= FEED_CACHE_STALE_MS) return null;
+  return {
+    feed: hit.feed,
+    fetchedAt: new Date(originAt).toISOString(),
+    stale: hit.staleSince != null || now - hit.at >= FEED_CACHE_TTL_MS,
+  };
+}
+
 /** True when a successful parsed feed is still within TTL. */
 export function isFreshFeedCache(url: string, now = Date.now()): boolean {
   const hit = box().entries.get(url);

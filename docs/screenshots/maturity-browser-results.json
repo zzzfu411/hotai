@@ -1,0 +1,19 @@
+{
+  "passed": [
+    "explicit refresh applies new ordering",
+    "remote reader saves and retrieves after reload",
+    "mobile form, active navigation and keyboard OPML import",
+    "search pagination, submitted state and browser back",
+    "category and source pagination plus stored article reading",
+    "interrupted answer remains visibly incomplete",
+    "English preference is present in server HTML",
+    "service outage retains cached feed without invented source failures",
+    "mobile dark theme and page width",
+    "storage failure is disclosed and session record remains usable"
+  ],
+  "measurements": {
+    "mobileHeaderHeight": 119
+  },
+  "errors": [],
+  "checkedAt": "2026-09-05T07:34:07.305Z"
+}

@@ -29,3 +29,6 @@ prisma/migrations/dev.db*
 .audit-tools/
 .cache/
 .playwright-cli/
+
+# Browser regression screenshots and local server output
+output/playwright/

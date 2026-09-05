@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clientIp, estimateTokens } from "./ask-guard";
+import { clientIp, estimateTokens, questionKey } from "./ask-guard";
 
 describe("clientIp", () => {
+  it("shares normalized questions only within an identical corpus version", () => {
+    expect(questionKey("Today? ", "v1")).toBe(questionKey("today?", "v1"));
+    expect(questionKey("today?", "v1")).not.toBe(questionKey("today?", "v2"));
+  });
   it("prefers the trusted single-hop real-ip header", () => {
     const req = new Request("https://hotai.example/api/ask", {
       headers: {

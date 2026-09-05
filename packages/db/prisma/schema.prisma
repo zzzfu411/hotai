@@ -22,13 +22,13 @@ model Source {
   articles  Article[]
 
   // ===== fetch health (maintained by apps/fetcher) =====
-  // consecutiveFails reaching SOURCE_FAIL_THRESHOLD flips enabled=false so a
-  // dead feed stops burning cycles; re-enable manually via Prisma Studio.
+  // enabled=false is manual only. Repeated failures open a retryable circuit.
   // A usable-but-incomplete cycle keeps consecutiveFails at zero while
   // retaining its reason in lastError/lastErrorAt.
   consecutiveFails Int       @default(0)
   lastError        String?
   lastErrorAt      DateTime?
+  autoPausedUntil  DateTime?
 
   @@index([category, enabled])
 }

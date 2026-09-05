@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { clientIp } from "@/lib/ask-guard";
-import { isFreshFeedCache, loadRemoteFeed } from "@/lib/feed-cache";
+import { isFreshFeedCache, loadRemoteFeed, readableFeedSnapshot } from "@/lib/feed-cache";
 import { limitIp } from "@/lib/ip-rate-limit";
 import { UnsafeUrlError } from "@/lib/ssrf";
 
@@ -63,6 +63,8 @@ export async function GET(req: Request) {
       ok: true,
       title: parsed.title,
       items: parsed.items.slice(0, PROXY_ITEMS_CAP),
+      stale: readableFeedSnapshot(url)?.stale ?? false,
+      fetchedAt: readableFeedSnapshot(url)?.fetchedAt,
     },
     { headers: { "cache-control": "private, max-age=60" } },
   );

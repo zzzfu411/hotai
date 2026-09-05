@@ -1,5 +1,7 @@
 import {
   acquireCoordinationLease,
+  startCoordinationHeartbeat,
+  withCoordinationLease,
   finishCoordinationLease,
   prisma,
   type CoordinationLeaseClaim,
@@ -55,6 +57,7 @@ export async function ensureTodayDigest(opts: { force?: boolean } = {}): Promise
     return false;
   }
 
+  const heartbeat = startCoordinationHeartbeat(lease, config.digestLeaseMs);
   try {
     // Close the check/claim race: a different worker may have completed just
     // before this lease was acquired.
@@ -82,7 +85,7 @@ export async function ensureTodayDigest(opts: { force?: boolean } = {}): Promise
       return false;
     }
 
-    await prisma.digest.upsert({
+    await withCoordinationLease(lease, tx => tx.digest.upsert({
       where: { date: today },
       create: {
         date: today,
@@ -100,14 +103,14 @@ export async function ensureTodayDigest(opts: { force?: boolean } = {}): Promise
         model: result.model,
         createdAt: new Date(),
       },
-    });
+    }));
     await finishLeaseQuietly(lease, "success");
     console.log(`[ai] digest generated for ${today.toISOString().slice(0, 10)} — ${result.bullets.length} bullets`);
     return true;
   } catch (error) {
     await finishLeaseQuietly(lease, "failed", error);
     throw error;
-  }
+  } finally { await heartbeat.stop(); }
 }
 
 async function finishLeaseQuietly(

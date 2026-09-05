@@ -1,3 +1,4 @@
+import { serverLang } from "@/lib/server-lang";
 import type { Metadata } from "next";
 import { AI_ENABLED } from "@hotai/ai";
 import { FeedList } from "@/components/FeedList";
@@ -5,7 +6,7 @@ import { PulseRail } from "@/components/PulseRail";
 import { toCard } from "@/lib/article";
 import { getHomeStats, getTodayDigestRow, getTopArticles } from "@/lib/queries";
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "热榜",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 
 /** Hot AI module: ranked board + digest pulse. Not the default homepage. */
 export default async function HotPage() {
+  const zh = (await serverLang()) === "zh";
   let articles: ReturnType<typeof toCard>[] = [];
   let digest: Awaited<ReturnType<typeof getTodayDigestRow>> = null;
   let stats = { enabledSources: 0, articles24h: 0, lastFetch: null as Date | null };
@@ -29,10 +31,8 @@ export default async function HotPage() {
     stats = homeStats;
     digest = digestRow;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    dbError = msg.includes("DATABASE_URL")
-      ? "未读到 DATABASE_URL。把仓库根目录 .env 配好后重启 pnpm dev:web（Next 从 apps/web 启动，以前读不到根目录环境变量）。"
-      : "数据库暂时连不上。速闻时间线不依赖 Postgres，可先回「速闻」。";
+    console.warn("[hot] content unavailable:", err instanceof Error ? err.message : "database error");
+    dbError = zh ? "内容服务暂时不可用，请稍后重试。已有的本机阅读记录仍可在「我的」查看。" : "The content service is unavailable. Please retry shortly. Your reading list is still available in Mine.";
   }
 
   const lastFetch = stats.lastFetch
@@ -49,7 +49,7 @@ export default async function HotPage() {
       <h1 className="sr-only">Hot AI</h1>
       {dbError ? (
         <div className="kz-card kz-feed-empty" style={{ margin: 16 }}>
-          <p className="font-bold">Hot AI 模块需要 Postgres</p>
+          <p className="font-bold">{zh ? "热榜暂时不可用" : "Hot list unavailable"}</p>
           <p>{dbError}</p>
         </div>
       ) : (

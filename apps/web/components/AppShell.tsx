@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { LangToggle } from "./LangToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLang } from "./LangContext";
@@ -29,13 +30,43 @@ export function AppShell({
 }) {
   const pathname = usePathname() || "/";
   const { lang } = useLang();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty("--topbar-offset", `${header.getBoundingClientRect().height + 8}px`);
+    });
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const align = () => {
+      const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+      if (!active) return;
+      const item = active.getBoundingClientRect();
+      const frame = nav.getBoundingClientRect();
+      nav.scrollLeft += item.left - frame.left - (nav.clientWidth - item.width) / 2;
+    };
+    align();
+    const observer = new ResizeObserver(align);
+    observer.observe(nav);
+    setSearchOpen(false);
+    return () => observer.disconnect();
+  }, [pathname]);
+  useEffect(() => { if (searchOpen) searchRef.current?.focus(); }, [searchOpen]);
 
   return (
     <div className="kz-shell">
       <a className="kz-skip-link" href="#main-content">
         {lang === "zh" ? "跳到主要内容" : "Skip to main content"}
       </a>
-      <header className="kz-topbar">
+      <header className="kz-topbar" ref={headerRef}>
         <div className="kz-topbar-row">
           <Link
             href="/"
@@ -51,15 +82,18 @@ export function AppShell({
             <span>{lang === "zh" ? "从噪声里挑出信号" : "Signal over noise"}</span>
           </div>
           <div className="kz-topbar-actions">
+            <button type="button" className="kz-mobile-search kz-chip" aria-expanded={searchOpen} aria-controls="global-search"
+              onClick={() => setSearchOpen(open => !open)}>{lang === "zh" ? "搜索" : "Search"}</button>
             <ThemeToggle />
             <LangToggle />
           </div>
-          <form className="kz-search" action="/search" method="get" role="search">
+          <form id="global-search" className={`kz-search kz-global-search${searchOpen ? " is-open" : ""}`} action="/search" method="get" role="search">
             <input
+              ref={searchRef}
               className="kz-input"
               type="search"
               name="q"
-              placeholder={lang === "zh" ? "搜索标题、摘要…" : "Search titles, summaries…"}
+              placeholder={lang === "zh" ? "搜索 AI 入库文章…" : "Search stored AI stories…"}
               aria-label={lang === "zh" ? "搜索" : "Search"}
             />
             <button className="kz-search-go" type="submit" aria-label={lang === "zh" ? "搜索" : "Search"}>
@@ -70,7 +104,7 @@ export function AppShell({
             </button>
           </form>
         </div>
-        <nav className="kz-tabs" aria-label={lang === "zh" ? "场景" : "Scenes"}>
+        <nav className="kz-tabs" ref={navRef} aria-label={lang === "zh" ? "场景" : "Scenes"}>
           {SCENES.map((tab) => {
             const active = tabActive(pathname, tab.href);
             return (
@@ -97,7 +131,7 @@ export function AppShell({
         <div className="kz-foot-inner">
           <p className="kz-foot-motto">SIGNAL, NOT NOISE.</p>
           <div className="kz-foot-note">
-            <span>{lang === "zh" ? "独立 AI 新闻信号台" : "Independent AI news signal desk"}</span>
+            <span>{lang === "zh" ? "多源新闻与 AI 热榜" : "Live news and AI headlines"}</span>
             <nav className="kz-foot-links" aria-label={lang === "zh" ? "页脚链接" : "Footer links"}>
               <Link href="/digest">{lang === "zh" ? "简报" : "Digest"}</Link>
               <Link href="/search">{lang === "zh" ? "搜索" : "Search"}</Link>

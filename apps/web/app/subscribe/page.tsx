@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { SubscribeClient } from "@/components/SubscribeClient";
 
 export const metadata: Metadata = {
-  title: "我的订阅",
-  description: "本机自定义 RSS / Atom / JSON Feed 与 OPML。只存在浏览器里，不影响全站热榜。",
+  robots: { index: false, follow: true },
+  title: "我的阅读与订阅",
+  description: "本机稍后读、已读记录与 RSS / Atom / JSON Feed、OPML 订阅。",
 };
 
 export default function SubscribePage() {

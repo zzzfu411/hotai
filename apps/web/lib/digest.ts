@@ -1,9 +1,10 @@
 import {
   acquireCoordinationLease,
+  startCoordinationHeartbeat,
+  withCoordinationLease,
   finishCoordinationLease,
   type CoordinationLeaseClaim,
 } from "@hotai/db";
-import { prisma } from "./db";
 import { AI_DIGEST_ENABLED, AI_ENABLED, generateDigest, type DigestBullet } from "@hotai/ai";
 import { getArticlesSince, getTodayDigestRow, startOfUtcDay } from "./queries";
 import { safeHttpUrl } from "./safe-url";
@@ -63,6 +64,7 @@ export async function loadDigest(): Promise<LoadedDigest | null> {
     );
     if (!lease.acquired) return waitForDigest(DIGEST_WAIT_MS);
 
+    const heartbeat = startCoordinationHeartbeat(lease, DIGEST_LEASE_MS);
     try {
       // Close the initial read/claim race before spending provider tokens.
       const raced = await getTodayDigestRow();
@@ -87,7 +89,7 @@ export async function loadDigest(): Promise<LoadedDigest | null> {
         return null;
       }
 
-      const saved = await prisma.digest.upsert({
+      const saved = await withCoordinationLease(lease, tx => tx.digest.upsert({
         where: { date: today },
         create: {
           date: today,
@@ -105,7 +107,7 @@ export async function loadDigest(): Promise<LoadedDigest | null> {
           model: result.model,
           createdAt: new Date(),
         },
-      });
+      }));
       await finishLeaseQuietly(lease, "success");
       return {
         headline: result.headline,
@@ -118,7 +120,7 @@ export async function loadDigest(): Promise<LoadedDigest | null> {
     } catch (error) {
       await finishLeaseQuietly(lease, "failed", error);
       throw error;
-    }
+    } finally { await heartbeat.stop(); }
   })();
 
   g.__hotai_digest_gen = job;
