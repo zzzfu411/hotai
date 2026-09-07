@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { NookFeed } from "@/components/NookFeed";
+import {
+  catalogCategoryNumber,
+  getCatalogCategory,
+  isCatalogCategoryId,
+} from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +14,16 @@ export const metadata: Metadata = {
   description: "多源实时速闻，综合频道按编辑信号排序，分类频道按最新排序。支持站内阅读和本机稍后读。",
 };
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ c?: string }>;
+}) {
+  const rawC = (await searchParams).c;
+  const category = isCatalogCategoryId(rawC) ? rawC : "mix";
+  const cat = getCatalogCategory(category);
+  const categoryNo = catalogCategoryNumber(category);
+
   return (
     <>
       <Suspense
@@ -21,7 +35,10 @@ export default function HomePage() {
                   <span className="kz-live-dot" aria-hidden />
                   LIVE · AI 信号编辑部
                 </p>
-                <h1 className="kz-feed-title"><span aria-hidden>00/</span>综合</h1>
+                <h1 className="kz-feed-title">
+                  <span aria-hidden>{categoryNo}/</span>
+                  {cat.labelZh}
+                </h1>
                 <p className="kz-nook-deck">跨来源实时混排，用最短路径看见今天正在发生什么。</p>
               </div>
               <div className="kz-nook-console kz-nook-console-skeleton" aria-hidden>
