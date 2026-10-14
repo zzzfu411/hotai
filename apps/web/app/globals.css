@@ -154,6 +154,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 40;
+  transition: transform 200ms ease;
   background: color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter: saturate(1.5) blur(14px);
   -webkit-backdrop-filter: saturate(1.5) blur(14px);
@@ -305,6 +306,12 @@ body {
 
   .kz-topbar .kz-search-toggle {
     display: inline-flex;
+  }
+
+  /* Keyboard focus keeps it on screen; a tapped button keeps focus too, but
+     that must not pin the header. */
+  .kz-topbar.is-hidden:not(:has(:focus-visible)) {
+    transform: translateY(-100%);
   }
 
   .kz-topbar .kz-global-search,
@@ -995,6 +1002,8 @@ a.kz-host:hover,
   .kz-article-summary {
     font-size: 13.5px;
     line-height: 1.6;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
   }
 
   .kz-article-meta {
@@ -1262,6 +1271,10 @@ a.kz-host:hover,
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+}
+
+.kz-nook-item:not(.kz-nook-lead) .kz-nook-item-sum {
+  display: none;
 }
 
 .kz-nook-thumb {
@@ -2739,6 +2752,136 @@ a.kz-host:hover,
 
 .kz-footer-link {
   margin-left: auto;
+}
+
+/* --- Comfortable density (header toggle; compact is the default) --- */
+
+html[data-density="comfortable"] .kz-nook {
+  max-width: var(--column);
+  padding-top: 20px;
+}
+
+html[data-density="comfortable"] .kz-nook-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+html[data-density="comfortable"] .kz-nook-link {
+  gap: 16px;
+  padding: 16px 0;
+}
+
+html[data-density="comfortable"] .kz-nook-item-title {
+  font-size: 16.5px;
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+html[data-density="comfortable"] .kz-nook-item-meta {
+  margin-top: 4px;
+  font-size: 12.5px;
+}
+
+html[data-density="comfortable"] .kz-nook-item:not(.kz-nook-lead) .kz-nook-item-sum {
+  display: -webkit-box;
+  font-size: 14px;
+}
+
+html[data-density="comfortable"] .kz-nook-thumb {
+  width: 112px;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-sm);
+}
+
+html[data-density="comfortable"] .kz-nook-lead .kz-nook-link {
+  gap: 24px;
+  padding: 20px 0 22px;
+}
+
+html[data-density="comfortable"] .kz-nook-lead .kz-nook-item-title {
+  font-size: clamp(21px, 2.4vw, 25px);
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+html[data-density="comfortable"] .kz-nook-cover {
+  width: 240px;
+}
+
+html[data-density="comfortable"] .kz-nook-skel {
+  height: 92px;
+}
+
+html[data-density="comfortable"] .kz-article {
+  gap: 14px;
+  padding: 16px 0;
+}
+
+html[data-density="comfortable"] .kz-article-title {
+  font-size: 16.5px;
+  line-height: 1.5;
+}
+
+html[data-density="comfortable"] .kz-article-summary {
+  margin-top: 4px;
+  font-size: 14px;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+html[data-density="comfortable"] .kz-article-meta {
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+/* Wider screens: the status line drops below the channels when they need the room. */
+@media (min-width: 641px) {
+  html[data-density="comfortable"] .kz-nook-bar {
+    flex-wrap: wrap;
+  }
+
+  html[data-density="comfortable"] .kz-nook-chips {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-density="comfortable"] .kz-nook-link {
+    gap: 12px;
+    padding: 14px 0;
+  }
+
+  html[data-density="comfortable"] .kz-nook-item-title {
+    font-size: 16px;
+  }
+
+  html[data-density="comfortable"] .kz-nook-lead .kz-nook-item-title {
+    font-size: 20px;
+  }
+
+  html[data-density="comfortable"] .kz-nook-lead .kz-nook-item-sum {
+    display: -webkit-box;
+    font-size: 14px;
+  }
+
+  html[data-density="comfortable"] .kz-nook-thumb,
+  html[data-density="comfortable"] .kz-nook-cover {
+    width: 92px;
+    aspect-ratio: 1;
+  }
+
+  html[data-density="comfortable"] .kz-article {
+    gap: 12px;
+    padding: 14px 0;
+  }
+
+  html[data-density="comfortable"] .kz-article-title {
+    font-size: 16px;
+  }
+
+  html[data-density="comfortable"] .kz-article-summary {
+    font-size: 14px;
+  }
 }
 
 /* --- Motion preferences --- */

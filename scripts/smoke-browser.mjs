@@ -159,6 +159,20 @@ try {
   await page.getByRole("button", { name: "Switch to light mode", exact: true }).click();
   pass("mobile dark theme and page width");
 
+  await page.getByRole("button", { name: "Switch to comfortable layout", exact: true }).click();
+  assert.equal(await page.locator("html").getAttribute("data-density"), "comfortable");
+  await page.reload();
+  await page.getByRole("button", { name: "Switch to compact layout", exact: true }).waitFor();
+  assert.equal(await page.locator("html").getAttribute("data-density"), "comfortable", "density must apply before hydration");
+  await page.getByRole("button", { name: "Switch to compact layout", exact: true }).click();
+  assert.equal(await page.locator("html").getAttribute("data-density"), null);
+  await page.evaluate(() => { document.querySelector(".kz-main").style.minHeight = "4000px"; window.scrollTo(0, 900); });
+  await page.waitForFunction(() => document.querySelector(".kz-topbar").getBoundingClientRect().bottom <= 1);
+  await page.evaluate(() => window.scrollBy(0, -300));
+  await page.waitForFunction(() => document.querySelector(".kz-topbar").getBoundingClientRect().top >= 0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  pass("density preference persists and the phone header hides while reading down");
+
   await page.goto(`${base}/r?url=https%3A%2F%2Fexample.com%2Fstorage-failure&title=Storage+failure`);
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException("blocked", "QuotaExceededError"); }; });
   await page.getByRole("button", { name: "Read later", exact: true }).click();

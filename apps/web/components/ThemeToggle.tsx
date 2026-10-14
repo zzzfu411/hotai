@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DENSITY_STORAGE_KEY } from "./DensityToggle";
 import { useLang } from "./LangContext";
 
 type Theme = "light" | "dark";
@@ -91,7 +92,10 @@ export function ThemeToggle() {
   );
 }
 
-/** Renders an inline script that sets theme class + data-theme + theme-color before paint. */
+/**
+ * Renders an inline script that sets theme class + data-theme + theme-color,
+ * and the reader's layout density, before paint.
+ */
 export function ThemeNoFlashScript() {
   const src = `
     (function() {
@@ -116,6 +120,11 @@ export function ThemeNoFlashScript() {
             el.setAttribute('content', color);
             el.removeAttribute('media');
           });
+        }
+      } catch (_) {}
+      try {
+        if (localStorage.getItem('${DENSITY_STORAGE_KEY}') === 'comfortable') {
+          document.documentElement.setAttribute('data-density', 'comfortable');
         }
       } catch (_) {}
     })();

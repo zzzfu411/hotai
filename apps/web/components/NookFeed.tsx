@@ -25,6 +25,7 @@ import { editorialProgressiveLimit, rankHomepageItems } from "@/lib/news-ranking
 import { preserveVisiblePrefix } from "@/lib/progressive-list";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { displayStory } from "@/lib/story-text";
+import { useDensity } from "./DensityToggle";
 import { useLang } from "./LangContext";
 import { readerLink } from "@/lib/reader-link";
 import { ReadingBadge } from "./ReadingList";
@@ -264,11 +265,14 @@ const NookCard = memo(function NookCard({
   item,
   lang,
   lead,
+  compact,
   onOpen,
 }: {
   item: TimelineItem;
   lang: "zh" | "en";
   lead?: boolean;
+  /** Compact rows hide the summary; it stays available on hover. */
+  compact: boolean;
   onOpen: (anchorKey: string) => void;
 }) {
   const story = displayStory(item);
@@ -278,7 +282,7 @@ const NookCard = memo(function NookCard({
       <Link
         href={readerHref({ ...item, title: story.title, summary: story.summary, sourceName: source })}
         className="kz-nook-link"
-        title={!lead && story.summary ? story.summary : undefined}
+        title={compact && !lead && story.summary ? story.summary : undefined}
         onNavigate={() => onOpen(item.url)}
       >
         <div className="kz-nook-copy">
@@ -290,7 +294,7 @@ const NookCard = memo(function NookCard({
             <TimeAgo iso={item.publishedAt} lang={lang} />
             <ReadingBadge story={{ ...item, source }} />
           </p>
-          {lead && story.summary ? <p className="kz-nook-item-sum">{story.summary}</p> : null}
+          {story.summary ? <p className="kz-nook-item-sum">{story.summary}</p> : null}
         </div>
         {item.image ? <Cover src={item.image} className={lead ? "kz-nook-cover" : "kz-nook-thumb"} /> : null}
       </Link>
@@ -301,6 +305,7 @@ const NookCard = memo(function NookCard({
 export function NookFeed() {
   const { lang } = useLang();
   const zh = lang === "zh";
+  const compact = useDensity() === "compact";
   const router = useRouter();
   const pathname = usePathname() || "/";
   const params = useSearchParams();
@@ -729,6 +734,7 @@ export function NookFeed() {
             item={it}
             lang={lang}
             lead={i === 0}
+            compact={compact}
             onOpen={rememberProgress}
           />
         ))}

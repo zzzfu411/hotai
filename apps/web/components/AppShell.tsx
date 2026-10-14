@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { SITE } from "@/lib/constants";
+import { DensityToggle } from "./DensityToggle";
 import { LangToggle } from "./LangToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLang } from "./LangContext";
@@ -45,6 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { lang } = useLang();
   const zh = lang === "zh";
   const [searchOpen, setSearchOpen] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -59,10 +61,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => observer.disconnect();
   }, []);
 
+  // On narrow screens the two-row header slides away while reading down the
+  // page and returns on any upward scroll. It is a transform, not a layout
+  // change, so nothing below it moves.
+  useEffect(() => {
+    const narrow = window.matchMedia("(max-width: 860px)");
+    let lastY = window.scrollY;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const y = window.scrollY;
+      const delta = y - lastY;
+      if (!narrow.matches || y < 120) {
+        setHeaderHidden(false);
+        lastY = y;
+      } else if (Math.abs(delta) >= 8) {
+        setHeaderHidden(delta > 0);
+        lastY = y;
+      }
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
   // Keep the active scene visible when the nav scrolls horizontally (phones).
   useEffect(() => {
     const nav = navRef.current;
     setSearchOpen(false);
+    setHeaderHidden(false);
     if (!nav || nav.scrollWidth <= nav.clientWidth) return;
     const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
     if (!active) return;
@@ -78,7 +110,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <a className="kz-skip-link" href="#main-content">
         {zh ? "跳到主要内容" : "Skip to main content"}
       </a>
-      <header className="kz-topbar" ref={headerRef}>
+      <header className={headerHidden && !searchOpen ? "kz-topbar is-hidden" : "kz-topbar"} ref={headerRef}>
         <div className="kz-topbar-inner">
           <Link href="/" className="kz-logo" aria-label={zh ? "Hot AI 首页" : "Hot AI home"}>
             <LogoMark />
@@ -131,6 +163,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <SearchIcon />
             </button>
+            <DensityToggle />
             <ThemeToggle />
             <LangToggle />
           </div>
