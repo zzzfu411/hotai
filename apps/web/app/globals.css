@@ -624,7 +624,7 @@ span.kz-search-go {
 
 .kz-live-dot.is-syncing {
   background: var(--yellow);
-  outline: 1.5px solid var(--line);
+  box-shadow: 0 0 0 1.5px var(--line);
   animation-duration: 0.8s;
 }
 
@@ -968,6 +968,9 @@ a.kz-host:hover,
 .kz-nook {
   width: 100%;
   max-width: var(--content-max);
+  /* Sources stream in over a few seconds; keep the footer below the fold
+     meanwhile so arriving cards do not push it (a layout shift). */
+  min-height: 100vh;
   margin: 0 auto;
   padding: 24px var(--gutter) 64px;
 }
@@ -1008,9 +1011,13 @@ a.kz-host:hover,
 }
 
 .kz-status-stat strong {
+  display: inline-block;
+  min-width: 3ch;
   color: var(--ink);
   font-family: var(--ff-mono);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .kz-status-alert,
