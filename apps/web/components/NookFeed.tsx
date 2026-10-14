@@ -67,6 +67,8 @@ type PullError = "rate" | "fail" | "service";
 
 const ENABLED_KEY = "hotai.nook.enabled";
 const CLIENT_TTL_MS = 3 * 60 * 1000;
+/** Longest the editorial lanes keep the skeleton while waiting for their final order. */
+const EDITORIAL_HOLD_MS = 2500;
 const MAX_REMOTE_ITEMS = 80;
 const MAX_REMOTE_TITLE = 300;
 const MAX_REMOTE_SUMMARY = 400;
@@ -417,6 +419,7 @@ export function NookFeed() {
     const editorialSettleSourceCount = Math.min(8, pullIds.length);
     let committedItems = cached?.items ?? [];
     let editorialSettled = keepCachedDuringStream || !editorialLane;
+    let holdExpired = false;
     let streamDone = false;
     let serviceDegraded = false;
 
@@ -461,12 +464,31 @@ export function NookFeed() {
         committedItems = nextItems;
         setItems(nextItems);
       }
+      publishStatus(snapshot);
+    };
+
+    const publishStatus = (snapshot: Omit<PullSnapshot, "at">) => {
       setOkCount(snapshot.okCount);
       setFailCount(snapshot.failCount);
       setStaleCount(snapshot.staleCount);
       setFetchedAt(snapshot.fetchedAt);
       setError(null);
     };
+
+    // The editorial lanes (综合/要闻) rank across sources, so early arrivals
+    // would reorder stories already on screen as later sources land. Keep the
+    // skeleton until the ranking has enough sources, then render once in its
+    // final order; afterwards only stories below the visible page can move.
+    const settleEditorial = () => {
+      editorialSettled = true;
+      if (received.size > 0) publish(mergeReceived(false), true);
+    };
+    const holdTimer = editorialSettled
+      ? undefined
+      : window.setTimeout(() => {
+          holdExpired = true;
+          if (!editorialSettled && !ac.signal.aborted && received.size > 0) settleEditorial();
+        }, EDITORIAL_HOLD_MS);
 
     setLoading(true);
 
@@ -498,19 +520,21 @@ export function NookFeed() {
           setCompletedCount(received.size);
           if (!keepCachedDuringStream) {
             const partial = mergeReceived(false);
-            const allowVisibleRerank = editorialLane && !editorialSettled;
-            publish(partial, allowVisibleRerank);
+            if (editorialSettled) {
+              publish(partial);
+              return;
+            }
             const hasEditorialAnchor = ["gnews-top", "bbc-zh", "dw-zh"].some(
               (id) => received.get(id)?.ok,
             );
-            if (
-              partial.okCount >= editorialSettleSourceCount &&
-              hasEditorialAnchor
-            ) {
-              editorialSettled = true;
+            if (holdExpired || (partial.okCount >= editorialSettleSourceCount && hasEditorialAnchor)) {
+              settleEditorial();
+            } else {
+              publishStatus(partial);
             }
           }
         });
+        window.clearTimeout(holdTimer);
         if (!streamDone) throw new Error("catalog stream ended early");
 
         const complete = mergeReceived(true);
@@ -529,6 +553,7 @@ export function NookFeed() {
         const snap = { at: Date.now(), ...complete, items: committedItems };
         clientPullCache.set(key, snap);
       } catch (err) {
+        window.clearTimeout(holdTimer);
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (!ac.signal.aborted) {
           if (!keepCachedDuringStream) publish(mergeReceived(true), editorialLane && !editorialSettled);
@@ -540,7 +565,10 @@ export function NookFeed() {
       }
     })();
 
-    return () => ac.abort();
+    return () => {
+      window.clearTimeout(holdTimer);
+      ac.abort();
+    };
   }, [ready, pullIds, viewKey, category, epoch, captureProgress]);
 
   useLayoutEffect(() => {
