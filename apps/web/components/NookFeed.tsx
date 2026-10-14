@@ -278,6 +278,7 @@ const NookCard = memo(function NookCard({
       <Link
         href={readerHref({ ...item, title: story.title, summary: story.summary, sourceName: source })}
         className="kz-nook-link"
+        title={!lead && story.summary ? story.summary : undefined}
         onNavigate={() => onOpen(item.url)}
       >
         <div className="kz-nook-copy">
@@ -289,7 +290,7 @@ const NookCard = memo(function NookCard({
             <TimeAgo iso={item.publishedAt} lang={lang} />
             <ReadingBadge story={{ ...item, source }} />
           </p>
-          {story.summary ? <p className="kz-nook-item-sum">{story.summary}</p> : null}
+          {lead && story.summary ? <p className="kz-nook-item-sum">{story.summary}</p> : null}
         </div>
         {item.image ? <Cover src={item.image} className={lead ? "kz-nook-cover" : "kz-nook-thumb"} /> : null}
       </Link>
@@ -698,7 +699,7 @@ export function NookFeed() {
             disabled={loading}
           >
             <span className={loading ? "kz-refresh-icon is-spinning" : "kz-refresh-icon"} aria-hidden>↻</span>
-            {loading ? (zh ? "同步中" : "Syncing") : zh ? "刷新" : "Refresh"}
+            <span className="kz-refresh-label">{loading ? (zh ? "同步中" : "Syncing") : zh ? "刷新" : "Refresh"}</span>
           </button>
         </div>
       </div>

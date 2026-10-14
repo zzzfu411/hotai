@@ -282,11 +282,11 @@ body {
       "logo actions"
       "nav nav";
     height: auto;
-    padding-top: 4px;
+    padding-top: 2px;
   }
 
   .kz-logo {
-    height: 44px;
+    height: 42px;
   }
 
   .kz-topbar-actions {
@@ -294,7 +294,7 @@ body {
   }
 
   .kz-nav {
-    height: 40px;
+    height: 38px;
     margin-inline: calc(var(--gutter) * -1);
     padding-inline: calc(var(--gutter) - 11px);
   }
@@ -853,8 +853,8 @@ span.kz-search-go {
 
 .kz-article {
   display: flex;
-  gap: 14px;
-  padding: 16px 0;
+  gap: 12px;
+  padding: 12px 0;
 }
 
 .kz-rank {
@@ -862,9 +862,9 @@ span.kz-search-go {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  margin-top: 1px;
+  width: 24px;
+  height: 24px;
+  margin-top: 0;
   color: var(--fade);
   border-radius: 7px;
   font-size: 15px;
@@ -899,7 +899,7 @@ span.kz-search-go {
 }
 
 .kz-article-title {
-  font-size: 16.5px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -921,7 +921,7 @@ span.kz-search-go {
 
 .kz-article-summary {
   display: -webkit-box;
-  margin-top: 4px;
+  margin-top: 2px;
   overflow: hidden;
   color: var(--mild);
   font-size: 14px;
@@ -940,7 +940,7 @@ span.kz-search-go {
   flex-wrap: wrap;
   align-items: center;
   gap: 2px 12px;
-  margin-top: 8px;
+  margin-top: 5px;
   color: var(--fade);
   font-size: 12.5px;
   line-height: 1.5;
@@ -980,6 +980,26 @@ a.kz-host:hover,
 @media (max-width: 640px) {
   .kz-meta-extra {
     display: none;
+  }
+
+  .kz-article {
+    gap: 10px;
+    padding: 10px 0;
+  }
+
+  .kz-article-title {
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .kz-article-summary {
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  .kz-article-meta {
+    margin-top: 3px;
+    font-size: 12px;
   }
 
   .kz-article-title-row:has(.kz-site-icon) + .kz-article-summary,
@@ -1048,24 +1068,25 @@ a.kz-host:hover,
 
 .kz-nook {
   width: 100%;
-  max-width: var(--column);
+  max-width: var(--content-max);
   /* Sources stream in over a few seconds; keep the footer below the fold
      meanwhile so arriving stories do not push it (a layout shift). */
   min-height: 100vh;
   margin: 0 auto;
-  padding: 20px var(--gutter) 64px;
+  padding: 16px var(--gutter) 64px;
 }
 
 .kz-nook-bar {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-bottom: 10px;
+  align-items: center;
+  gap: 12px 20px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
 
 .kz-nook-chips {
   display: flex;
+  flex: 1;
   gap: 6px;
   min-width: 0;
   overflow-x: auto;
@@ -1106,9 +1127,9 @@ a.kz-host:hover,
 
 .kz-nook-status {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 10px;
-  min-height: 30px;
   color: var(--fade);
   font-size: 12.5px;
   white-space: nowrap;
@@ -1143,7 +1164,7 @@ a.kz-host:hover,
 }
 
 .kz-nook-error {
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   padding: 10px 14px;
   background: color-mix(in srgb, var(--red) 8%, var(--surface));
   color: var(--red);
@@ -1153,7 +1174,7 @@ a.kz-host:hover,
 }
 
 .kz-nook-meta {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   color: var(--fade);
   font-size: 13px;
 }
@@ -1163,13 +1184,18 @@ a.kz-host:hover,
   text-align: center;
 }
 
+/* Compact rows: headline, source and time, a small thumbnail. Only the lead
+   carries a summary; the others show it on hover (title attribute). */
 .kz-nook-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .kz-nook-item {
+  min-width: 0;
   border-bottom: 1px solid var(--line);
   animation: kz-card-in 240ms ease-out both;
 }
@@ -1182,8 +1208,9 @@ a.kz-host:hover,
 .kz-nook-link {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 16px 0;
+  gap: 14px;
+  height: 100%;
+  padding: 12px 0;
 }
 
 .kz-nook-copy {
@@ -1195,13 +1222,13 @@ a.kz-host:hover,
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
-  font-size: 16.5px;
+  font-size: 15.5px;
   font-weight: 600;
   line-height: 1.5;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .kz-nook-item-meta {
@@ -1209,7 +1236,7 @@ a.kz-host:hover,
   align-items: center;
   gap: 8px;
   min-width: 0;
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: var(--fade);
   font-size: 12.5px;
   line-height: 1.5;
@@ -1230,7 +1257,7 @@ a.kz-host:hover,
   margin: 6px 0 0;
   overflow: hidden;
   color: var(--mild);
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 1.65;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1239,50 +1266,43 @@ a.kz-host:hover,
 
 .kz-nook-thumb {
   flex: none;
-  width: 112px;
-  aspect-ratio: 3 / 2;
+  width: 72px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+.kz-nook-lead .kz-nook-link {
+  gap: 24px;
+  padding: 16px 0 18px;
+}
+
+.kz-nook-lead .kz-nook-item-title {
+  font-size: clamp(20px, 2.2vw, 23px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.kz-nook-lead .kz-nook-item-meta {
+  margin-top: 6px;
+}
+
+.kz-nook-cover {
+  flex: none;
+  width: 208px;
+  aspect-ratio: 16 / 10;
   object-fit: cover;
   background: var(--surface-2);
   border-radius: var(--radius-sm);
 }
 
-.kz-nook-lead .kz-nook-link {
-  gap: 24px;
-  padding: 20px 0 22px;
-}
-
-.kz-nook-lead .kz-nook-item-title {
-  font-size: clamp(21px, 2.4vw, 25px);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.38;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
-}
-
-.kz-nook-lead .kz-nook-item-meta {
-  margin-top: 8px;
-}
-
-.kz-nook-lead .kz-nook-item-sum {
-  margin-top: 8px;
-  font-size: 15px;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-}
-
-.kz-nook-cover {
-  flex: none;
-  width: 280px;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  background: var(--surface-2);
-  border-radius: 10px;
-}
-
 .kz-nook-skel {
   position: relative;
-  height: 92px;
+  height: 70px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1298,28 +1318,29 @@ a.kz-host:hover,
 }
 
 .kz-nook-skel::before {
-  top: 20px;
-  width: 78%;
-  height: 16px;
+  top: 14px;
+  width: 82%;
+  height: 15px;
 }
 
 .kz-nook-skel::after {
-  top: 50px;
-  width: 32%;
+  top: 40px;
+  width: 30%;
   height: 11px;
 }
 
 .kz-nook-lead.kz-nook-skel {
-  height: 128px;
+  height: 120px;
 }
 
 .kz-nook-lead.kz-nook-skel::before {
-  top: 24px;
-  height: 26px;
+  top: 18px;
+  width: 70%;
+  height: 24px;
 }
 
 .kz-nook-lead.kz-nook-skel::after {
-  top: 66px;
+  top: 56px;
 }
 
 .kz-nook-more {
@@ -1336,42 +1357,98 @@ a.kz-host:hover,
   font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 640px) {
-  .kz-nook {
-    padding-top: 12px;
+@media (min-width: 900px) {
+  .kz-nook-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 40px;
   }
 
+  .kz-nook-lead {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .kz-nook {
+    padding-top: 10px;
+  }
+
+  .kz-nook-bar {
+    gap: 8px;
+    padding-bottom: 10px;
+  }
+
+  /* Channels bleed to the left edge and fade out under the refresh control. */
   .kz-nook-chips {
-    margin-inline: calc(var(--gutter) * -1);
-    padding-inline: var(--gutter);
+    margin-left: calc(var(--gutter) * -1);
+    padding-left: var(--gutter);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+
+  .kz-channel {
+    height: 30px;
+    padding: 0 12px;
+  }
+
+  .kz-nook-status {
+    gap: 2px;
+  }
+
+  .kz-status-stat {
+    display: none;
+  }
+
+  .kz-refresh-btn {
+    width: 30px;
+    padding: 0;
+  }
+
+  .kz-refresh-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .kz-nook-link {
     gap: 12px;
-    padding: 14px 0;
+    padding: 10px 0;
   }
 
   .kz-nook-item-title {
-    font-size: 16px;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .kz-nook-item-meta {
+    margin-top: 2px;
+    font-size: 12px;
   }
 
   .kz-nook-lead .kz-nook-link {
-    gap: 12px;
-    padding-top: 16px;
+    gap: 14px;
+    padding: 12px 0 14px;
   }
 
   .kz-nook-lead .kz-nook-item-title {
-    font-size: 20px;
+    font-size: 18.5px;
   }
 
-  .kz-nook-cover,
+  /* On phones the lead is a headline too; its summary would cost two rows. */
+  .kz-nook-lead .kz-nook-item-sum {
+    display: none;
+  }
+
+  .kz-nook-cover {
+    width: 88px;
+    aspect-ratio: 4 / 3;
+  }
+
   .kz-nook-thumb {
-    width: 92px;
-    aspect-ratio: 1;
-  }
-
-  .kz-nook-skel::before {
-    width: 92%;
+    width: 60px;
   }
 }
 
@@ -1379,11 +1456,11 @@ a.kz-host:hover,
 
 .kz-home {
   display: grid;
-  gap: 20px;
+  gap: 16px;
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: 28px var(--gutter) 64px;
+  padding: 20px var(--gutter) 64px;
 }
 
 .kz-home-feed {
