@@ -82,6 +82,38 @@ export const AI_PROMPT_CACHE =
 export const AI_DIGEST_ENABLED =
   !["false", "0", "no", "off"].includes((process.env.AI_DIGEST_ENABLED ?? "true").trim().toLowerCase());
 
+/**
+ * Some relays fronting reasoning models (e.g. Anthropic→Grok bridges) reject a
+ * stream that carries no reasoning events. A positive AI_STREAM_THINKING_BUDGET
+ * requests extended thinking on streaming calls; 0 (default) leaves them as-is.
+ */
+export function readStreamThinkingBudget(raw = process.env.AI_STREAM_THINKING_BUDGET): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(16_000, Math.max(1024, Math.floor(n)));
+}
+
+export const AI_STREAM_THINKING_BUDGET = readStreamThinkingBudget();
+
+export type StreamOutputParams = Pick<
+  Anthropic.Messages.MessageStreamParams,
+  "max_tokens" | "temperature" | "thinking"
+>;
+
+/** Output budget for a streamed answer of up to `answerTokens` visible tokens. */
+export function streamOutputParams(
+  answerTokens: number,
+  temperature: number,
+  budget = AI_STREAM_THINKING_BUDGET,
+): StreamOutputParams {
+  if (!budget) return { max_tokens: answerTokens, temperature };
+  // Thinking spends from max_tokens and does not accept a custom temperature.
+  return {
+    max_tokens: answerTokens + budget,
+    thinking: { type: "enabled", budget_tokens: budget },
+  };
+}
+
 let _client: Anthropic | null = null;
 
 export function client(): Anthropic {

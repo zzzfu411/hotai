@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ corpus: vi.fn(), cache: vi.fn(), claim: vi.fn(), quota: vi.fn(), client: vi.fn() }));
-vi.mock("@hotai/ai", () => ({ AI_ENABLED: true, AI_MODELS: { fast: "test" }, client: mock.client, systemBlock: (s: string) => s }));
+vi.mock("@hotai/ai", () => ({ AI_ENABLED: true, AI_MODELS: { fast: "test" }, client: mock.client, systemBlock: (s: string) => s, streamOutputParams: (max_tokens: number, temperature: number) => ({ max_tokens, temperature }) }));
 vi.mock("@hotai/db", () => ({ acquireCoordinationLease: mock.claim, finishCoordinationLease: vi.fn(), renewCoordinationLease: vi.fn(), withCoordinationLease: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { askCache: { findUnique: mock.cache, update: vi.fn().mockResolvedValue({}) } } }));
 vi.mock("@/lib/queries", () => ({ getAskCorpus: mock.corpus }));

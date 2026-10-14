@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAIConfig } from "./client.js";
+import { readAIConfig, readStreamThinkingBudget, streamOutputParams } from "./client.js";
 
 describe("readAIConfig", () => {
   it("keeps AI disabled when credentials are empty", () => {
@@ -120,5 +120,23 @@ describe("readAIConfig", () => {
         ALLOW_THIRD_PARTY_AI: "true",
       }).error,
     ).toContain("http(s) URL");
+  });
+});
+
+describe("streamOutputParams", () => {
+  it("leaves streaming requests unchanged when thinking is off", () => {
+    expect(readStreamThinkingBudget(undefined)).toBe(0);
+    expect(readStreamThinkingBudget("0")).toBe(0);
+    expect(readStreamThinkingBudget("nope")).toBe(0);
+    expect(streamOutputParams(800, 0.4, 0)).toEqual({ max_tokens: 800, temperature: 0.4 });
+  });
+
+  it("adds a clamped thinking budget on top of the answer budget", () => {
+    expect(readStreamThinkingBudget("10")).toBe(1024);
+    expect(readStreamThinkingBudget("99999")).toBe(16000);
+    expect(streamOutputParams(800, 0.4, 1024)).toEqual({
+      max_tokens: 1824,
+      thinking: { type: "enabled", budget_tokens: 1024 },
+    });
   });
 });

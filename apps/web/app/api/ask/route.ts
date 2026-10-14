@@ -19,7 +19,7 @@ import {
   rateLimit,
 } from "@/lib/ask-guard";
 import { reserveAskQuota, settleAskQuota } from "@/lib/ask-quota";
-import { AI_ENABLED, AI_MODELS, client, systemBlock } from "@hotai/ai";
+import { AI_ENABLED, AI_MODELS, client, streamOutputParams, systemBlock } from "@hotai/ai";
 import { asJsonRecord, readJsonBody } from "@/lib/request";
 import {
   buildAskCitationSources,
@@ -129,7 +129,8 @@ export async function POST(req: Request) {
     )
     .join("\n\n");
 
-  const reservedTokens = estimateTokens(corpus + question) + 800;
+  const output = streamOutputParams(800, 0.4);
+  const reservedTokens = estimateTokens(corpus + question) + output.max_tokens;
   let quota: Awaited<ReturnType<typeof reserveAskQuota>>;
   try {
     quota = await reserveAskQuota(reservedTokens);
@@ -168,8 +169,7 @@ export async function POST(req: Request) {
     try {
       const msgStream = await client().messages.stream({
         model: AI_MODELS.fast,
-        max_tokens: 800,
-        temperature: 0.4,
+        ...output,
         system: systemBlock(
             "You are an AI-news analyst. Answer the user's question grounded ONLY in the provided article list. " +
             "When you reference an article, cite it inline like [3]. If the corpus doesn't cover the question, say so explicitly. " +
