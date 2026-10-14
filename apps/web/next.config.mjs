@@ -46,6 +46,14 @@ const nextConfig = {
   // Production data queries can be slow while the small VPS is also serving
   // traffic. Give ISR page generation enough time during deploy builds.
   staticPageGenerationTimeout: 180,
+  // The site renders plain <img> tags and never uses next/image, so the
+  // /_next/image optimizer is unused attack surface (it has had SSRF
+  // advisories). An empty localPatterns list rejects every local source and
+  // the default empty remotePatterns rejects every remote one.
+  images: {
+    unoptimized: true,
+    localPatterns: [],
+  },
   transpilePackages: ["@hotai/db", "@hotai/ai"],
   serverExternalPackages: [
     "@prisma/client",
