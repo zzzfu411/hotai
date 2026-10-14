@@ -161,8 +161,8 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
       <p className="kz-ask-kicker">{lang === "zh" ? "问问 Hot AI" : "Ask Hot AI"}</p>
       <p className="kz-ask-hint">
         {lang === "zh"
-          ? "基于过去 48 小时的头条文章，由 Claude 实时回答。"
-          : "Streamed by Claude, grounded in the last 48 hours of headlines."}
+          ? "AI 基于过去 48 小时入库的头条回答，并标注引用来源。"
+          : "AI answers from the last 48 hours of stored headlines, with cited sources."}
       </p>
       <form
         onSubmit={(e) => {

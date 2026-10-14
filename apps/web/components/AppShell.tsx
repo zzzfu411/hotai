@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { SITE } from "@/lib/constants";
 import { LangToggle } from "./LangToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLang } from "./LangContext";
@@ -19,6 +20,15 @@ const SCENES = [
 function tabActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function LogoMark() {
+  return (
+    <svg className="kz-logo-mark" viewBox="0 0 24 24" aria-hidden>
+      <rect width="24" height="24" rx="6" fill="#ffd60a" />
+      <path d="M7 16.5v-5M12 16.5V7.5M17 16.5v-3" fill="none" stroke="#16181d" strokeWidth="2.6" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function SearchIcon() {
@@ -71,9 +81,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="kz-topbar" ref={headerRef}>
         <div className="kz-topbar-inner">
           <Link href="/" className="kz-logo" aria-label={zh ? "Hot AI 首页" : "Hot AI home"}>
-            <span className="kz-logo-hot">HOT</span>
-            <span className="kz-logo-ai">AI</span>
-            <span className="kz-logo-pulse" aria-hidden />
+            <LogoMark />
+            <span>Hot AI</span>
           </Link>
 
           <nav className="kz-nav" ref={navRef} aria-label={zh ? "栏目" : "Sections"}>
@@ -134,7 +143,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <footer className="kz-foot">
         <div className="kz-foot-inner">
-          <p className="kz-foot-motto">SIGNAL, NOT NOISE.</p>
+          <p>
+            <span className="kz-foot-motto">Hot AI</span> · {zh ? SITE.tagline_zh : SITE.tagline_en}
+          </p>
           <nav className="kz-foot-links" aria-label={zh ? "页脚链接" : "Footer links"}>
             <Link href="/digest">{zh ? "简报" : "Digest"}</Link>
             <Link href="/search">{zh ? "搜索" : "Search"}</Link>

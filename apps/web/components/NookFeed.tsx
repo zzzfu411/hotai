@@ -71,18 +71,6 @@ const MAX_REMOTE_ITEMS = 80;
 const MAX_REMOTE_TITLE = 300;
 const MAX_REMOTE_SUMMARY = 400;
 
-const CATEGORY_DECK: Record<CatalogCategoryId, { zh: string; en: string }> = {
-  mix: { zh: "跨来源实时混排，用最短路径看见今天正在发生什么。", en: "A live cross-source desk for what is moving right now." },
-  hot: { zh: "把主流媒体的共同头条压缩成一张快速浏览的版面。", en: "The shared front page across major newsrooms." },
-  tech: { zh: "产品、工程、平台与互联网文化的前沿信号。", en: "Products, engineering, platforms and internet culture." },
-  biz: { zh: "公司、资本、产业变化，以及技术背后的商业动向。", en: "Companies, capital and the business underneath technology." },
-  intl: { zh: "来自不同地区与编辑部的国际新闻交叉视角。", en: "World news seen across regions and editorial desks." },
-  science: { zh: "研究发现、科学突破与那些值得慢一点读的故事。", en: "Research, discovery and stories worth reading more slowly." },
-  ai: { zh: "模型、产品、论文与社区讨论组成的 AI 实时信号。", en: "Models, products, papers and the live AI conversation." },
-  ent: { zh: "文化、娱乐与互联网流行现场。", en: "Culture, entertainment and the internet's current mood." },
-  sports: { zh: "赛事、人物与体育世界的即时更新。", en: "Live updates from sport, competition and its people." },
-};
-
 /** Survives NookFeed remounts (tab switches) within the same JS session. */
 const clientPullCache = new Map<string, PullSnapshot>();
 
@@ -284,16 +272,14 @@ const NookCard = memo(function NookCard({
   const story = displayStory(item);
   const source = story.publisher ?? item.sourceName;
   return (
-    <li
-      className={lead ? "kz-card kz-nook-item kz-nook-lead" : "kz-card kz-nook-item"}
-      data-nook-key={item.url}
-    >
+    <li className={lead ? "kz-nook-item kz-nook-lead" : "kz-nook-item"} data-nook-key={item.url}>
       <Link
         href={readerHref({ ...item, title: story.title, summary: story.summary, sourceName: source })}
         className="kz-nook-link"
         onNavigate={() => onOpen(item.url)}
       >
         <div className="kz-nook-copy">
+          <h2 className="kz-nook-item-title">{story.title}</h2>
           <p className="kz-nook-item-meta">
             <span className="kz-source-mark" title={story.publisher ? `${story.publisher} · ${item.sourceName}` : undefined}>
               {source}
@@ -301,7 +287,6 @@ const NookCard = memo(function NookCard({
             <TimeAgo iso={item.publishedAt} lang={lang} />
             <ReadingBadge story={{ ...item, source }} />
           </p>
-          <h2 className="kz-nook-item-title">{story.title}</h2>
           {story.summary ? <p className="kz-nook-item-sum">{story.summary}</p> : null}
         </div>
         {item.image ? <Cover src={item.image} className={lead ? "kz-nook-cover" : "kz-nook-thumb"} /> : null}
@@ -608,7 +593,6 @@ export function NookFeed() {
 
   const visible = items.slice(0, shown);
   const catMeta = CATALOG_CATEGORIES.find((c) => c.id === category);
-  const categoryDeck = CATEGORY_DECK[category];
   const errorText =
     error === "rate"
       ? zh
@@ -638,35 +622,9 @@ export function NookFeed() {
 
   return (
     <div className={suppressCardMotion ? "kz-nook kz-nook-continuity" : "kz-nook"} aria-busy={loading}>
-      <header className="kz-nook-head">
-        <div className="kz-nook-title-block">
-          <h1 className="kz-feed-title">{zh ? catMeta?.labelZh ?? "综合" : catMeta?.labelEn ?? "Mix"}</h1>
-          <p className="kz-nook-deck">{zh ? categoryDeck.zh : categoryDeck.en}</p>
-        </div>
-        <div className="kz-nook-status" aria-label={zh ? "时间线状态" : "Timeline status"}>
-          <span className={loading ? "kz-live-dot is-syncing" : failCount ? "kz-live-dot is-warn" : "kz-live-dot"} aria-hidden />
-          <span className="kz-status-stat">
-            <strong>{okCount}</strong> {zh ? "源在线" : "live"}
-          </span>
-          <span className="kz-status-stat">
-            <strong>{items.length}</strong> {zh ? "条" : "stories"}
-          </span>
-          {failCount ? (
-            <span className="kz-status-stat kz-status-alert">
-              <strong>{failCount}</strong> {zh ? "异常" : "offline"}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            className="kz-btn kz-btn-sm kz-refresh-btn"
-            onClick={() => setEpoch((n) => n + 1)}
-            disabled={loading}
-          >
-            <span className={loading ? "kz-refresh-icon is-spinning" : "kz-refresh-icon"} aria-hidden>↻</span>
-            {loading ? (zh ? "同步中" : "Syncing") : zh ? "刷新" : "Refresh"}
-          </button>
-        </div>
-      </header>
+      <h1 className="sr-only">
+        {zh ? `速闻 · ${catMeta?.labelZh ?? "综合"}` : `Feed · ${catMeta?.labelEn ?? "Mix"}`}
+      </h1>
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {loading
@@ -678,19 +636,44 @@ export function NookFeed() {
             : `${items.length} stories, ${okCount} sources online${failCount ? `, ${failCount} offline` : ""}`}
       </p>
 
-      <nav className="kz-nook-chips" aria-label={zh ? "频道" : "Channels"}>
-        {CATALOG_CATEGORIES.map((c) => (
+      <div className="kz-nook-bar">
+        <nav className="kz-nook-chips" aria-label={zh ? "频道" : "Channels"}>
+          {CATALOG_CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={c.id === category ? "kz-channel active" : "kz-channel"}
+              onClick={() => setCategory(c.id)}
+              aria-pressed={c.id === category}
+            >
+              {zh ? c.labelZh : c.labelEn}
+            </button>
+          ))}
+        </nav>
+        <div className="kz-nook-status" aria-label={zh ? "时间线状态" : "Timeline status"}>
+          <span className={loading ? "kz-live-dot is-syncing" : failCount ? "kz-live-dot is-warn" : "kz-live-dot"} aria-hidden />
+          <span className="kz-status-stat">
+            <strong>{okCount}</strong> {zh ? "源" : "live"}
+          </span>
+          <span className="kz-status-stat">
+            <strong>{items.length}</strong> {zh ? "条" : "stories"}
+          </span>
+          {failCount ? (
+            <span className="kz-status-stat kz-status-alert">
+              <strong>{failCount}</strong> {zh ? "异常" : "offline"}
+            </span>
+          ) : null}
           <button
-            key={c.id}
             type="button"
-            className={c.id === category ? "kz-channel active" : "kz-channel"}
-            onClick={() => setCategory(c.id)}
-            aria-pressed={c.id === category}
+            className="kz-btn kz-btn-sm kz-btn-ghost kz-refresh-btn"
+            onClick={() => setEpoch((n) => n + 1)}
+            disabled={loading}
           >
-            {zh ? c.labelZh : c.labelEn}
+            <span className={loading ? "kz-refresh-icon is-spinning" : "kz-refresh-icon"} aria-hidden>↻</span>
+            {loading ? (zh ? "同步中" : "Syncing") : zh ? "刷新" : "Refresh"}
           </button>
-        ))}
-      </nav>
+        </div>
+      </div>
 
       {errorText ? <p className="kz-nook-error" role="status">{errorText}</p> : null}
       {(staleCount > 0 || (error && items.length > 0)) ? (
@@ -703,9 +686,9 @@ export function NookFeed() {
 
       {loading && items.length === 0 ? (
         <div className="kz-nook-list" aria-hidden>
-          <div className="kz-card kz-nook-item kz-nook-lead kz-nook-skel" />
+          <div className="kz-nook-skel kz-nook-lead" />
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="kz-card kz-nook-item kz-nook-skel" />
+            <div key={i} className="kz-nook-skel" />
           ))}
         </div>
       ) : null}

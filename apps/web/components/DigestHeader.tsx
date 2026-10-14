@@ -17,7 +17,7 @@ export function DigestHeader({ digest, aiEnabled, unavailable = false }: { diges
 
   if (!digest) {
     return (
-      <div className="kz-card kz-digest-empty">
+      <div className="kz-digest-empty">
         <p className="kz-page-kicker">{zh ? "今日简报" : "Today's brief"}</p>
         <h1 className="kz-page-title">
           {unavailable ? (zh ? "简报暂时不可用" : "Brief temporarily unavailable") : (zh ? "今日简报尚未发布" : "No brief yet for today.")}
@@ -31,26 +31,26 @@ export function DigestHeader({ digest, aiEnabled, unavailable = false }: { diges
               ? "本站暂未启用 AI 简报。"
               : "AI briefs are not enabled on this site."}
         </p>
-        <p className="kz-page-kicker">{zh ? "UTC 编辑日 · 北京时间每日 08:00 换日" : "UTC editorial day · resets at 00:00 UTC"}</p>
+        <p className="kz-page-kicker kz-digest-note">{zh ? "按 UTC 日编辑，北京时间每日 08:00 换日。" : "Edited per UTC day; resets at 00:00 UTC."}</p>
       </div>
     );
   }
 
   const created = new Date(digest.createdAt);
-  const stamp = created.toUTCString().slice(0, 16);
+  const stamp = new Intl.DateTimeFormat(zh ? "zh-CN" : "en-GB", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+    timeZone: "UTC",
+  }).format(created);
 
   return (
-    <header className="kz-card kz-digest-head">
+    <header className="kz-digest-head">
       <p className="kz-page-kicker">
-        {zh ? "今日简报" : "Today's brief"}
-        <span>
-          {" "}
-          · {stamp} UTC
-          {digest.model ? ` · ${digest.model}` : ""}
-        </span>
+        {zh ? "今日简报" : "Today's brief"} · {stamp}
+        {digest.model ? ` · ${digest.model}` : ""}
       </p>
       <h1 className="kz-page-title">{digest.headline}</h1>
-      <p className="kz-page-kicker">{zh ? "UTC 编辑日 · 北京时间每日 08:00 换日" : "UTC editorial day · resets at 00:00 UTC"}</p>
       <p className="kz-page-lede">{digest.overview}</p>
       {digest.themes.length > 0 && (
         <div className="kz-digest-themes">
@@ -61,6 +61,7 @@ export function DigestHeader({ digest, aiEnabled, unavailable = false }: { diges
           ))}
         </div>
       )}
+      <p className="kz-page-kicker kz-digest-note">{zh ? "按 UTC 日编辑，北京时间每日 08:00 换日。" : "Edited per UTC day; resets at 00:00 UTC."}</p>
     </header>
   );
 }

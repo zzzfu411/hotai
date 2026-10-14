@@ -24,6 +24,9 @@ export function cleanSummary(summary: string | null | undefined, title = ""): st
   }
   text = text.replace(/\s+/g, " ").trim();
   if (!text || /^https?:\/\/\S+$/i.test(text)) return "";
+  // A bare link trailing the prose ("See also: X - https://…") is unreadable
+  // on a card; the story itself is one click away.
+  text = text.replace(/\s*[-–—:]?\s*https?:\/\/\S+$/i, "").trim();
   const body = comparable(text);
   if (!body || body === comparable(title)) return "";
   return text;

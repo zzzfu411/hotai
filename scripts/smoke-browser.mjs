@@ -154,7 +154,7 @@ try {
   await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
   assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "mobile horizontal overflow");
-  await page.waitForFunction(() => getComputedStyle(document.querySelector(".kz-nook-item")).backgroundColor === "rgb(19, 22, 34)");
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === "rgb(15, 17, 21)");
   await page.screenshot({ path: `${output}/feed-mobile-dark.png`, fullPage: true, animations: "disabled" });
   await page.getByRole("button", { name: "Switch to light mode", exact: true }).click();
   pass("mobile dark theme and page width");

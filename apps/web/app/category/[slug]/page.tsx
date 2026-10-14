@@ -46,8 +46,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       <FeedList
         articles={articles.slice(0, 80)}
         ranked={false}
-        kickerZh="分类 · 最近 14 天入库 · 按时间"
-        kickerEn="Category · stored 14 days · chronological"
+        subtitleZh="最近 14 天入库 · 按时间排序"
+        subtitleEn="Stored in the last 14 days · newest first"
         titleZh={cat.label_zh}
         titleEn={cat.label_en}
         emptyTitleZh={unavailable ? "分类暂时不可用" : undefined}

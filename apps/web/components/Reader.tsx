@@ -115,8 +115,8 @@ export function ReaderBody({ url, fallbackSummary }: ReaderBodyProps) {
         </p>
       ) : null}
       {fallbackSummary ? <p className="kz-reader-fallback-summary">{fallbackSummary}</p> : null}
-      <a className="kz-btn" href={url} target="_blank" rel="noopener noreferrer">
-        {zh ? "打开原文" : "Open original"}
+      <a className="kz-btn kz-btn-primary" href={url} target="_blank" rel="noopener noreferrer">
+        {zh ? "打开原文 ↗" : "Open original ↗"}
       </a>
     </div>
   );
@@ -139,7 +139,7 @@ export function ReadingFlags({ story }: { story: ReadableStory }) {
     <div className="kz-reader-flags">
       <button
         type="button"
-        className={later ? "kz-btn kz-btn-sm active" : "kz-btn kz-btn-sm"}
+        className={later ? "kz-btn active" : "kz-btn"}
         aria-pressed={later}
         onClick={() => {
           setFailed(!toggleReading(story, "later"));
@@ -149,7 +149,7 @@ export function ReadingFlags({ story }: { story: ReadableStory }) {
       </button>
       <button
         type="button"
-        className={read ? "kz-btn kz-btn-sm active" : "kz-btn kz-btn-sm"}
+        className={read ? "kz-btn active" : "kz-btn"}
         aria-pressed={read}
         onClick={() => {
           setFailed(!toggleReading(story, "read"));

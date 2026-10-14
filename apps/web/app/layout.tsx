@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { Archivo_Black, IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
+import { IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
 import { SITE } from "@/lib/constants";
 import { AppShell } from "@/components/AppShell";
 import { LangProvider } from "@/components/LangContext";
@@ -13,8 +13,6 @@ import { ReadingProvider } from "@/components/ReadingList";
 // reader's system fonts — a web CJK face adds ~200 @font-face rules to every
 // page's CSS for little gain.
 const sans = IBM_Plex_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-mono", display: "swap" });
-const display = Archivo_Black({ subsets: ["latin"], weight: "400", variable: "--font-display", display: "swap" });
 // Reader prose: Latin text and punctuation come from Source Serif so English
 // never picks up a CJK font's full-width quotes.
 const serifLatin = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif-latin", display: "swap", preload: false });
@@ -58,8 +56,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f0e6" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0d14" },
+    { media: "(prefers-color-scheme: light)", color: "#fbfaf7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1115" },
   ],
 };
 
@@ -68,7 +66,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang={lang}
-      className={`${sans.variable} ${mono.variable} ${display.variable} ${serifLatin.variable}`}
+      className={`${sans.variable} ${serifLatin.variable}`}
       suppressHydrationWarning
     >
       <head>

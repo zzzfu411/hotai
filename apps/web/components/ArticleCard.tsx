@@ -61,7 +61,7 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
     <article className={rank > 0 ? "kz-article kz-article-ranked" : "kz-article"}>
       {rank > 0 ? (
         <span className={rank <= 3 ? "kz-rank kz-rank-top" : "kz-rank"} aria-label={zh ? `第 ${rank} 名` : `Rank ${rank}`}>
-          {rank.toString().padStart(2, "0")}
+          {rank}
         </span>
       ) : null}
 
@@ -78,29 +78,29 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
           <Link href={`/source/${a.source.slug}`} className="kz-meta-source">
             {a.source.name}
           </Link>
-          {externalUrl ? (
-            <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="kz-host" title={zh ? "打开原文" : "Open original"}>
-              {host} ↗
-            </a>
-          ) : null}
           <TimeAgo iso={a.publishedAt} lang={lang} />
           <span className="kz-article-score" title={zh ? "热度分：来源权重 × 时间衰减 × 互动信号 × AI 重要度" : "Score: source weight × time decay × signals × AI importance"}>
             {zh ? "热度" : "Score"} {formatScore(a.score)}
           </span>
           {cross > 0 ? (
             <span className="kz-meta-flag" title={zh ? "其他来源转载了同一新闻" : "Also reported by other sources"}>
-              ⇄ {zh ? `${cross} 源转载` : `+${cross} sources`}
+              {zh ? `${cross} 源转载` : `+${cross} sources`}
             </span>
           ) : null}
           {sentiment ? (
-            <span className="kz-meta-flag">
+            <span className="kz-meta-flag kz-meta-extra">
               <span className="kz-sentiment-icon" style={iconMask(`/sentiment/${a.aiSentiment}.svg`)} aria-hidden />
               {zh ? sentiment.zh : sentiment.en}
             </span>
           ) : null}
           <ReadingBadge story={{ url: a.url, title: a.title, articleId: a.id }} />
+          {externalUrl ? (
+            <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="kz-host kz-meta-extra" title={zh ? "打开原文" : "Open original"}>
+              {host} ↗
+            </a>
+          ) : null}
           {topics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic">
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic kz-meta-extra">
               #{t}
             </Link>
           ))}

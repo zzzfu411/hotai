@@ -66,8 +66,8 @@ export default async function SourcePage({ params, searchParams }: PageProps) {
       <FeedList
         articles={articles.slice(0, 80)}
         ranked={false}
-        kickerZh={`${cat?.label_zh ?? source.category} · 最近 14 天入库 · ${source.lang} · 权重 ${source.weight}`}
-        kickerEn={`${cat?.label_en ?? source.category} · stored 14 days · ${source.lang} · weight ${source.weight}`}
+        subtitleZh={`${cat?.label_zh ?? source.category} · 最近 14 天入库 · 来源权重 ${source.weight}`}
+        subtitleEn={`${cat?.label_en ?? source.category} · stored 14 days · source weight ${source.weight}`}
         titleZh={source.name}
         titleEn={source.name}
         emptyTitleZh={unavailable ? "来源文章暂时不可用" : undefined}

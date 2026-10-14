@@ -12,6 +12,12 @@ describe("cleanSummary", () => {
       .toBe("We built a tiny compiler.");
   });
 
+  it("drops a bare link trailing the prose", () => {
+    expect(cleanSummary("See also: Gemini 4 Argon for Robotics - https://news.ycombinator.com/item?id=50074869"))
+      .toBe("See also: Gemini 4 Argon for Robotics");
+    expect(cleanSummary("Read the docs at https://example.com/docs first.")).toBe("Read the docs at https://example.com/docs first.");
+  });
+
   it("leaves ordinary prose containing 'Points:' alone", () => {
     expect(cleanSummary("Key Points: 3 lessons from the launch")).toBe("Key Points: 3 lessons from the launch");
   });

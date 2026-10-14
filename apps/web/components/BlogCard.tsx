@@ -109,12 +109,16 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
             {blog.affiliation ? ` · ${blog.affiliation}` : ""}
           </p>
         </div>
-        {blog.featured && <span className="kz-chip kz-chip-yellow">{zh ? "精选" : "Featured"}</span>}
-        {blog.lang === "zh" && (
-          <span className="kz-chip" title="Primarily Chinese">
-            中
-          </span>
-        )}
+        {blog.featured || blog.lang === "zh" ? (
+          <div className="kz-blog-badges">
+            {blog.featured ? <span className="kz-badge kz-badge-saved">{zh ? "精选" : "Featured"}</span> : null}
+            {blog.lang === "zh" ? (
+              <span className="kz-badge" title={zh ? "以中文为主" : "Primarily Chinese"}>
+                中
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <p className="kz-blog-bio">{bio}</p>
@@ -124,9 +128,7 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
           {blog.tags.slice(0, 5).map((t) => {
             const label = TAG_LABEL[t];
             return (
-              <span key={t} className="kz-chip">
-                {label ? (zh ? label.zh : label.en) : t}
-              </span>
+              <span key={t}>#{label ? (zh ? label.zh : label.en) : t}</span>
             );
           })}
         </div>
@@ -138,7 +140,7 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className={open ? "kz-btn kz-blog-guide-toggle active" : "kz-btn kz-blog-guide-toggle"}
+            className="kz-blog-guide-toggle"
           >
             <span>{zh ? "食用指南" : "Reading guide"}</span>
             <span aria-hidden>{open ? "▴" : "▾"}</span>

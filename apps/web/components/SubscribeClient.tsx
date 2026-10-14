@@ -340,8 +340,7 @@ export function SubscribeClient() {
   if (!ready) {
     return (
       <div className="kz-page">
-        <p className="kz-page-kicker">{zh ? "我的订阅" : "My feeds"}</p>
-        <h1 className="kz-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h1>
+        <h1 className="kz-feed-title">{zh ? "我的阅读与订阅" : "My reading and subscriptions"}</h1>
       </div>
     );
   }
@@ -352,29 +351,11 @@ export function SubscribeClient() {
       <ReadingList />
       <header className="kz-page-head">
         <div>
-          <p className="kz-page-kicker">{zh ? "我的订阅 · 仅本机" : "Subscribe · this browser"}</p>
-          <h2 className="kz-page-title">{zh ? "自建 RSS / OPML" : "Custom RSS / OPML"}</h2>
-          <p className="kz-page-lede">
-            {zh ? (
-              <>
-                订阅仅保存在此浏览器，可导出 OPML 备份或带到其他设备。
-                <strong> 不影响全站热榜。</strong>
-                推荐源目录：
-                <a href="/hotai.opml" download>
-                  下载 OPML
-                </a>
-                。
-              </>
-            ) : (
-              <>
-                Subscriptions stay in this browser. Export OPML to back them up or move to another device.
-                <strong> They do not affect the global hot list.</strong> Recommended feeds:{" "}
-                <a href="/hotai.opml" download>
-                  Download OPML
-                </a>
-                .
-              </>
-            )}
+          <h2 className="kz-feed-title">{zh ? "我的订阅" : "My subscriptions"}</h2>
+          <p className="kz-feed-sub">
+            {zh
+              ? "RSS / Atom / JSON Feed 订阅只保存在此浏览器，不影响全站热榜；可用 OPML 备份或迁移。"
+              : "RSS, Atom and JSON Feed subscriptions stay in this browser and never touch the global hot list. Use OPML to back up or move them."}
           </p>
         </div>
         <div className="kz-sub-actions">
@@ -503,7 +484,6 @@ export function SubscribeClient() {
         <section className="kz-sub-list-wrap">
           <header className="kz-feed-head">
             <div>
-              <p className="kz-page-kicker">{zh ? "源" : "Sources"}</p>
               <h2 className="kz-feed-title">
                 {zh ? `我的源 · ${sources.length}/${MAX_SOURCES}` : `My sources · ${sources.length}/${MAX_SOURCES}`}
               </h2>
@@ -516,7 +496,7 @@ export function SubscribeClient() {
             {sources.map((src) => {
               const st = statuses[src.id];
               return (
-                <li key={src.id} className={src.enabled ? "kz-card kz-sub-source" : "kz-card kz-sub-source kz-sub-source-off"}>
+                <li key={src.id} className={src.enabled ? "kz-sub-source" : "kz-sub-source kz-sub-source-off"}>
                   <div className="kz-sub-source-main">
                     <p className="kz-sub-source-name">{src.name}</p>
                     <p className="kz-sub-source-url">{src.url}</p>
@@ -565,8 +545,8 @@ export function SubscribeClient() {
         <section className="kz-feed kz-sub-feed">
           <header className="kz-feed-head">
             <div>
-              <p className="kz-page-kicker">{zh ? "时间线 · 按发布时间" : "Timeline · publishedAt"}</p>
-              <h2 className="kz-feed-title">{zh ? "我的订阅" : "My subscriptions"}</h2>
+              <h2 className="kz-feed-title">{zh ? "订阅时间线" : "Subscription timeline"}</h2>
+              <p className="kz-feed-sub">{zh ? "按发布时间排序" : "Newest first"}</p>
             </div>
             <p className="kz-feed-count">
               {items.length}
@@ -592,7 +572,7 @@ export function SubscribeClient() {
               </p>
             </div>
           ) : (
-            <ol className="kz-card kz-feed-list">
+            <ol className="kz-feed-list">
               {items.map((it) => {
                 const safe = safeHttpUrl(it.url);
                 const summary = cleanSummary(it.summary, it.title);

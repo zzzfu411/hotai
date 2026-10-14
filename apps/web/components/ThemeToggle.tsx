@@ -6,7 +6,7 @@ import { useLang } from "./LangContext";
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "hotai-theme";
-const THEME_COLOR = { light: "#f4f0e6", dark: "#0b0d14" } as const;
+const THEME_COLOR = { light: "#fbfaf7", dark: "#0f1115" } as const;
 
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";

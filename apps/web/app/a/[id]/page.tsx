@@ -110,17 +110,17 @@ export default async function ArticlePage({ params }: PageProps) {
             {host}
           </a>
           {importancePct != null ? (
-            <span className="kz-chip font-mono tabular-nums">{zh ? "重要度" : "Importance"} {importancePct}</span>
+            <span className="kz-chip" title={zh ? "AI 评估的重要度（0–100）" : "AI-rated importance (0–100)"}>{zh ? "重要度" : "Importance"} {importancePct}</span>
           ) : null}
           {article.aiTopics.map((t) => (
             <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
-              {t}
+              #{t}
             </Link>
           ))}
         </div>
         <div className="kz-reader-toolbar">
-          <a className="kz-btn" href={articleUrl} target="_blank" rel="noopener noreferrer">
-            {zh ? "打开原文" : "Open original"}
+          <a className="kz-btn kz-btn-primary" href={articleUrl} target="_blank" rel="noopener noreferrer">
+            {zh ? "打开原文 ↗" : "Open original ↗"}
           </a>
           <ReadingFlags story={{ articleId: article.id, url: articleUrl, title: article.title, source: article.source.name, summary: fallbackSummary }} />
         </div>
@@ -129,19 +129,19 @@ export default async function ArticlePage({ params }: PageProps) {
       {hasAiSummaries || article.summary ? (
         <div className="kz-reader-summaries">
           {article.aiSummaryZh ? (
-            <section className="kz-card kz-reader-summary" lang="zh">
+            <section className="kz-reader-summary" lang="zh">
               <h2>{zh ? "中文摘要" : "Chinese summary"}</h2>
               <p>{article.aiSummaryZh}</p>
             </section>
           ) : null}
           {article.aiSummaryEn ? (
-            <section className="kz-card kz-reader-summary" lang="en">
+            <section className="kz-reader-summary" lang="en">
               <h2>English</h2>
               <p>{article.aiSummaryEn}</p>
             </section>
           ) : null}
           {!hasAiSummaries && article.summary ? (
-            <section className="kz-card kz-reader-summary">
+            <section className="kz-reader-summary">
               <h2>{zh ? "摘要" : "Summary"}</h2>
               <p>{article.summary}</p>
             </section>

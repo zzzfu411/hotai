@@ -85,7 +85,7 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
           className={featuredOnly ? "kz-btn active" : "kz-btn"}
           aria-pressed={featuredOnly}
         >
-          {zh ? `仅精选 · ${featuredCount}` : `Featured · ${featuredCount}`}
+          {zh ? `只看精选 · ${featuredCount}` : `Featured only · ${featuredCount}`}
         </button>
       </div>
 

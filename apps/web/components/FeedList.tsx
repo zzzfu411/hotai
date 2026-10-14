@@ -9,8 +9,8 @@ export function FeedList({
   ranked = false,
   titleZh,
   titleEn,
-  kickerZh,
-  kickerEn,
+  subtitleZh,
+  subtitleEn,
   titleAs = "h1",
   action,
   emptyTitleZh,
@@ -22,8 +22,8 @@ export function FeedList({
   ranked?: boolean;
   titleZh?: string;
   titleEn?: string;
-  kickerZh?: string;
-  kickerEn?: string;
+  subtitleZh?: string;
+  subtitleEn?: string;
   titleAs?: "h1" | "h2";
   action?: ReactNode;
   emptyTitleZh?: string;
@@ -34,9 +34,9 @@ export function FeedList({
   const { lang } = useLang();
   const zh = lang === "zh";
   const title = zh ? titleZh : titleEn;
-  const kicker = zh ? kickerZh ?? kickerEn : kickerEn ?? kickerZh;
+  const subtitle = zh ? subtitleZh ?? subtitleEn : subtitleEn ?? subtitleZh;
   const TitleTag = titleAs;
-  const showHead = Boolean(title || kicker || action);
+  const showHead = Boolean(title || subtitle || action);
   const emptyTitle = zh ? emptyTitleZh ?? "暂无文章" : emptyTitleEn ?? "No articles yet";
   const emptyCopy = zh
     ? emptyCopyZh ?? "抓取器可能还在预热，稍后再刷新。"
@@ -47,8 +47,8 @@ export function FeedList({
       {showHead ? (
         <header className="kz-feed-head">
           <div>
-            {kicker ? <p className="kz-page-kicker">{kicker}</p> : null}
             {title ? <TitleTag className="kz-feed-title">{title}</TitleTag> : null}
+            {subtitle ? <p className="kz-feed-sub">{subtitle}</p> : null}
           </div>
           <div className="kz-feed-head-end">
             {action}
@@ -66,7 +66,7 @@ export function FeedList({
           <p className="kz-feed-empty-copy">{emptyCopy}</p>
         </div>
       ) : (
-        <ol className="kz-card kz-feed-list">
+        <ol className="kz-feed-list">
           {articles.map((a, i) => (
             <li key={a.id}>
               <ArticleCard a={{ ...a, rank: ranked ? i + 1 : undefined }} />

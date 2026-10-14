@@ -35,8 +35,8 @@ export default async function JuyaPage({ searchParams }: PageProps) {
 
   return (
     <div className="kz-juya">
-      <header className="kz-card kz-juya-head">
-        <p className="kz-page-kicker">{zh ? "橘鸦 Juya · 外部早报" : "Juya · External daily brief"}</p>
+      <header className="kz-juya-head">
+        <p className="kz-page-kicker">{zh ? "橘鸦 AI 早报 · 外部来源" : "Juya AI Daily · external source"}</p>
         <h1 className="kz-page-title">{issue ? issue.title : (zh ? "橘鸦 AI 早报" : "Juya AI Daily")}</h1>
         <p className="kz-page-lede">
           {zh ? "内容来自 " : "Published by "}
@@ -45,7 +45,7 @@ export default async function JuyaPage({ searchParams }: PageProps) {
           </a>
           {zh ? "，在 Hot AI 阅读原文，不改写。" : ". Read the original Chinese brief in Hot AI."}
         </p>
-        <div className="kz-digest-hosts">
+        <div className="kz-juya-links">
           <a className="kz-chip" href={JUYA_HOME} target="_blank" rel="noopener noreferrer">
             {zh ? "原文站 ↗" : "Original site ↗"}
           </a>
@@ -71,7 +71,8 @@ export default async function JuyaPage({ searchParams }: PageProps) {
             <Link
               key={it.date}
               href={`/juya?date=${it.date}`}
-              className={issue?.date === it.date ? "kz-chip kz-chip-yellow" : "kz-chip"}
+              className="kz-chip"
+              aria-current={issue?.date === it.date ? "page" : undefined}
             >
               {it.date.slice(5)}
             </Link>
@@ -80,7 +81,7 @@ export default async function JuyaPage({ searchParams }: PageProps) {
       ) : null}
 
       {issue ? (
-        <article className="kz-card kz-juya-paper">
+        <article className="kz-juya-paper">
           {issue.toc.length > 2 ? (
             <details className="kz-juya-toc">
               <summary>{zh ? "目录" : "Contents"}</summary>
@@ -93,7 +94,7 @@ export default async function JuyaPage({ searchParams }: PageProps) {
               </ol>
             </details>
           ) : null}
-          <div lang="zh" className="reader-prose kz-juya-prose" dangerouslySetInnerHTML={{ __html: issue.html }} />
+          <div lang="zh" className="reader-prose" dangerouslySetInnerHTML={{ __html: issue.html }} />
         </article>
       ) : !error ? (
         <div className="kz-card kz-feed-empty">

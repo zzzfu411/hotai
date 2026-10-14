@@ -15,16 +15,11 @@ export default function HomePage() {
       <Suspense
         fallback={
           <div className="kz-nook" aria-busy>
-            <header className="kz-nook-head">
-              <div className="kz-nook-title-block">
-                <h1 className="kz-feed-title">综合</h1>
-                <p className="kz-nook-deck">跨来源实时混排，用最短路径看见今天正在发生什么。</p>
-              </div>
-            </header>
+            <h1 className="sr-only">速闻 · 综合</h1>
             <div className="kz-nook-list" aria-hidden>
-              <div className="kz-card kz-nook-item kz-nook-lead kz-nook-skel" />
-              <div className="kz-card kz-nook-item kz-nook-skel" />
-              <div className="kz-card kz-nook-item kz-nook-skel" />
+              <div className="kz-nook-skel kz-nook-lead" />
+              <div className="kz-nook-skel" />
+              <div className="kz-nook-skel" />
             </div>
           </div>
         }

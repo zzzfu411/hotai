@@ -48,12 +48,15 @@ export default async function RemoteReaderPage({ searchParams }: PageProps) {
         <p className="kz-reader-kicker">
           <Link href="/">{sourceName || (zh ? "速闻" : "Feed")}</Link>
           <span aria-hidden> · </span>
-          <a href={url.href} target="_blank" rel="noopener noreferrer" className="kz-chip kz-host">
-            {host}
-          </a>
+          <span>{host}</span>
         </p>
         <h1 className="kz-reader-title">{title}</h1>
-        <ReadingFlags story={{ url: url.href, title, summary: fallbackSummary, source: sourceName ?? host }} />
+        <div className="kz-reader-toolbar">
+          <a className="kz-btn kz-btn-primary" href={url.href} target="_blank" rel="noopener noreferrer">
+            {zh ? "打开原文 ↗" : "Open original ↗"}
+          </a>
+          <ReadingFlags story={{ url: url.href, title, summary: fallbackSummary, source: sourceName ?? host }} />
+        </div>
       </header>
       <ReaderBody url={url.href} fallbackSummary={fallbackSummary} />
     </article>

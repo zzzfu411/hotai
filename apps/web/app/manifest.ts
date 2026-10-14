@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "每日 AI 新闻、研究与开源信号。",
     start_url: "/",
     display: "standalone",
-    background_color: "#f3eedf",
+    background_color: "#fbfaf7",
     theme_color: "#ffd60a",
     lang: "zh-CN",
     icons: [

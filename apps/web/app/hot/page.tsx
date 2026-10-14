@@ -41,19 +41,40 @@ export default async function HotPage() {
         minute: "2-digit",
         hour12: false,
         timeZone: zh ? "Asia/Shanghai" : "UTC",
-      }).format(stats.lastFetch) + (zh ? "" : " UTC")
-    : "—";
+      }).format(stats.lastFetch)
+    : null;
+  const subtitleZh = [
+    "按热度排序",
+    `${stats.enabledSources} 个来源`,
+    `24 小时新增 ${stats.articles24h} 篇`,
+    lastFetch ? `北京时间 ${lastFetch} 更新` : null,
+  ].filter(Boolean).join(" · ");
+  const subtitleEn = [
+    "Ranked by score",
+    `${stats.enabledSources} sources`,
+    `${stats.articles24h} new in 24h`,
+    lastFetch ? `updated ${lastFetch} UTC` : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className="kz-home">
-      <h1 className="sr-only">Hot AI</h1>
       {dbError ? (
-        <div className="kz-card kz-feed-empty">
-          <p className="kz-feed-empty-title">{zh ? "热榜暂时不可用" : "Hot list unavailable"}</p>
+        <div className="kz-card kz-feed-empty kz-home-feed">
+          <h1 className="kz-feed-empty-title">{zh ? "热榜暂时不可用" : "Hot list unavailable"}</h1>
           <p className="kz-feed-empty-copy">{dbError}</p>
         </div>
       ) : (
         <>
+          <div className="kz-home-feed">
+            <FeedList
+              articles={articles}
+              ranked
+              subtitleZh={subtitleZh}
+              subtitleEn={subtitleEn}
+              titleZh="近 14 天热榜"
+              titleEn="Hot list · last 14 days"
+            />
+          </div>
           <PulseRail
             aiEnabled={AI_ENABLED}
             digest={
@@ -65,23 +86,7 @@ export default async function HotPage() {
                   }
                 : null
             }
-            stats={{
-              enabledSources: stats.enabledSources,
-              articles24h: stats.articles24h,
-              lastFetch,
-            }}
           />
-          <div className="kz-home-feed">
-            <FeedList
-              articles={articles}
-              ranked
-              titleAs="h2"
-              kickerZh="Hot AI · 近 14 天入库 · 按热度排序"
-              kickerEn="Hot AI · last 14 days · ranked by score"
-              titleZh="近 14 天热榜"
-              titleEn="Hot list · last 14 days"
-            />
-          </div>
         </>
       )}
     </div>

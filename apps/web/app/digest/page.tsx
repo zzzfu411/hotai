@@ -41,8 +41,8 @@ export default async function DigestPage() {
       {digest && (
         <ol className="kz-digest-bullets">
           {linkDigestBullets(digest.bullets, todaysTop).map((b: DigestBullet, i: number) => (
-            <li key={i} className="kz-card kz-digest-item">
-              <div className="kz-digest-num">{String(i + 1).padStart(2, "0")}</div>
+            <li key={i} className="kz-digest-item">
+              <div className="kz-digest-num">{i + 1}</div>
               <div>
                 <h3>{b.title}</h3>
                 <p>{b.takeaway}</p>

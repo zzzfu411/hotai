@@ -7,15 +7,15 @@ export function BlogHero({ total, featured }: { total: number; featured: number 
   const zh = lang === "zh";
 
   return (
-    <header className="kz-card kz-blog-hero">
-      <p className="kz-page-kicker">{zh ? "精选目录 · 长期收录" : "Curated · evergreen"}</p>
+    <header className="kz-blog-hero">
+      <p className="kz-page-kicker">{zh ? "研究者 · 长期收录" : "Researchers · evergreen"}</p>
       <h1 className="kz-page-title">
         {zh ? "AI 领域值得长期订阅的博客" : "High-signal blogs from people who build AI"}
       </h1>
       <p className="kz-page-lede">
         {zh
-          ? "不是新闻热榜，而是编辑精选的研究员与从业者博客。每张卡片都有「食用指南」：更新节奏、怎么读、内容时间线、推荐从哪篇开始。与 14 天热度文章分开，这里永久收录。"
-          : "Not the hourly heat list — an editorial shortlist of researcher and practitioner blogs. Every card has a reading guide: cadence, how to read, content timeline, and where to start. Permanent; outside the 14-day news window."}
+          ? "编辑精选的研究员与从业者博客，不随 14 天新闻窗口过期。每个博客附「食用指南」：更新节奏、怎么读、推荐从哪篇开始。"
+          : "An editorial shortlist of researcher and practitioner blogs, kept outside the 14-day news window. Each has a reading guide: cadence, how to read, and where to start."}
       </p>
       <dl className="kz-page-stats">
         <div>

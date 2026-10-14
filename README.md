@@ -47,7 +47,7 @@ packages/db     共享 Prisma client 和 schema (含 Article.ai* 字段 + Digest
 packages/ai     Anthropic SDK 封装 — enrichArticle / generateDigest / 流式客户端
 ```
 
-综合速闻采用编辑信号排序，其他频道按最新排序；Hot AI 热榜 / 简报 / Ask 在「热榜」「简报」里。视觉沿用 Signal Press 的纸色、黄色、墨色和暗色蓝影。
+综合速闻采用编辑信号排序，其他频道按最新排序；Hot AI 热榜 / 简报 / Ask 在「热榜」「简报」里。界面是以列表为主的清爽阅读器：暖白底、细分隔线，黄色只用于 logo、当前栏目和前三名次；图标等品牌资产仍沿用 Signal Press。
 
 数据流：`fetcher` 负责文章、来源健康和 AI 字段写入；`web` 仍会在首访缺少当日简报时
 生成并缓存 Digest，并为 `/api/ask` 写入问答缓存。每轮抓取结束后 fetcher 调
