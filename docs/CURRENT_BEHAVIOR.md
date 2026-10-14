@@ -50,6 +50,7 @@ DB 内容页面动态渲染；构建不会冻结 DB 故障文案。构建成功�
 ## 维护边界
 
 - `globals.css` 是唯一样式表（Reader 视觉：暖白底、细分隔线、圆角，黄色只用于品牌与位置标记——logo、当前栏目、前三名次）：CSS 变量 token、通用组件、速闻、热榜、阅读正文与响应式规则都在其中，不再分层覆盖。字体由 `next/font` 构建时自托管（IBM Plex Sans、阅读页 Source Serif 4），等宽与中文使用系统字体，不请求 Google Fonts。
-- `AppShell` 统一管理站点页头页脚；已移除无引用的 Header/Footer/HotList。
+- `AppShell` 统一管理站点页头页脚；已移除无引用的 Header/Footer/HotList。窄屏（≤860px）下页头在向下滚动时滑出、向上滚动或回到顶部时滑回（transform，不影响布局）；搜索打开或键盘焦点在页头内时保持显示。
+- 排版密度：页头按钮在「紧凑」（默认：速闻桌面两列、只有头条带摘要、手机热榜摘要一行）与「舒适」（单栏、每条带摘要）之间切换，存于本机 `localStorage`（`hotai-density`），由 `ThemeNoFlashScript` 在首次绘制前写入 `html[data-density]`。
 - 搜索及本机订阅页面不参与索引；sitemap 不用请求时间伪造内容更新时间。
 - CI 包含真实 PostgreSQL 集成测试、生产构建、编译产物 smoke 和确定性 Chromium 用户路径回归。浏览器用受控新闻/模型响应，真实上游可达性由独立合成探测验证。
