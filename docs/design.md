@@ -174,7 +174,7 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 
 | 路由 | 渲染 | 缓存 | 数据源 |
 |---|---|---|---|
-| `/` | Client live catalog | 客户端 3min SWR + 服务端 feed cache | allowlisted RSS/Atom/JSON Feed；不写 Article |
+| `/` | Live catalog：首屏由服务端从 feed cache 渲染，随后客户端流式补全 | 客户端 3min SWR + 服务端 feed cache | allowlisted RSS/Atom/JSON Feed；不写 Article；渲染只刷新已缓存的过期源，不发起冷抓取 |
 | `/hot` | 动态 RSC | `force-dynamic` | Postgres,top 50 by score（最近 14 天入库） |
 | `/digest` | 动态 RSC | `force-dynamic` | DB hit → 缺则在线生成 + 落库 |
 | `/category/{slug}` | 动态 RSC | `force-dynamic` | DB,filter by category |
