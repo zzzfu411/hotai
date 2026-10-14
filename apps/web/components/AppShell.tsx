@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { SITE } from "@/lib/constants";
 import { DensityToggle } from "./DensityToggle";
+import { LinkPending } from "./LinkPending";
 import { LangToggle } from "./LangToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLang } from "./LangContext";
@@ -128,6 +129,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   aria-current={active ? "page" : undefined}
                 >
                   {zh ? tab.label_zh : tab.label_en}
+                  <LinkPending />
                 </Link>
               );
             })}

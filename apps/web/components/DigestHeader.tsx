@@ -55,7 +55,7 @@ export function DigestHeader({ digest, aiEnabled, unavailable = false }: { diges
       {digest.themes.length > 0 && (
         <div className="kz-digest-themes">
           {digest.themes.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip" prefetch={false}>
               #{t}
             </Link>
           ))}

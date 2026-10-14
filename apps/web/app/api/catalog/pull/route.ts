@@ -8,6 +8,7 @@ import {
   resolveCatalogSources,
   type CatalogSource,
 } from "@/lib/catalog";
+import { slimCatalogItems } from "@/lib/catalog-snapshot";
 import { SITE } from "@/lib/constants";
 import { loadRemoteFeed, readableFeedSnapshot } from "@/lib/feed-cache";
 import { parseFeedQuery, pickFeedSummary } from "@/lib/feed";
@@ -28,16 +29,6 @@ export const maxDuration = 30;
  * Per-URL memory cache + coalescing lives in lib/feed-cache.ts.
  * stream=true emits one JSON line per completed source, then a done event.
  */
-
-function slimItems(items: RemoteFeedItem[]): RemoteFeedItem[] {
-  return items.slice(0, CATALOG_ITEMS_PER_SOURCE).map((it) => ({
-    ...it,
-    summary:
-      it.summary.length <= CATALOG_SUMMARY_LEN
-        ? it.summary
-        : `${it.summary.slice(0, CATALOG_SUMMARY_LEN - 1)}…`,
-  }));
-}
 
 /**
  * Site-relative catalog urls (Hot AI's own /feed.json) must not go through
@@ -99,7 +90,7 @@ async function pullCatalogSource(src: CatalogSource): Promise<CatalogPullSource>
       name: src.name,
       ok: true,
       title: parsed.title,
-      items: slimItems(parsed.items),
+      items: slimCatalogItems(parsed.items),
       ...(src.url.startsWith("/")
         ? { stale: false, fetchedAt: new Date().toISOString() }
         : (() => {
@@ -183,7 +174,7 @@ export async function POST(req: Request) {
       const cached = sources.map((src): CatalogPullSource => {
         const hit = readableFeedSnapshot(src.url);
         return hit
-          ? { id: src.id, name: src.name, ok: true, items: slimItems(hit.feed.items),
+          ? { id: src.id, name: src.name, ok: true, items: slimCatalogItems(hit.feed.items),
               stale: true, fetchedAt: hit.fetchedAt }
           : { id: src.id, name: src.name, ok: false, items: [], error: "service unavailable" };
       });

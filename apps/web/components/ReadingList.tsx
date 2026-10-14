@@ -49,7 +49,7 @@ export function ReadingList() {
     {failed && <p role="status">{zh ? "保存失败，修改仅在本次会话有效。" : "Could not save. Changes last only for this session."}</p>}
     {visible.length === 0 ? <p className="kz-card kz-feed-empty">{zh ? "还没有阅读记录。在文章中选择“稍后读”即可收进这里。" : "No reading records yet. Choose Read later in an article to save it here."}</p> :
       <ul className="kz-saved-list">{visible.map((entry) => <li key={entry.key} className="kz-saved-item">
-        <Link href={readerLink(entry)}>{entry.title}</Link>
+        <Link href={readerLink(entry)} prefetch={false}>{entry.title}</Link>
         <div className="kz-article-meta">
           {entry.source && <span>{entry.source}</span>}
           {entry.url ? <a href={entry.url} target="_blank" rel="noopener noreferrer">{zh ? "原文" : "Original"}</a> :

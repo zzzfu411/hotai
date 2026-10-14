@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CATALOG_BY_ID,
   CATALOG_CATEGORIES,
-  CATALOG_ITEMS_PER_SOURCE,
   DEFAULT_ENABLED_IDS,
   idsForCategory,
   isCatalogCategoryId,
   type CatalogCategoryId,
 } from "@/lib/catalog";
+import type { InitialNook } from "@/lib/catalog-snapshot";
 import {
   createNookHistorySnapshot,
   mergeNookHistoryState,
@@ -21,47 +21,28 @@ import {
   type NookHistorySnapshot,
 } from "@/lib/nook-history";
 import { readJsonLines } from "@/lib/json-lines";
-import { editorialProgressiveLimit, rankHomepageItems } from "@/lib/news-ranking";
+import {
+  EDITORIAL_ANCHOR_IDS,
+  editorialSettleSourceCount,
+  isEditorialLane,
+  mergeSources,
+  type MergedTimeline,
+  type PullSource,
+  type TimelineItem,
+} from "@/lib/nook-merge";
 import { preserveVisiblePrefix } from "@/lib/progressive-list";
-import { safeHttpUrl } from "@/lib/safe-url";
 import { displayStory } from "@/lib/story-text";
 import { useDensity } from "./DensityToggle";
 import { useLang } from "./LangContext";
+import { LinkPending } from "./LinkPending";
 import { readerLink } from "@/lib/reader-link";
 import { ReadingBadge } from "./ReadingList";
 import { TimeAgo } from "./TimeAgo";
 
-type RemoteItem = {
-  articleId?: number;
-  title: string;
-  url: string;
-  summary: string;
-  publishedAt: string | null;
-  image: string | null;
-};
-
-type TimelineItem = RemoteItem & {
-  sourceId: string;
-  sourceName: string;
-};
-
-type PullSource = {
-  id: string;
-  name: string;
-  ok: boolean;
-  items?: unknown;
-  error?: string;
-  stale?: boolean;
-  fetchedAt?: string;
-};
-
-type PullSnapshot = {
+type PullSnapshot = MergedTimeline & {
   at: number;
-  items: TimelineItem[];
-  okCount: number;
-  failCount: number;
-  staleCount: number;
-  fetchedAt: string | null;
+  /** A server first screen: shown at once, but never trusted as the full list. */
+  partial?: boolean;
 };
 
 type PullError = "rate" | "fail" | "service";
@@ -70,9 +51,6 @@ const ENABLED_KEY = "hotai.nook.enabled";
 const CLIENT_TTL_MS = 3 * 60 * 1000;
 /** Longest the editorial lanes keep the skeleton while waiting for their final order. */
 const EDITORIAL_HOLD_MS = 2500;
-const MAX_REMOTE_ITEMS = 80;
-const MAX_REMOTE_TITLE = 300;
-const MAX_REMOTE_SUMMARY = 400;
 
 /** Survives NookFeed remounts (tab switches) within the same JS session. */
 const clientPullCache = new Map<string, PullSnapshot>();
@@ -117,28 +95,6 @@ function isDoneEvent(value: unknown): boolean {
   return record(value)?.done === true;
 }
 
-function readItems(raw: unknown): RemoteItem[] {
-  if (!Array.isArray(raw)) return [];
-  const out: RemoteItem[] = [];
-  for (const item of raw.slice(0, MAX_REMOTE_ITEMS)) {
-    if (!item || typeof item !== "object") continue;
-    const rec = item as Record<string, unknown>;
-    const title = typeof rec.title === "string" ? rec.title.trim().slice(0, MAX_REMOTE_TITLE) : "";
-    const url = safeHttpUrl(typeof rec.url === "string" ? rec.url : null) ?? "";
-    if (!title || !url) continue;
-    const image = safeHttpUrl(typeof rec.image === "string" ? rec.image : null);
-    out.push({
-      articleId: typeof rec.articleId === "number" && Number.isInteger(rec.articleId) && rec.articleId > 0 ? rec.articleId : undefined,
-      title,
-      url,
-      summary: typeof rec.summary === "string" ? rec.summary.slice(0, MAX_REMOTE_SUMMARY) : "",
-      publishedAt: typeof rec.publishedAt === "string" ? rec.publishedAt : null,
-      image,
-    });
-  }
-  return out;
-}
-
 function loadEnabled(): string[] {
   if (typeof window === "undefined") return [...DEFAULT_ENABLED_IDS];
   try {
@@ -159,16 +115,6 @@ function readerHref(item: TimelineItem): string {
     source: item.sourceName,
     articleId: item.sourceId === "hotai-feed" ? item.articleId : undefined,
   });
-}
-
-function publishedTs(iso: string | null): number {
-  if (!iso) return 0;
-  const n = Date.parse(iso);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function isEditorialLane(category: CatalogCategoryId): boolean {
-  return category === "mix" || category === "hot";
 }
 
 function findNookCard(anchorKey?: string, nearestWhenMissing = true): HTMLElement | null {
@@ -194,48 +140,6 @@ function findNookCard(anchorKey?: string, nearestWhenMissing = true): HTMLElemen
   return nearest;
 }
 
-function mergeSources(
-  sources: PullSource[],
-  category: CatalogCategoryId,
-  complete: boolean,
-): Omit<PullSnapshot, "at"> {
-  const merged: TimelineItem[] = [];
-  const seen = new Set<string>();
-  let ok = 0;
-  let fail = 0;
-  let stale = 0;
-  let oldest: string | null = null;
-  for (const src of sources) {
-    if (!src.ok) {
-      if (src.error !== "service unavailable") fail++;
-      continue;
-    }
-    if (src.stale) stale++;
-    else ok++;
-    if (src.fetchedAt && Number.isFinite(Date.parse(src.fetchedAt)) &&
-        (!oldest || Date.parse(src.fetchedAt) < Date.parse(oldest))) oldest = src.fetchedAt;
-    const name = src.name || CATALOG_BY_ID.get(src.id)?.name || src.id;
-    for (const it of readItems(src.items)) {
-      const key = it.url.replace(/#.*$/, "");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      merged.push({ ...it, sourceId: src.id, sourceName: name });
-    }
-  }
-  if (isEditorialLane(category)) {
-    const ranked = rankHomepageItems(merged, { pageSize: NOOK_PAGE_SIZE });
-    merged.splice(0, merged.length, ...ranked);
-    if (!complete) {
-      merged.splice(
-        editorialProgressiveLimit(ok + stale, NOOK_PAGE_SIZE, CATALOG_ITEMS_PER_SOURCE),
-      );
-    }
-  } else {
-    merged.sort((a, b) => publishedTs(b.publishedAt) - publishedTs(a.publishedAt));
-  }
-  return { items: merged, okCount: ok, failCount: fail, staleCount: stale, fetchedAt: oldest };
-}
-
 function sameTimelineItems(a: TimelineItem[], b: TimelineItem[]): boolean {
   return a.length === b.length && a.every((item, index) => {
     const next = b[index];
@@ -252,12 +156,21 @@ function sameTimelineItems(a: TimelineItem[], b: TimelineItem[]): boolean {
   });
 }
 
-const Cover = memo(function Cover({ src, className }: { src: string; className: string }) {
+const Cover = memo(function Cover({ src, className, eager }: { src: string; className: string; eager?: boolean }) {
   const [ok, setOk] = useState(true);
   if (!ok) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img className={className} src={src} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setOk(false)} />
+    <img
+      className={className}
+      src={src}
+      alt=""
+      loading={eager ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : undefined}
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setOk(false)}
+    />
   );
 });
 
@@ -279,8 +192,13 @@ const NookCard = memo(function NookCard({
   const source = story.publisher ?? item.sourceName;
   return (
     <li className={lead ? "kz-nook-item kz-nook-lead" : "kz-nook-item"} data-nook-key={item.url}>
+      {/* Story pages render per request, so prefetching every visible row
+          only adds server hits that compete with the tap. The lead alone
+          prefetches in full, which also loads the reader route's code that
+          every other row then shares. */}
       <Link
         href={readerHref({ ...item, title: story.title, summary: story.summary, sourceName: source })}
+        prefetch={lead ? true : false}
         className="kz-nook-link"
         title={compact && !lead && story.summary ? story.summary : undefined}
         onNavigate={() => onOpen(item.url)}
@@ -296,13 +214,14 @@ const NookCard = memo(function NookCard({
           </p>
           {story.summary ? <p className="kz-nook-item-sum">{story.summary}</p> : null}
         </div>
-        {item.image ? <Cover src={item.image} className={lead ? "kz-nook-cover" : "kz-nook-thumb"} /> : null}
+        {item.image ? <Cover src={item.image} className={lead ? "kz-nook-cover" : "kz-nook-thumb"} eager={lead} /> : null}
+        <LinkPending />
       </Link>
     </li>
   );
 });
 
-export function NookFeed() {
+export function NookFeed({ initial = null }: { initial?: InitialNook | null }) {
   const { lang } = useLang();
   const zh = lang === "zh";
   const compact = useDensity() === "compact";
@@ -312,23 +231,36 @@ export function NookFeed() {
   const rawC = params.get("c");
   const category: CatalogCategoryId = isCatalogCategoryId(rawC) ? rawC : "mix";
 
+  // The server's first screen renders in the HTML and hydrates as-is; the
+  // pull below then refreshes it without moving the stories on screen.
+  const firstScreen = initial?.category === category ? initial : null;
   const [enabled, setEnabled] = useState<string[]>([...DEFAULT_ENABLED_IDS]);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<TimelineItem[]>([]);
-  const [okCount, setOkCount] = useState(0);
+  const [items, setItems] = useState<TimelineItem[]>(() => firstScreen?.items ?? []);
+  const [okCount, setOkCount] = useState(() => firstScreen?.okCount ?? 0);
   const [failCount, setFailCount] = useState(0);
-  const [staleCount, setStaleCount] = useState(0);
-  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [staleCount, setStaleCount] = useState(() => firstScreen?.staleCount ?? 0);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(() => firstScreen?.fetchedAt ?? null);
   const [completedCount, setCompletedCount] = useState(0);
   const [shown, setShown] = useState(NOOK_PAGE_SIZE);
   const [epoch, setEpoch] = useState(0);
   const [error, setError] = useState<PullError | null>(null);
-  const [suppressCardMotion, setSuppressCardMotion] = useState(false);
+  // Server-rendered stories are already on screen; don't fade them in again.
+  const [suppressCardMotion, setSuppressCardMotion] = useState(() => Boolean(firstScreen));
   const prevEpoch = useRef(0);
   const previousViewKey = useRef<string | null>(null);
   const pendingRestore = useRef<NookHistorySnapshot | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const initialRef = useRef(initial);
+  const [channelPending, startChannelChange] = useTransition();
+  const [pendingCategory, setPendingCategory] = useState<CatalogCategoryId | null>(null);
+  // A tapped channel lights up at once, while its page is still on the way.
+  const activeCategory = channelPending && pendingCategory ? pendingCategory : category;
+
+  useLayoutEffect(() => {
+    initialRef.current = initial;
+  }, [initial]);
 
   useEffect(() => {
     const next = loadEnabled();
@@ -381,19 +313,31 @@ export function NookFeed() {
     prevEpoch.current = epoch;
     const viewChanged = previousViewKey.current !== viewKey;
     previousViewKey.current = viewKey;
+    const seed = initialRef.current;
+    if (seed && seed.category === category && sameIds(seed.ids, pullIds) && !clientPullCache.has(key)) {
+      clientPullCache.set(key, {
+        at: Date.now(),
+        partial: true,
+        items: seed.items,
+        okCount: seed.okCount,
+        failCount: 0,
+        staleCount: seed.staleCount,
+        fetchedAt: seed.fetchedAt,
+      });
+    }
+    const cached = clientPullCache.get(key);
     let restored: NookHistorySnapshot | null = null;
     if (viewChanged) {
       restored = readNookHistorySnapshot(window.history.state, viewKey);
       pendingRestore.current = restored;
-      setSuppressCardMotion(Boolean(restored));
+      setSuppressCardMotion(Boolean(restored || cached?.partial));
       setShown(restored?.shown ?? NOOK_PAGE_SIZE);
     }
-    const cached = clientPullCache.get(key);
     // A browser-history return should first recreate the exact list the user
     // left. Reordering it immediately because the 3-minute TTL elapsed would
     // defeat anchor restoration; the explicit refresh control remains available.
     const fresh = Boolean(
-      cached && !force && (Date.now() - cached.at < CLIENT_TTL_MS || restored),
+      cached && !cached.partial && !force && (Date.now() - cached.at < CLIENT_TTL_MS || restored),
     );
 
     if (cached) {
@@ -422,7 +366,7 @@ export function NookFeed() {
     const allowedIds = new Set(pullIds);
     const keepCachedDuringStream = Boolean(cached?.items.length);
     const editorialLane = isEditorialLane(category);
-    const editorialSettleSourceCount = Math.min(8, pullIds.length);
+    const settleSourceCount = editorialSettleSourceCount(pullIds.length);
     let committedItems = cached?.items ?? [];
     let editorialSettled = keepCachedDuringStream || !editorialLane;
     let holdExpired = false;
@@ -438,7 +382,7 @@ export function NookFeed() {
     };
 
     const publish = (
-      snapshot: Omit<PullSnapshot, "at">,
+      snapshot: MergedTimeline,
       allowVisibleRerank = false,
     ) => {
       const nextItems = allowVisibleRerank
@@ -473,7 +417,7 @@ export function NookFeed() {
       publishStatus(snapshot);
     };
 
-    const publishStatus = (snapshot: Omit<PullSnapshot, "at">) => {
+    const publishStatus = (snapshot: MergedTimeline) => {
       setOkCount(snapshot.okCount);
       setFailCount(snapshot.failCount);
       setStaleCount(snapshot.staleCount);
@@ -530,10 +474,10 @@ export function NookFeed() {
               publish(partial);
               return;
             }
-            const hasEditorialAnchor = ["gnews-top", "bbc-zh", "dw-zh"].some(
+            const hasEditorialAnchor = EDITORIAL_ANCHOR_IDS.some(
               (id) => received.get(id)?.ok,
             );
-            if (holdExpired || (partial.okCount >= editorialSettleSourceCount && hasEditorialAnchor)) {
+            if (holdExpired || (partial.okCount >= settleSourceCount && hasEditorialAnchor)) {
               settleEditorial();
             } else {
               publishStatus(partial);
@@ -620,7 +564,10 @@ export function NookFeed() {
       const q = next.toString();
       // Channel changes are navigations: keep them in browser history so Back
       // returns to the previous lane instead of silently skipping it.
-      router.push(q ? `${pathname}?${q}` : pathname, { scroll: false });
+      setPendingCategory(id);
+      startChannelChange(() => {
+        router.push(q ? `${pathname}?${q}` : pathname, { scroll: false });
+      });
     },
     [params, pathname, rememberProgress, router],
   );
@@ -676,9 +623,9 @@ export function NookFeed() {
             <button
               key={c.id}
               type="button"
-              className={c.id === category ? "kz-channel active" : "kz-channel"}
+              className={c.id === activeCategory ? "kz-channel active" : "kz-channel"}
               onClick={() => setCategory(c.id)}
-              aria-pressed={c.id === category}
+              aria-pressed={c.id === activeCategory}
             >
               {zh ? c.labelZh : c.labelEn}
             </button>
@@ -727,7 +674,7 @@ export function NookFeed() {
         </div>
       ) : null}
 
-      <ul className="kz-nook-list" ref={listRef}>
+      <ul className={channelPending ? "kz-nook-list is-pending" : "kz-nook-list"} ref={listRef}>
         {visible.map((it, i) => (
           <NookCard
             key={`${it.sourceId}:${it.url}`}

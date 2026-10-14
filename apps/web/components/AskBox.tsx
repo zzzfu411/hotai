@@ -34,6 +34,7 @@ function AnswerContent({
           <Link
             key={`${part}:${index}`}
             href={`/a/${source.id}`}
+            prefetch={false}
             className="kz-ask-cite"
             title={source.title}
           >
@@ -50,7 +51,7 @@ function AnswerContent({
           <p className="kz-ask-sources-label">{lang === "zh" ? "答案来源" : "Answer sources"}</p>
           <div className="kz-ask-source-list">
             {cited.map((source) => (
-              <Link key={source.index} href={`/a/${source.id}`} className="kz-ask-source">
+              <Link key={source.index} href={`/a/${source.id}`} className="kz-ask-source" prefetch={false}>
                 <span className="kz-ask-source-index">[{source.index}]</span>
                 <span className="kz-ask-source-title">{source.title}</span>
                 <span className="kz-ask-source-name">{source.source}</span>

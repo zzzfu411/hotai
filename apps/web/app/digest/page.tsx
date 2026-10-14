@@ -49,7 +49,7 @@ export default async function DigestPage() {
                 {(b.articleIds?.length || b.urls?.length) ? (
                   <div className="kz-digest-hosts">
                     {b.articleIds?.map((id) => (
-                      <Link key={`article-${id}`} href={`/a/${id}`} className="kz-chip kz-chip-yellow">
+                      <Link key={`article-${id}`} href={`/a/${id}`} className="kz-chip kz-chip-yellow" prefetch={false}>
                         {zh ? "站内阅读" : "Read on Hot AI"}
                       </Link>
                     ))}

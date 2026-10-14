@@ -35,7 +35,7 @@ export function PulseRail({
           {digest.themes.length > 0 ? (
             <div className="kz-pulse-themes">
               {digest.themes.slice(0, 4).map((t) => (
-                <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic">
+                <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic" prefetch={false}>
                   #{t}
                 </Link>
               ))}

@@ -7,7 +7,7 @@ import { useLang } from "./LangContext";
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "hotai-theme";
-const THEME_COLOR = { light: "#fbfaf7", dark: "#0f1115" } as const;
+const THEME_COLOR = { light: "#fbfaf7", dark: "#121418" } as const;
 
 function readTheme(): Theme {
   if (typeof window === "undefined") return "light";
@@ -51,13 +51,11 @@ function applyTheme(theme: Theme) {
 export function ThemeToggle() {
   const { lang } = useLang();
   const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const initial = readTheme();
     setTheme(initial);
     applyTheme(initial);
-    setMounted(true);
   }, []);
 
   const next = theme === "dark" ? "light" : "dark";
@@ -78,16 +76,15 @@ export function ThemeToggle() {
       aria-label={next === "dark" ? (lang === "zh" ? "切换深色模式" : "Switch to dark mode") : (lang === "zh" ? "切换浅色模式" : "Switch to light mode")}
       title={next === "dark" ? (lang === "zh" ? "深色" : "Dark") : (lang === "zh" ? "浅色" : "Light")}
     >
-      {mounted && theme === "dark" ? (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-        </svg>
-      ) : (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-        </svg>
-      )}
+      {/* Both icons ship in the HTML; CSS picks one from the class the
+          no-flash script set, so the icon is right before hydration. */}
+      <svg className="kz-icon-when-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+      </svg>
+      <svg className="kz-icon-when-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+      </svg>
     </button>
   );
 }

@@ -89,11 +89,11 @@ export default async function ArticlePage({ params }: PageProps) {
     <article className="kz-reader">
       <header className="kz-reader-head">
         <p className="kz-reader-kicker">
-          <Link href={`/source/${article.source.slug}`}>{article.source.name}</Link>
+          <Link href={`/source/${article.source.slug}`} prefetch={false}>{article.source.name}</Link>
           {cat ? (
             <>
               <span aria-hidden> · </span>
-              <Link href={`/category/${cat.slug}`}>{zh ? cat.label_zh : cat.label_en}</Link>
+              <Link href={`/category/${cat.slug}`} prefetch={false}>{zh ? cat.label_zh : cat.label_en}</Link>
             </>
           ) : null}
         </p>
@@ -113,7 +113,7 @@ export default async function ArticlePage({ params }: PageProps) {
             <span className="kz-chip" title={zh ? "AI 评估的重要度（0–100）" : "AI-rated importance (0–100)"}>{zh ? "重要度" : "Importance"} {importancePct}</span>
           ) : null}
           {article.aiTopics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip" prefetch={false}>
               #{t}
             </Link>
           ))}

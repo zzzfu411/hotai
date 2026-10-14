@@ -6,6 +6,7 @@ import { formatScore, hostname } from "@/lib/format";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { cleanSummary } from "@/lib/story-text";
 import { useLang } from "./LangContext";
+import { LinkPending } from "./LinkPending";
 import { ReadingBadge } from "./ReadingList";
 import { SiteIcon } from "./SiteIcon";
 import { TimeAgo } from "./TimeAgo";
@@ -45,7 +46,7 @@ function iconMask(path: string): CSSProperties {
   return { WebkitMask: value, mask: value };
 }
 
-export function ArticleCard({ a }: { a: ArticleCardData }) {
+export function ArticleCard({ a, prefetch = false }: { a: ArticleCardData; prefetch?: boolean }) {
   const { lang } = useLang();
   const zh = lang === "zh";
   const rank = a.rank && a.rank > 0 ? a.rank : 0;
@@ -66,16 +67,20 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
       ) : null}
 
       <div className="kz-article-body">
-        <Link href={readerHref} className="kz-article-main">
+        {/* Per-request pages: a prefetch per visible row and tag only competes
+            with the tap that matters, and LinkPending answers the tap. One row
+            per list prefetches in full, which loads the article route's code. */}
+        <Link href={readerHref} className="kz-article-main" prefetch={prefetch}>
           <span className="kz-article-title-row">
             {externalUrl ? <SiteIcon url={externalUrl} label={a.source.name} /> : null}
             <span className="kz-article-title">{a.title}</span>
           </span>
           {summary ? <span className="kz-article-summary">{summary}</span> : null}
+          <LinkPending />
         </Link>
 
         <div className="kz-article-meta">
-          <Link href={`/source/${a.source.slug}`} className="kz-meta-source">
+          <Link href={`/source/${a.source.slug}`} className="kz-meta-source" prefetch={false}>
             {a.source.name}
           </Link>
           <TimeAgo iso={a.publishedAt} lang={lang} />
@@ -100,7 +105,7 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
             </a>
           ) : null}
           {topics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic kz-meta-extra">
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic kz-meta-extra" prefetch={false}>
               #{t}
             </Link>
           ))}

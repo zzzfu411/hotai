@@ -69,7 +69,7 @@ export function FeedList({
         <ol className="kz-feed-list">
           {articles.map((a, i) => (
             <li key={a.id}>
-              <ArticleCard a={{ ...a, rank: ranked ? i + 1 : undefined }} />
+              <ArticleCard a={{ ...a, rank: ranked ? i + 1 : undefined }} prefetch={i === 0} />
             </li>
           ))}
         </ol>

@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { NookFeed } from "@/components/NookFeed";
+import { isCatalogCategoryId } from "@/lib/catalog";
+import { initialNookSnapshot } from "@/lib/catalog-snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +11,13 @@ export const metadata: Metadata = {
   description: "多源实时速闻，综合频道按编辑信号排序，分类频道按最新排序。支持站内阅读和本机稍后读。",
 };
 
-export default function HomePage() {
+type PageProps = { searchParams: Promise<{ c?: string | string[] }> };
+
+export default async function HomePage({ searchParams }: PageProps) {
+  const rawC = (await searchParams).c;
+  const c = Array.isArray(rawC) ? rawC[0] : rawC;
+  // First screen from the server's feed cache; the browser refreshes it.
+  const initial = initialNookSnapshot(isCatalogCategoryId(c) ? c : "mix");
   return (
     <>
       <Suspense
@@ -24,7 +32,7 @@ export default function HomePage() {
           </div>
         }
       >
-        <NookFeed />
+        <NookFeed initial={initial} />
       </Suspense>
       <noscript>
         <div className="kz-card kz-noscript-fallback">

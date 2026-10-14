@@ -21,6 +21,7 @@ import {
   type CustomSource,
 } from "@/lib/local-sources";
 import { useLang } from "./LangContext";
+import { LinkPending } from "./LinkPending";
 
 type FeedItem = {
   title: string;
@@ -581,11 +582,12 @@ export function SubscribeClient() {
                     <article className="kz-article">
                       <div className="kz-article-body">
                         {safe ? (
-                          <Link href={readerLink({ ...it, source: it.sourceName })} className="kz-article-main">
+                          <Link href={readerLink({ ...it, source: it.sourceName })} className="kz-article-main" prefetch={false}>
                             <span className="kz-article-title-row">
                               <span className="kz-article-title">{it.title}</span>
                             </span>
                             {summary ? <span className="kz-article-summary">{summary}</span> : null}
+                            <LinkPending />
                           </Link>
                         ) : (
                           <span className="kz-article-main">
