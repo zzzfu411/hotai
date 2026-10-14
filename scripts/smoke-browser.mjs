@@ -61,23 +61,23 @@ try {
   await page.goto(`${base}/?cat=tech`);
   await waitText("Original signal 0");
   revision++;
-  await page.getByRole("button", { name: "刷新信号" }).click();
+  await page.getByRole("button", { name: "刷新", exact: true }).click();
   await waitText("Fresh leading signal");
   assert.match(await page.locator(".kz-nook-list li").first().innerText(), /Fresh leading signal/);
   pass("explicit refresh applies new ordering");
   await page.getByRole("link", { name: /Fresh leading signal/ }).first().click();
   await page.getByRole("button", { name: "稍后读", exact: true }).click();
-  await page.locator('.kz-tabs a[href="/subscribe"]').click();
+  await page.locator('.kz-nav a[href="/subscribe"]').click();
   await page.locator(".kz-saved-list").getByRole("link", { name: "Fresh leading signal", exact: true }).waitFor();
   await page.reload();
   await page.locator(".kz-saved-list").getByRole("link", { name: "Fresh leading signal", exact: true }).waitFor();
   pass("remote reader saves and retrieves after reload");
 
   await page.setViewportSize({ width: 390, height: 740 });
-  await page.waitForFunction(() => { const r = document.querySelector('.kz-tabs [aria-current="page"]').getBoundingClientRect(); return r.x >= 0 && r.right <= innerWidth + 1; });
+  await page.waitForFunction(() => { const r = document.querySelector('.kz-nav [aria-current="page"]').getBoundingClientRect(); return r.x >= 0 && r.right <= innerWidth + 1; });
   measurements.mobileHeaderHeight = (await page.locator(".kz-topbar").boundingBox()).height;
   assert(measurements.mobileHeaderHeight < 135, "mobile header is too tall");
-  const active = await page.locator('.kz-tabs [aria-current="page"]').boundingBox();
+  const active = await page.locator('.kz-nav [aria-current="page"]').boundingBox();
   assert(active.x >= 0 && active.x + active.width <= 391, "active tab is offscreen");
   const urlBox = await page.getByLabel("Feed 地址", { exact: true }).boundingBox();
   const nameBox = await page.getByLabel("名称（可留空，用 feed 标题）", { exact: true }).boundingBox();
@@ -122,7 +122,7 @@ try {
   const articleLink = page.locator(".kz-article-main").first();
   await articleLink.click();
   await page.getByRole("button", { name: "稍后读", exact: true }).click();
-  await page.locator('.kz-tabs a[href="/subscribe"]').click();
+  await page.locator('.kz-nav a[href="/subscribe"]').click();
   await page.locator(".kz-saved-list").getByRole("link", { name: /Regression story/ }).first().waitFor();
   pass("category and source pagination plus stored article reading");
 
@@ -147,14 +147,14 @@ try {
   failure = true;
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await page.getByText("Showing previously cached stories", { exact: false }).waitFor();
-  assert.match(await page.locator(".kz-console-stat").last().innerText(), /00/);
+  assert.equal(await page.locator(".kz-status-alert").count(), 0, "cached outage must not invent source failures");
   await page.screenshot({ path: `${output}/feed-cached-desktop.png`, fullPage: true });
   pass("service outage retains cached feed without invented source failures");
   await page.setViewportSize({ width: 390, height: 740 });
   await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
   assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "mobile horizontal overflow");
-  await page.waitForFunction(() => getComputedStyle(document.querySelector(".kz-nook-item")).backgroundColor === "rgb(16, 19, 29)");
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".kz-nook-item")).backgroundColor === "rgb(19, 22, 34)");
   await page.screenshot({ path: `${output}/feed-mobile-dark.png`, fullPage: true, animations: "disabled" });
   await page.getByRole("button", { name: "Switch to light mode", exact: true }).click();
   pass("mobile dark theme and page width");
@@ -163,7 +163,7 @@ try {
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException("blocked", "QuotaExceededError"); }; });
   await page.getByRole("button", { name: "Read later", exact: true }).click();
   await page.getByText("Could not save to this browser.", { exact: false }).waitFor();
-  await page.locator('.kz-tabs a[href="/subscribe"]').click();
+  await page.locator('.kz-nav a[href="/subscribe"]').click();
   await page.locator(".kz-saved-list").getByRole("link", { name: "Storage failure", exact: true }).waitFor();
   pass("storage failure is disclosed and session record remains usable");
   assert.deepEqual(errors, [], "uncaught browser errors");

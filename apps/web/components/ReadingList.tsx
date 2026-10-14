@@ -25,7 +25,7 @@ export function ReadingBadge({ story }: { story: ReadableStory }) {
   const { lang } = useLang();
   const state = storyState(entries, story);
   if (!state) return null;
-  return <span className="kz-chip">{state === "read" ? (lang === "zh" ? "已读" : "Read") : (lang === "zh" ? "稍后读" : "Saved")}</span>;
+  return <span className={state === "read" ? "kz-badge" : "kz-badge kz-badge-saved"}>{state === "read" ? (lang === "zh" ? "已读" : "Read") : (lang === "zh" ? "稍后读" : "Saved")}</span>;
 }
 
 export function ReadingList() {

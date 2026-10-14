@@ -265,7 +265,7 @@ fetcher cycle 仍 POST `["/", "/digest"]`。阅读器走 `force-dynamic` 或 `fo
 - UI：`"DM Sans", "PingFang SC", "Microsoft YaHei", sans-serif`（KAZAM）
 - 阅读器正文：`"Noto Serif SC", "Source Serif 4", Georgia, serif`（NewsNook 阅读感）
 - 等宽：`JetBrains Mono`（元数据、分数）
-- Google fonts 用 `media="print" onload="this.media='all'"` 防阻塞，与 NewsNook 相同
+- ~~Google fonts 用 `media="print" onload="this.media='all'"` 防阻塞~~ → 2026-10 起改为 `next/font` 构建时自托管，中文走系统字体（见 `docs/FRONTEND_OPTIMIZATION_2026-10-13.md`）
 
 ### 6.4 主题脚本
 

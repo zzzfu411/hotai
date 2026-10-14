@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { useLang } from "./LangContext";
+import { SiteIcon } from "./SiteIcon";
 
 export type GuideStartHereItem = {
   title: string;
@@ -31,17 +32,6 @@ export type BlogCardData = {
   guideTimelineZh: string | null;
   guideStartHere: GuideStartHereItem[];
 };
-
-function faviconFor(url: string) {
-  const safe = safeHttpUrl(url);
-  if (!safe) return null;
-  try {
-    const host = new URL(safe).hostname;
-    return `https://www.google.com/s2/favicons?sz=64&domain=${host}`;
-  } catch {
-    return null;
-  }
-}
 
 function hostnameOf(url: string) {
   const safe = safeHttpUrl(url);
@@ -90,7 +80,6 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
   const [open, setOpen] = useState(false);
   const blogUrl = safeHttpUrl(blog.url);
   const feedUrl = blog.feedUrl ? safeHttpUrl(blog.feedUrl) : null;
-  const fav = blogUrl ? faviconFor(blogUrl) : null;
   const bio = zh ? blog.bioZh : blog.bioEn;
   const host = hostnameOf(blog.url);
   const guide = hasGuide(blog);
@@ -103,9 +92,8 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
     <article id={blog.slug} className="kz-card kz-blog-card">
       <div className="kz-blog-top">
         <div className="kz-blog-fav">
-          {fav ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={fav} alt="" width={28} height={28} loading="lazy" />
+          {blogUrl ? (
+            <SiteIcon url={blogUrl} size={28} label={blog.author} />
           ) : (
             <span aria-hidden>{blog.author.slice(0, 1).toUpperCase()}</span>
           )}

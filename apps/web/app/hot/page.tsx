@@ -40,17 +40,17 @@ export default async function HotPage() {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,
-        timeZone: "UTC",
-      }).format(stats.lastFetch) + " UTC"
+        timeZone: zh ? "Asia/Shanghai" : "UTC",
+      }).format(stats.lastFetch) + (zh ? "" : " UTC")
     : "—";
 
   return (
     <div className="kz-home">
       <h1 className="sr-only">Hot AI</h1>
       {dbError ? (
-        <div className="kz-card kz-feed-empty" style={{ margin: 16 }}>
-          <p className="font-bold">{zh ? "热榜暂时不可用" : "Hot list unavailable"}</p>
-          <p>{dbError}</p>
+        <div className="kz-card kz-feed-empty">
+          <p className="kz-feed-empty-title">{zh ? "热榜暂时不可用" : "Hot list unavailable"}</p>
+          <p className="kz-feed-empty-copy">{dbError}</p>
         </div>
       ) : (
         <>
@@ -76,8 +76,8 @@ export default async function HotPage() {
               articles={articles}
               ranked
               titleAs="h2"
-              kickerZh="Hot AI 模块 · 最近 14 天入库 · 按重要度"
-              kickerEn="Hot AI module · last 14 days · ranked"
+              kickerZh="Hot AI · 近 14 天入库 · 按热度排序"
+              kickerEn="Hot AI · last 14 days · ranked by score"
               titleZh="近 14 天热榜"
               titleEn="Hot list · last 14 days"
             />

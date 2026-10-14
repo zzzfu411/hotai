@@ -10,6 +10,10 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
+        // V8 sizes its heap from system RAM and collects lazily, so on this
+        // 2 GB host the process drifted past 512M and PM2 restarted it every
+        // few days. A heap cap makes the collector work before that limit.
+        NODE_OPTIONS: "--max-old-space-size=320",
       },
       max_memory_restart: "512M",
       out_file: "./logs/web-out.log",

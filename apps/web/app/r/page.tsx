@@ -40,19 +40,20 @@ export default async function RemoteReaderPage({ searchParams }: PageProps) {
   const fallbackSummary = (resolved.summary ?? "").trim().slice(0, 400);
   const src = resolved.src ? CATALOG_BY_ID.get(resolved.src) : undefined;
   const host = hostname(url.href);
+  const sourceName = resolved.source?.trim().slice(0, 100) || src?.name;
 
   return (
     <article className="kz-reader">
       <header className="kz-reader-head">
         <p className="kz-reader-kicker">
-          <Link href="/">{src ? src.name : (zh ? "速闻" : "Feed")}</Link>
+          <Link href="/">{sourceName || (zh ? "速闻" : "Feed")}</Link>
           <span aria-hidden> · </span>
           <a href={url.href} target="_blank" rel="noopener noreferrer" className="kz-chip kz-host">
             {host}
           </a>
         </p>
         <h1 className="kz-reader-title">{title}</h1>
-        <ReadingFlags story={{ url: url.href, title, summary: fallbackSummary, source: src?.name ?? resolved.source?.slice(0, 100) ?? host }} />
+        <ReadingFlags story={{ url: url.href, title, summary: fallbackSummary, source: sourceName ?? host }} />
       </header>
       <ReaderBody url={url.href} fallbackSummary={fallbackSummary} />
     </article>

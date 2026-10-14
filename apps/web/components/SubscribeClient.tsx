@@ -4,8 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import Link from "next/link";
 import { readerLink } from "@/lib/reader-link";
 import { ReadingList, ReadingBadge } from "./ReadingList";
-import { hostname, timeAgo } from "@/lib/format";
+import { hostname } from "@/lib/format";
 import { safeHttpUrl } from "@/lib/safe-url";
+import { cleanSummary } from "@/lib/story-text";
+import { TimeAgo } from "./TimeAgo";
 import {
   MAX_SOURCES,
   addSource,
@@ -590,32 +592,38 @@ export function SubscribeClient() {
               </p>
             </div>
           ) : (
-            <div className="kz-feed-list">
-              {items.map((it) => (
-                <article key={it.url} className="kz-card kz-article">
-                  <div className="kz-article-body">
-                    {(() => {
-                      const safe = safeHttpUrl(it.url);
-                      if (!safe) return <span className="kz-article-main">{it.title}</span>;
-                      return <Link href={readerLink({ ...it, source: it.sourceName })} className="kz-article-main">
-                      <span className="kz-article-title-row">
-                        <span className="kz-article-title">{it.title}</span>
-                      </span>
-                      {it.summary ? <span className="kz-article-summary">{it.summary}</span> : null}
-                      </Link>;
-                    })()}
-                    <div className="kz-article-meta">
-                      <ReadingBadge story={it} />
-                      <span className="kz-chip">{it.sourceName}</span>
-                      {safeHttpUrl(it.url) ? <span className="kz-chip kz-host">{hostname(it.url)}</span> : null}
-                      {it.publishedAt && !Number.isNaN(Date.parse(it.publishedAt)) ? (
-                        <time dateTime={it.publishedAt}>{timeAgo(new Date(it.publishedAt), lang)}</time>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <ol className="kz-card kz-feed-list">
+              {items.map((it) => {
+                const safe = safeHttpUrl(it.url);
+                const summary = cleanSummary(it.summary, it.title);
+                return (
+                  <li key={it.url}>
+                    <article className="kz-article">
+                      <div className="kz-article-body">
+                        {safe ? (
+                          <Link href={readerLink({ ...it, source: it.sourceName })} className="kz-article-main">
+                            <span className="kz-article-title-row">
+                              <span className="kz-article-title">{it.title}</span>
+                            </span>
+                            {summary ? <span className="kz-article-summary">{summary}</span> : null}
+                          </Link>
+                        ) : (
+                          <span className="kz-article-main">
+                            <span className="kz-article-title">{it.title}</span>
+                          </span>
+                        )}
+                        <div className="kz-article-meta">
+                          <span className="kz-meta-source">{it.sourceName}</span>
+                          {safe ? <span className="kz-host">{hostname(it.url)}</span> : null}
+                          <TimeAgo iso={it.publishedAt} lang={lang} />
+                          <ReadingBadge story={it} />
+                        </div>
+                      </div>
+                    </article>
+                  </li>
+                );
+              })}
+            </ol>
           )}
         </section>
       ) : null}

@@ -1,7 +1,6 @@
 import "./globals.css";
-import "./signal.css";
-import "./reading.css";
 import type { Metadata, Viewport } from "next";
+import { Archivo_Black, IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
 import { SITE } from "@/lib/constants";
 import { AppShell } from "@/components/AppShell";
 import { LangProvider } from "@/components/LangContext";
@@ -9,8 +8,16 @@ import { ThemeNoFlashScript } from "@/components/ThemeToggle";
 import { serverLang } from "@/lib/server-lang";
 import { ReadingProvider } from "@/components/ReadingList";
 
-const GOOGLE_FONTS =
-  "https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;700;900&display=swap";
+// Self-hosted at build time: no render-blocking request to Google, which is
+// slow or unreachable for many readers in mainland China. CJK text uses the
+// reader's system fonts — a web CJK face adds ~200 @font-face rules to every
+// page's CSS for little gain.
+const sans = IBM_Plex_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-mono", display: "swap" });
+const display = Archivo_Black({ subsets: ["latin"], weight: "400", variable: "--font-display", display: "swap" });
+// Reader prose: Latin text and punctuation come from Source Serif so English
+// never picks up a CJK font's full-width quotes.
+const serifLatin = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif-latin", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   title: {
@@ -51,23 +58,21 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffd60a" },
-    { media: "(prefers-color-scheme: dark)", color: "#090b12" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f0e6" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0d14" },
   ],
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await serverLang();
   return (
-    <html lang={lang} suppressHydrationWarning>
+    <html
+      lang={lang}
+      className={`${sans.variable} ${mono.variable} ${display.variable} ${serifLatin.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <ThemeNoFlashScript />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="stylesheet" href={GOOGLE_FONTS} />
-        <noscript>
-          <link rel="stylesheet" href={GOOGLE_FONTS} />
-        </noscript>
       </head>
       <body>
         <LangProvider initialLang={lang}>

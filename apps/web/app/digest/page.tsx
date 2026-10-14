@@ -8,6 +8,7 @@ import { getArticlesSince, startOfUtcDay } from "@/lib/queries";
 import { safeHttpUrl } from "@/lib/safe-url";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { serverLang } from "@/lib/server-lang";
 
 // AI credentials are runtime-only secrets. Rendering this page dynamically
 // prevents a build-time AI_DISABLED value from being baked into static HTML.
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function DigestPage() {
+  const zh = (await serverLang()) === "zh";
   let digest: Awaited<ReturnType<typeof loadDigest>> = null;
   let todaysTop: Awaited<ReturnType<typeof getArticlesSince>> = [];
   let dbUnavailable = false;
@@ -47,8 +49,8 @@ export default async function DigestPage() {
                 {(b.articleIds?.length || b.urls?.length) ? (
                   <div className="kz-digest-hosts">
                     {b.articleIds?.map((id) => (
-                      <Link key={`article-${id}`} href={`/a/${id}`} className="kz-chip">
-                        站内阅读 · Read on Hot AI
+                      <Link key={`article-${id}`} href={`/a/${id}`} className="kz-chip kz-chip-yellow">
+                        {zh ? "站内阅读" : "Read on Hot AI"}
                       </Link>
                     ))}
                     {b.urls.map((u) => {

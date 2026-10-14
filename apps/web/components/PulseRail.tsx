@@ -29,29 +29,35 @@ export function PulseRail({
   const zh = lang === "zh";
 
   return (
-    <aside className="kz-pulse kz-card">
-      <p className="kz-pulse-kicker">{zh ? "今日脉搏" : "Today's pulse"}</p>
+    <aside className="kz-card kz-pulse" aria-label={zh ? "今日脉搏" : "Today's pulse"}>
+      <p className="kz-pulse-kicker">
+        <span className="kz-live-dot" aria-hidden />
+        {zh ? "今日脉搏" : "Today's pulse"}
+      </p>
       {digest ? (
         <>
           <h2 className="kz-pulse-headline">
             <Link href="/digest">{digest.headline}</Link>
           </h2>
-          {digest.overview ? (
-            <p className="kz-pulse-overview">{digest.overview}</p>
-          ) : null}
+          {digest.overview ? <p className="kz-pulse-overview">{digest.overview}</p> : null}
           {digest.themes.length > 0 ? (
             <div className="kz-pulse-themes">
-              {digest.themes.slice(0, 3).map((t) => (
-                <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
-                  {t}
+              {digest.themes.slice(0, 4).map((t) => (
+                <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic">
+                  #{t}
                 </Link>
               ))}
             </div>
           ) : null}
+          <Link href="/digest" className="kz-btn kz-btn-sm kz-pulse-digest">
+            {zh ? "阅读今日简报 →" : "Read today's brief →"}
+          </Link>
         </>
       ) : (
-        <p className="kz-pulse-overview">
-          {zh ? "今日简报尚未生成。抓取后回来看看。" : "No brief yet. Check back after the next fetch."}
+        <p className="kz-pulse-overview kz-pulse-empty">
+          {aiEnabled
+            ? zh ? "今日简报会在下一轮抓取后生成。" : "Today's brief is drafted after the next fetch."
+            : zh ? "本站暂未启用 AI 简报。" : "AI briefs are not enabled on this site."}
         </p>
       )}
 
@@ -61,18 +67,14 @@ export function PulseRail({
           <dd>{stats.enabledSources}</dd>
         </div>
         <div>
-          <dt>{zh ? "24小时" : "24h"}</dt>
+          <dt>{zh ? "24 小时" : "24h"}</dt>
           <dd>{stats.articles24h}</dd>
         </div>
         <div>
-          <dt>{zh ? "抓取" : "Fetch"}</dt>
+          <dt>{zh ? "抓取 · 北京时间" : "Last fetch"}</dt>
           <dd>{stats.lastFetch}</dd>
         </div>
       </dl>
-
-      <Link href="/digest" className="kz-btn kz-pulse-digest">
-        {zh ? "今日简报" : "Today's brief"}
-      </Link>
 
       {aiEnabled ? (
         <div className="kz-pulse-ask">

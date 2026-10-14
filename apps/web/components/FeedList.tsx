@@ -66,11 +66,13 @@ export function FeedList({
           <p className="kz-feed-empty-copy">{emptyCopy}</p>
         </div>
       ) : (
-        <div className="kz-feed-list">
+        <ol className="kz-card kz-feed-list">
           {articles.map((a, i) => (
-            <ArticleCard key={a.id} a={{ ...a, rank: ranked ? i + 1 : undefined }} />
+            <li key={a.id}>
+              <ArticleCard a={{ ...a, rank: ranked ? i + 1 : undefined }} />
+            </li>
           ))}
-        </div>
+        </ol>
       )}
     </section>
   );

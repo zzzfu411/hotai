@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { formatScore, hostname, timeAgo } from "@/lib/format";
+import { formatScore, hostname } from "@/lib/format";
 import { safeHttpUrl } from "@/lib/safe-url";
+import { cleanSummary } from "@/lib/story-text";
 import { useLang } from "./LangContext";
 import { ReadingBadge } from "./ReadingList";
+import { SiteIcon } from "./SiteIcon";
+import { TimeAgo } from "./TimeAgo";
 
 export type ArticleCardData = {
   id: number;
@@ -37,20 +40,6 @@ const SENTIMENT_LABEL: Record<string, { en: string; zh: string }> = {
   other: { en: "Other", zh: "其他" },
 };
 
-function faviconFor(url: string) {
-  const safe = safeHttpUrl(url);
-  if (!safe) return null;
-  const host = (() => {
-    try {
-      return new URL(safe).hostname;
-    } catch {
-      return "";
-    }
-  })();
-  if (!host) return null;
-  return `https://www.google.com/s2/favicons?sz=32&domain=${host}`;
-}
-
 function iconMask(path: string): CSSProperties {
   const value = `url(${path}) center / contain no-repeat`;
   return { WebkitMask: value, mask: value };
@@ -58,11 +47,10 @@ function iconMask(path: string): CSSProperties {
 
 export function ArticleCard({ a }: { a: ArticleCardData }) {
   const { lang } = useLang();
-  const date = new Date(a.publishedAt);
+  const zh = lang === "zh";
   const rank = a.rank && a.rank > 0 ? a.rank : 0;
-  const fav = faviconFor(a.url);
-  const summary = (lang === "zh" ? a.aiSummaryZh : a.aiSummaryEn) || a.summary;
-  const sentiment = a.aiSentiment ? SENTIMENT_LABEL[a.aiSentiment] : null;
+  const summary = cleanSummary((zh ? a.aiSummaryZh : a.aiSummaryEn) || a.aiSummaryEn || a.aiSummaryZh || a.summary, a.title);
+  const sentiment = a.aiSentiment && a.aiSentiment !== "other" ? SENTIMENT_LABEL[a.aiSentiment] : null;
   const readerHref = a.href ?? `/a/${a.id}`;
   const externalUrl = safeHttpUrl(a.url);
   const host = externalUrl ? hostname(externalUrl) : "";
@@ -70,79 +58,50 @@ export function ArticleCard({ a }: { a: ArticleCardData }) {
   const cross = a.crossPostCount ?? 0;
 
   return (
-    <article className="kz-card kz-article">
+    <article className={rank > 0 ? "kz-article kz-article-ranked" : "kz-article"}>
       {rank > 0 ? (
-        <div className={rank <= 3 ? "kz-rank kz-rank-top" : "kz-rank"}>
+        <span className={rank <= 3 ? "kz-rank kz-rank-top" : "kz-rank"} aria-label={zh ? `第 ${rank} 名` : `Rank ${rank}`}>
           {rank.toString().padStart(2, "0")}
-        </div>
+        </span>
       ) : null}
 
       <div className="kz-article-body">
         <Link href={readerHref} className="kz-article-main">
           <span className="kz-article-title-row">
-            {fav ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={fav}
-                alt=""
-                width={16}
-                height={16}
-                loading="lazy"
-                className="kz-article-fav"
-                onError={(e) => {
-                  const img = e.currentTarget;
-                  if (img.src.endsWith("/source-fallback.svg")) {
-                    img.style.display = "none";
-                    return;
-                  }
-                  img.src = "/source-fallback.svg";
-                }}
-              />
-            ) : null}
+            {externalUrl ? <SiteIcon url={externalUrl} label={a.source.name} /> : null}
             <span className="kz-article-title">{a.title}</span>
           </span>
           {summary ? <span className="kz-article-summary">{summary}</span> : null}
         </Link>
 
         <div className="kz-article-meta">
-          <ReadingBadge story={{ url: a.url, title: a.title, articleId: a.id }} />
-          <Link href={`/source/${a.source.slug}`} className="kz-chip">
+          <Link href={`/source/${a.source.slug}`} className="kz-meta-source">
             {a.source.name}
           </Link>
           {externalUrl ? (
-            <a
-              href={externalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="kz-chip kz-host"
-              title={lang === "zh" ? "打开原文" : "Open original"}
-            >
-              {host}
+            <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="kz-host" title={zh ? "打开原文" : "Open original"}>
+              {host} ↗
             </a>
           ) : null}
-          <time dateTime={a.publishedAt}>{timeAgo(date, lang)}</time>
-          <span className="kz-article-score font-mono tabular-nums">{formatScore(a.score)}</span>
+          <TimeAgo iso={a.publishedAt} lang={lang} />
+          <span className="kz-article-score" title={zh ? "热度分：来源权重 × 时间衰减 × 互动信号 × AI 重要度" : "Score: source weight × time decay × signals × AI importance"}>
+            {zh ? "热度" : "Score"} {formatScore(a.score)}
+          </span>
           {cross > 0 ? (
-            <span
-              className="kz-chip"
-              title={lang === "zh" ? "其他来源转载了同一新闻" : "Also reported by other sources"}
-            >
-              ⇄ {lang === "zh" ? `${cross} 源转载` : `+${cross}`}
+            <span className="kz-meta-flag" title={zh ? "其他来源转载了同一新闻" : "Also reported by other sources"}>
+              ⇄ {zh ? `${cross} 源转载` : `+${cross} sources`}
             </span>
           ) : null}
           {sentiment ? (
-            <span className="kz-chip">
-              <span
-                className="kz-sentiment-icon"
-                style={iconMask(`/sentiment/${a.aiSentiment}.svg`)}
-                aria-hidden
-              />
-              {lang === "zh" ? sentiment.zh : sentiment.en}
+            <span className="kz-meta-flag">
+              <span className="kz-sentiment-icon" style={iconMask(`/sentiment/${a.aiSentiment}.svg`)} aria-hidden />
+              {zh ? sentiment.zh : sentiment.en}
             </span>
           ) : null}
+          <ReadingBadge story={{ url: a.url, title: a.title, articleId: a.id }} />
           {topics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip">
-              {t}
+            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic">
+              #{t}
             </Link>
           ))}
         </div>

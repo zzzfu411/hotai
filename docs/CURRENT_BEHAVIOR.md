@@ -49,7 +49,7 @@ DB 内容页面动态渲染；构建不会冻结 DB 故障文案。构建成功�
 
 ## 维护边界
 
-- `globals.css`：基础 token、通用组件和阅读正文；`signal.css`：Signal Press 页头、速闻和响应式编排；`reading.css`：阅读清单及分页。
+- `globals.css` 是唯一样式表（Signal Press v2）：CSS 变量 token、通用组件、速闻、热榜、阅读正文与响应式规则都在其中，不再分层覆盖。字体由 `next/font` 构建时自托管（IBM Plex Sans/Mono、Archivo Black、Source Serif 4），中文使用系统字体，不请求 Google Fonts。
 - `AppShell` 统一管理站点页头页脚；已移除无引用的 Header/Footer/HotList。
 - 搜索及本机订阅页面不参与索引；sitemap 不用请求时间伪造内容更新时间。
 - CI 包含真实 PostgreSQL 集成测试、生产构建、编译产物 smoke 和确定性 Chromium 用户路径回归。浏览器用受控新闻/模型响应，真实上游可达性由独立合成探测验证。
