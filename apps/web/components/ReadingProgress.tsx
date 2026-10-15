@@ -4,21 +4,21 @@ import { useEffect, useRef } from "react";
 
 /**
  * A thin accent bar along the top edge of a story page that fills as the
- * story is read. It tracks the `.kz-reader` article up to its related list,
- * and follows the body as the extracted text arrives and the page grows.
+ * story is read. It tracks the `root` article (by default `.kz-reader`) up to
+ * `end` when present, and follows the body as text arrives and the page grows.
  */
-export function ReadingProgress() {
+export function ReadingProgress({ root = ".kz-reader", end = ".kz-reader-related" }: { root?: string; end?: string }) {
   const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const bar = barRef.current;
-    const article = bar?.closest<HTMLElement>(".kz-reader") ?? document.querySelector<HTMLElement>(".kz-reader");
+    const article = bar?.closest<HTMLElement>(root) ?? document.querySelector<HTMLElement>(root);
     if (!bar || !article) return;
     let frame = 0;
     const update = () => {
       frame = 0;
       const top = article.getBoundingClientRect().top + window.scrollY;
-      const related = article.querySelector<HTMLElement>(".kz-reader-related");
+      const related = article.querySelector<HTMLElement>(end);
       const bottom = related
         ? related.getBoundingClientRect().top + window.scrollY
         : article.getBoundingClientRect().bottom + window.scrollY;
@@ -40,7 +40,7 @@ export function ReadingProgress() {
       window.removeEventListener("resize", schedule);
       window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [root, end]);
 
   return (
     <div className="kz-read-progress" aria-hidden>

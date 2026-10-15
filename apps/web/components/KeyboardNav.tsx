@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 
-/** Story links on list pages, in reading order. */
-const STORY_LINKS = ".kz-nook-link, .kz-article-main";
+/** Story links on list pages and Juya issues, in reading order. */
+const STORY_LINKS = ".kz-nook-link, .kz-article-main, .kz-juya-item .kz-juya-title";
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
