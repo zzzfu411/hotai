@@ -52,7 +52,8 @@ function firstImgSrc(html: string, baseUrl: string): string | null {
   const re = /<img\b[^>]*\bsrc=["']([^"']+)["']/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html))) {
-    const href = absUrl(m[1], baseUrl);
+    // An HTML attribute value: WordPress writes "?a=1&#038;b=2".
+    const href = absUrl(decodeEntities(m[1]!), baseUrl);
     if (isImageUrl(href)) return href;
   }
   return null;

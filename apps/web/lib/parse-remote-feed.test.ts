@@ -134,6 +134,22 @@ describe("parseRemoteFeed", () => {
     expect(feed?.items[0]?.summary).toBe("It’s here — finally…");
   });
 
+  it("decodes entities in inline image URLs", async () => {
+    const body = `<?xml version="1.0"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Verge</title>
+    <item>
+      <title>Pictured</title>
+      <link>https://example.com/p</link>
+      <content:encoded><![CDATA[<p><img src="https://cdn.example.com/a.png?quality=90&#038;strip=all&amp;crop=0,0,100,100"></p>]]></content:encoded>
+    </item>
+  </channel>
+</rss>`;
+    const feed = await parseRemoteFeed(body, "application/rss+xml", "https://example.com/rss");
+    expect(feed?.items[0]?.image).toBe("https://cdn.example.com/a.png?quality=90&strip=all&crop=0,0,100,100");
+  });
+
   it("leaves unknown or invalid entities as written", () => {
     expect(decodeEntities("AT&T &bogus; &#xD800; &#0; 5 & 6")).toBe("AT&T &bogus; &#xD800; &#0; 5 & 6");
     expect(decodeEntities("&#x1F600; &#20013;")).toBe("😀 中");
