@@ -6,7 +6,7 @@ import {
   type CoordinationLeaseClaim,
 } from "@hotai/db";
 import { AI_DIGEST_ENABLED, AI_ENABLED, generateDigest, type DigestBullet } from "@hotai/ai";
-import { getArticlesSince, getTodayDigestRow, startOfUtcDay } from "./queries";
+import { getArticlesSince, getLatestDigestRowBefore, getTodayDigestRow, startOfUtcDay } from "./queries";
 import { safeHttpUrl } from "./safe-url";
 export { linkDigestBullets } from "./digest-links";
 
@@ -129,6 +129,15 @@ export async function loadDigest(): Promise<LoadedDigest | null> {
   } finally {
     if (g.__hotai_digest_gen === job) g.__hotai_digest_gen = undefined;
   }
+}
+
+/**
+ * The latest digest from an earlier UTC day. Today's brief needs five stored
+ * stories, so for the first hours of each day this is what readers get.
+ */
+export async function loadPreviousDigest(): Promise<(LoadedDigest & { date: Date }) | null> {
+  const row = await getLatestDigestRowBefore(startOfUtcDay());
+  return row ? { ...loadedFromRow(row), date: row.date } : null;
 }
 
 async function waitForDigest(waitMs: number): Promise<LoadedDigest | null> {

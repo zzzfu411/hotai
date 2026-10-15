@@ -31,6 +31,16 @@ export function formatScore(n: number): string {
   return String(Math.round(n));
 }
 
+/**
+ * Source names for list rows: drop a trailing qualifier such as
+ * "Hacker News (AI filter)" → "Hacker News". The full name stays available
+ * as a tooltip and on the source page.
+ */
+export function shortSourceName(name: string): string {
+  const short = name.replace(/\s*[(（][^()（）]{1,24}[)）]\s*$/u, "").trim();
+  return short || name;
+}
+
 export function hostname(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -39,16 +49,31 @@ export function hostname(url: string): string {
   }
 }
 
-/** Language-neutral clock for SSR reader metadata (`2026-08-23 12:00 UTC`). */
-export function formatUtcDateTime(date: Date): string {
-  const stamp = new Intl.DateTimeFormat("sv-SE", {
+const STAMP = {
+  zh: new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Shanghai",
+  }),
+  en: new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
     timeZone: "UTC",
-  }).format(date);
-  return `${stamp} UTC`;
+  }),
+} as const;
+
+/**
+ * Publication time on a story page, in the reader's site clock: Beijing time
+ * for Chinese (`2026年10月15日 09:45`), UTC for English (`15 Oct 2026, 01:45 UTC`).
+ */
+export function formatStamp(date: Date, lang: "zh" | "en"): string {
+  return lang === "zh" ? STAMP.zh.format(date) : `${STAMP.en.format(date)} UTC`;
 }

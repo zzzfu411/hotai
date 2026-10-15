@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRemoteFeed } from "./parse-remote-feed";
+import { decodeEntities, parseRemoteFeed } from "./parse-remote-feed";
 
 describe("parseRemoteFeed", () => {
   it("parses JSON Feed 1.1", async () => {
@@ -115,6 +115,28 @@ describe("parseRemoteFeed", () => {
     expect(feed?.items[0]?.title).toBe("Paper");
     expect(feed?.items[0]?.url).toBe("https://arxiv.org/abs/1");
     expect(feed?.items[0]?.summary).toContain("abstract");
+  });
+
+  it("decodes entities that survive XML parsing (double-escaped feeds)", async () => {
+    const body = `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Verge</title>
+    <item>
+      <title>What happens to its users&amp;#8217; data? &amp;lt;canvas&amp;gt; &amp;amp; more</title>
+      <link>https://example.com/a</link>
+      <description>&lt;p&gt;It&amp;rsquo;s here &amp;mdash; finally&amp;hellip;&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>`;
+    const feed = await parseRemoteFeed(body, "application/rss+xml", "https://example.com/rss");
+    expect(feed?.items[0]?.title).toBe("What happens to its users’ data? <canvas> & more");
+    expect(feed?.items[0]?.summary).toBe("It’s here — finally…");
+  });
+
+  it("leaves unknown or invalid entities as written", () => {
+    expect(decodeEntities("AT&T &bogus; &#xD800; &#0; 5 & 6")).toBe("AT&T &bogus; &#xD800; &#0; 5 & 6");
+    expect(decodeEntities("&#x1F600; &#20013;")).toBe("😀 中");
   });
 
   it("honors maxItems and summaryLen", async () => {

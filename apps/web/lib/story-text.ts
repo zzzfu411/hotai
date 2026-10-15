@@ -5,7 +5,12 @@
  * raw text; these helpers only shape what a reader sees.
  */
 
-const HN_FOOTER = /\bComments URL:\s*\S+/i;
+/** "…查看全文", "Continue reading »", "[…]"; a plain truncation "…" stays. */
+const READ_MORE_TAIL =
+  /\s*(?:(?:\.{2,}|…)\s*)?(?:查看全文|阅读全文|阅读原文|点击查看|read more|continue reading)\s*[»›>→]*\s*$|\s*\[(?:\.{3}|…)\]\s*$/i;
+
+/** hnrss.org descriptions end in "Article URL: … Comments URL: … Points: …". */
+const HN_FOOTER = /\b(?:Article|Comments) URL:\s*\S/i;
 
 function comparable(text: string): string {
   return text.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
@@ -15,18 +20,17 @@ function comparable(text: string): string {
 export function cleanSummary(summary: string | null | undefined, title = ""): string {
   if (!summary) return "";
   let text = summary;
-  if (HN_FOOTER.test(text)) {
-    text = text
-      .replace(/\bArticle URL:\s*\S+/gi, " ")
-      .replace(/\bComments URL:\s*\S+/gi, " ")
-      .replace(/\bPoints:\s*\d+/gi, " ")
-      .replace(/#\s*Comments:\s*\d+/gi, " ");
-  }
+  // Everything from the footer on is boilerplate, including a footer that a
+  // length cap cut off mid-word ("… Comments URL: https://… P…").
+  const footer = HN_FOOTER.exec(text);
+  if (footer) text = text.slice(0, footer.index);
   text = text.replace(/\s+/g, " ").trim();
   if (!text || /^https?:\/\/\S+$/i.test(text)) return "";
   // A bare link trailing the prose ("See also: X - https://…") is unreadable
   // on a card; the story itself is one click away.
   text = text.replace(/\s*[-–—:]?\s*https?:\/\/\S+$/i, "").trim();
+  // So is a "read more" tail; the card itself is the link.
+  text = text.replace(READ_MORE_TAIL, "").trim();
   const body = comparable(text);
   if (!body || body === comparable(title)) return "";
   return text;

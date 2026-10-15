@@ -62,3 +62,21 @@ export function toCard(a: Row): ArticleCardData {
     crossPostCount: Array.isArray(a.crossPosts) ? a.crossPosts.length : 0,
   };
 }
+
+export type TopicCount = { name: string; count: number };
+
+/** Topics shared by at least two of the given stories, most common first. */
+export function topTopics(cards: Array<Pick<ArticleCardData, "aiTopics">>, limit = 10): TopicCount[] {
+  const counts = new Map<string, number>();
+  for (const card of cards) {
+    for (const topic of new Set(card.aiTopics ?? [])) {
+      const name = topic.trim();
+      if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+  }
+  return [...counts]
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([name, count]) => ({ name, count }));
+}

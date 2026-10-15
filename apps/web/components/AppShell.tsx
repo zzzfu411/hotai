@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SITE } from "@/lib/constants";
 import { DensityToggle } from "./DensityToggle";
+import { KeyboardNav } from "./KeyboardNav";
 import { LinkPending } from "./LinkPending";
 import { LangToggle } from "./LangToggle";
 import { ThemeToggle } from "./ThemeToggle";
@@ -106,6 +107,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
 
+  // "/" focuses the header search where it is on screen, or opens it on phones.
+  const focusSearch = useCallback(() => {
+    const input = searchRef.current;
+    if (input && input.getClientRects().length > 0) input.focus();
+    else setSearchOpen(true);
+  }, []);
+
   return (
     <div className="kz-shell">
       <a className="kz-skip-link" href="#main-content">
@@ -148,6 +156,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="kz-input"
                 type="search"
                 name="q"
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  event.currentTarget.blur();
+                  setSearchOpen(false);
+                }}
                 placeholder={zh ? "搜索入库文章…" : "Search stored stories…"}
                 aria-label={zh ? "搜索" : "Search"}
               />
@@ -172,6 +185,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      <KeyboardNav onSearch={focusSearch} />
+
       <main id="main-content" className="kz-main" tabIndex={-1}>
         {children}
       </main>
@@ -187,6 +202,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <a href="/feed.xml">RSS</a>
             <a href="/hotai.opml">OPML</a>
           </nav>
+          <p className="kz-foot-keys">
+            {zh ? (
+              <><kbd>j</kbd> <kbd>k</kbd> 上下条目 · <kbd>/</kbd> 搜索</>
+            ) : (
+              <><kbd>j</kbd> <kbd>k</kbd> next / previous · <kbd>/</kbd> search</>
+            )}
+          </p>
           <a className="kz-footer-link" href="https://yeuxark.com">
             ← yeuxark.com
           </a>

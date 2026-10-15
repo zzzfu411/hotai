@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { AI_ENABLED } from "@hotai/ai";
 import { FeedList } from "@/components/FeedList";
 import { PulseRail } from "@/components/PulseRail";
-import { toCard } from "@/lib/article";
-import { getHomeStats, getTodayDigestRow, getTopArticles } from "@/lib/queries";
+import { toCard, topTopics } from "@/lib/article";
+import { getHomeStats, getLatestDigestRowBefore, getTodayDigestRow, getTopArticles, startOfUtcDay } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,7 @@ export default async function HotPage() {
   const zh = (await serverLang()) === "zh";
   let articles: ReturnType<typeof toCard>[] = [];
   let digest: Awaited<ReturnType<typeof getTodayDigestRow>> = null;
+  let earlierDigest = false;
   let stats = { enabledSources: 0, articles24h: 0, lastFetch: null as Date | null };
   let dbError: string | null = null;
 
@@ -30,6 +31,11 @@ export default async function HotPage() {
     articles = rows.map(toCard);
     stats = homeStats;
     digest = digestRow;
+    if (!digest) {
+      // Early in the UTC day today's brief isn't out yet; show the last one.
+      digest = await getLatestDigestRowBefore(startOfUtcDay()).catch(() => null);
+      earlierDigest = Boolean(digest);
+    }
   } catch (err) {
     console.warn("[hot] content unavailable:", err instanceof Error ? err.message : "database error");
     dbError = zh ? "内容服务暂时不可用，请稍后重试。已有的本机阅读记录仍可在「我的」查看。" : "The content service is unavailable. Please retry shortly. Your reading list is still available in Mine.";
@@ -73,6 +79,7 @@ export default async function HotPage() {
               subtitleEn={subtitleEn}
               titleZh="近 14 天热榜"
               titleEn="Hot list · last 14 days"
+              kindFilter
             />
           </div>
           <PulseRail
@@ -83,9 +90,12 @@ export default async function HotPage() {
                     headline: digest.headline,
                     overview: digest.overview,
                     themes: digest.themes,
+                    date: digest.date.toISOString(),
+                    earlier: earlierDigest,
                   }
                 : null
             }
+            topics={topTopics(articles)}
           />
         </>
       )}

@@ -7,6 +7,19 @@ describe("cleanSummary", () => {
     expect(cleanSummary("https://x.com/a/status/1 Comments URL: https://news.ycombinator.com/item?id=2 Points: 413 # Comments: 364")).toBe("");
   });
 
+  it("drops an HN footer that a length cap cut short", () => {
+    expect(cleanSummary("Article URL: https://startupfortune.com/banks-offload Comments URL: https://news.ycombinator.com/item?id=4 P…")).toBe("");
+    expect(cleanSummary("Article URL: https://startupfortune.com/banks-off…")).toBe("");
+  });
+
+  it("drops a trailing read-more link text", () => {
+    expect(cleanSummary("Sonos 众测活动第二期 ...查看全文")).toBe("Sonos 众测活动第二期");
+    expect(cleanSummary("The launch went well. Continue reading »")).toBe("The launch went well.");
+    expect(cleanSummary("A long abstract [...]")).toBe("A long abstract");
+    expect(cleanSummary("我们阅读原文后发现了三个问题")).toBe("我们阅读原文后发现了三个问题");
+    expect(cleanSummary("A summary cut short by the feed…")).toBe("A summary cut short by the feed…");
+  });
+
   it("keeps real text that precedes an HN footer", () => {
     expect(cleanSummary("We built a tiny compiler. Comments URL: https://news.ycombinator.com/item?id=3 Points: 12 # Comments: 4"))
       .toBe("We built a tiny compiler.");

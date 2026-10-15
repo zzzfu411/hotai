@@ -175,8 +175,8 @@ score = (sourceWeight + signalBoost + keywordBoost + importanceBoost) × decay +
 | 路由 | 渲染 | 缓存 | 数据源 |
 |---|---|---|---|
 | `/` | Live catalog：首屏由服务端从 feed cache 渲染，随后客户端流式补全 | 客户端 3min SWR + 服务端 feed cache | allowlisted RSS/Atom/JSON Feed；不写 Article；渲染只刷新已缓存的过期源，不发起冷抓取 |
-| `/hot` | 动态 RSC | `force-dynamic` | Postgres,top 50 by score（最近 14 天入库） |
-| `/digest` | 动态 RSC | `force-dynamic` | DB hit → 缺则在线生成 + 落库 |
+| `/hot` | 动态 RSC | `force-dynamic` | Postgres,top 50 by score（最近 14 天入库）；侧栏是当日简报（未生成时为最近一期）与这 50 条的话题统计 |
+| `/digest` | 动态 RSC | `force-dynamic` | DB hit → 缺则在线生成 + 落库；当天还生成不了时显示最近一期（14 天内），下方是滚动 24 小时最热 |
 | `/category/{slug}` | 动态 RSC | `force-dynamic` | DB,filter by category |
 | `/source/{slug}` | 动态 RSC | `force-dynamic` | DB,filter by source |
 | `/search` | RSC | `force-dynamic` | DB `ILIKE` |

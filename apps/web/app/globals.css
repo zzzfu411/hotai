@@ -745,9 +745,10 @@ span.kz-search-go {
   animation: kz-pulse 1s ease-in-out infinite;
 }
 
+/* Some sources unreachable: steady amber (syncing pulses). */
 .kz-live-dot.is-warn {
-  background: var(--red);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 18%, transparent);
+  background: var(--amber);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 22%, transparent);
 }
 
 .skeleton {
@@ -897,6 +898,20 @@ span.kz-search-go {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* Kind chips under a list head: one scrolling row, never a second line. */
+.kz-feed-filter {
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: 10px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+
+.kz-feed-filter::-webkit-scrollbar {
+  display: none;
 }
 
 .kz-feed-list > li {
@@ -1202,11 +1217,6 @@ a.kz-host:hover,
   text-align: right;
 }
 
-.kz-status-alert,
-.kz-status-alert strong {
-  color: var(--red);
-}
-
 .kz-refresh-btn {
   gap: 5px;
 }
@@ -1440,14 +1450,85 @@ a.kz-host:hover,
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Wide screens read like a front page: the lead takes two thirds of the top
+ * band and the next three headlines stack beside it; the rest of the list
+ * runs in two columns. Six tracks let both layouts share one grid, so the
+ * DOM order stays the reading order.
+ */
 @media (min-width: 900px) {
   .kz-nook-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     column-gap: 40px;
   }
 
-  .kz-nook-lead {
-    grid-column: 1 / -1;
+  /* Skeleton rows take the same places as the stories they stand for. */
+  .kz-nook-list > * {
+    grid-column: span 3;
+  }
+
+  .kz-nook-list > .kz-nook-lead {
+    grid-column: 1 / span 4;
+    grid-row: 1 / span 3;
+  }
+
+  .kz-nook-lead ~ :nth-child(-n + 4) {
+    grid-column: 5 / span 2;
+  }
+
+  .kz-nook-list > .kz-nook-lead.is-bare {
+    grid-row: 1 / span 2;
+  }
+
+  .kz-nook-lead.is-bare ~ :nth-child(4) {
+    grid-column: span 3;
+  }
+
+  /* The rule between the lead and its sidebar sits in the column gap. */
+  .kz-nook-item.kz-nook-lead {
+    position: relative;
+  }
+
+  .kz-nook-item.kz-nook-lead::after {
+    content: "";
+    position: absolute;
+    top: 16px;
+    right: -20px;
+    bottom: 20px;
+    border-right: 1px solid var(--line);
+  }
+
+  .kz-nook-lead ~ .kz-nook-item:nth-child(-n + 4) .kz-nook-thumb {
+    display: none;
+  }
+
+  .kz-nook-lead.is-bare ~ .kz-nook-item:nth-child(4) .kz-nook-thumb {
+    display: block;
+  }
+
+  .kz-nook-lead .kz-nook-link {
+    padding: 16px 0 20px;
+  }
+
+  .kz-nook-lead .kz-nook-item-title {
+    font-size: clamp(22px, 2.3vw, 26px);
+    line-height: 1.38;
+  }
+
+  .kz-nook-lead .kz-nook-item-meta {
+    margin-top: 8px;
+  }
+
+  .kz-nook-lead .kz-nook-item-sum {
+    margin-top: 10px;
+    font-size: 15px;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+
+  .kz-nook-cover {
+    width: 220px;
+    aspect-ratio: 4 / 3;
   }
 }
 
@@ -1594,12 +1675,51 @@ a.kz-host:hover,
   line-clamp: 5;
 }
 
-.kz-pulse-themes {
+.kz-pulse-topics {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.kz-pulse-label {
+  margin: 0 0 8px;
+  color: var(--fade);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.kz-pulse-topics ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
-  margin-top: 10px;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kz-pulse-topics a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  background: var(--surface-2);
+  color: var(--mild);
+  border-radius: 6px;
   font-size: 12.5px;
+  font-weight: 500;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.kz-pulse-topics a:hover {
+  background: color-mix(in srgb, var(--ink) 8%, var(--surface-2));
+  color: var(--ink);
+}
+
+.kz-pulse-count {
+  color: var(--fade);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
 }
 
 .kz-pulse-digest {
@@ -1639,7 +1759,7 @@ a.kz-host:hover,
 
   .kz-pulse.is-empty,
   .kz-pulse-overview,
-  .kz-pulse-themes,
+  .kz-pulse-topics,
   .kz-pulse-ask {
     display: none;
   }
@@ -1815,6 +1935,28 @@ a.kz-host:hover,
 
 .kz-digest-empty .kz-page-title {
   font-size: clamp(20px, 2.6vw, 24px);
+}
+
+.kz-digest-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  color: var(--mild);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.kz-digest-pending::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  background: var(--amber);
+  border-radius: 50%;
 }
 
 .kz-digest-note {
@@ -2274,18 +2416,44 @@ a.kz-host:hover,
   overflow-wrap: anywhere;
 }
 
+/* One quiet line: time, relative time, original site, importance. Spacing
+   rather than separators, so a wrapped line never starts with a dot. */
 .kz-reader-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
-  margin-top: 14px;
+  gap: 2px 14px;
+  margin: 14px 0 0;
   color: var(--fade);
   font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
 }
 
-.kz-reader-meta time {
-  margin-right: 4px;
+.kz-reader-meta .kz-host {
+  color: var(--mild);
+  font-weight: 500;
+}
+
+.kz-reader-meta .kz-host:hover {
+  color: var(--ink);
+}
+
+.kz-reader-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.kz-reader-topics a {
+  color: var(--fade);
+}
+
+.kz-reader-topics a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .kz-reader-toolbar {
@@ -2318,14 +2486,9 @@ a.kz-host:hover,
   font-size: 13px;
 }
 
-.kz-reader-summaries {
-  display: grid;
-  gap: 10px;
-  margin-top: 24px;
-}
-
 .kz-reader-summary {
   position: relative;
+  margin-top: 24px;
   padding: 14px 18px 14px 20px;
   background: var(--surface-2);
   border-radius: var(--radius-sm);
@@ -2353,6 +2516,13 @@ a.kz-host:hover,
   margin: 4px 0 0;
   font-size: 15.5px;
   line-height: 1.8;
+}
+
+.kz-reader-summary .kz-reader-summary-alt {
+  margin-top: 8px;
+  color: var(--mild);
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .kz-reader-cross {
@@ -2430,6 +2600,15 @@ a.kz-host:hover,
   .reader-prose {
     font-size: 17px;
     line-height: 1.85;
+  }
+
+  .kz-reader {
+    padding-top: 24px;
+  }
+
+  .kz-reader-title {
+    font-size: 24px;
+    line-height: 1.35;
   }
 }
 
@@ -2803,6 +2982,40 @@ a.kz-host:hover,
   font-size: 13px;
 }
 
+/* Keyboard hints only where there is a keyboard to use them. */
+.kz-foot-keys {
+  margin: 0 0 0 auto;
+}
+
+.kz-foot-keys kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  background: var(--surface);
+  color: var(--mild);
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.kz-foot-keys + .kz-footer-link {
+  margin-left: 0;
+}
+
+@media (hover: none), (max-width: 860px) {
+  .kz-foot-keys {
+    display: none;
+  }
+
+  .kz-foot-keys + .kz-footer-link {
+    margin-left: auto;
+  }
+}
+
 .kz-foot-motto {
   margin: 0;
   color: var(--mild);
@@ -2822,6 +3035,37 @@ a.kz-host:hover,
 
 .kz-footer-link {
   margin-left: auto;
+}
+
+/* --- Reading progress (story pages) --- */
+
+.kz-read-progress {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 60;
+  height: 2px;
+  pointer-events: none;
+}
+
+.kz-read-progress > div {
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+/* j / k move focus between stories; keep the row clear of the sticky header. */
+.kz-nook-link,
+.kz-article-main {
+  scroll-margin: calc(var(--topbar-offset) + 8px) 0 24px;
+}
+
+.kz-nook-link:focus-visible,
+.kz-article-main:focus-visible {
+  outline-offset: 4px;
+  border-radius: 6px;
 }
 
 /* --- Navigation feedback --- */
@@ -2916,6 +3160,22 @@ html[data-density="comfortable"] .kz-nook {
 
 html[data-density="comfortable"] .kz-nook-list {
   grid-template-columns: minmax(0, 1fr);
+}
+
+html[data-density="comfortable"] .kz-nook-list > *,
+html[data-density="comfortable"] .kz-nook-list > .kz-nook-lead,
+html[data-density="comfortable"] .kz-nook-list > .kz-nook-lead.is-bare,
+html[data-density="comfortable"] .kz-nook-lead ~ :nth-child(-n + 4) {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+html[data-density="comfortable"] .kz-nook-item.kz-nook-lead::after {
+  content: none;
+}
+
+html[data-density="comfortable"] .kz-nook-lead ~ .kz-nook-item:nth-child(-n + 4) .kz-nook-thumb {
+  display: block;
 }
 
 html[data-density="comfortable"] .kz-nook-link {

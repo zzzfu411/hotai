@@ -190,8 +190,13 @@ const NookCard = memo(function NookCard({
 }) {
   const story = displayStory(item);
   const source = story.publisher ?? item.sourceName;
+  // A headline with no summary or picture is short; wide layouts give it
+  // fewer sidebar rows so it doesn't sit above an empty block.
+  const className = lead
+    ? story.summary || item.image ? "kz-nook-item kz-nook-lead" : "kz-nook-item kz-nook-lead is-bare"
+    : "kz-nook-item";
   return (
-    <li className={lead ? "kz-nook-item kz-nook-lead" : "kz-nook-item"} data-nook-key={item.url}>
+    <li className={className} data-nook-key={item.url}>
       {/* Story pages render per request, so prefetching every visible row
           only adds server hits that compete with the tap. The lead alone
           prefetches in full, which also loads the reader route's code that
@@ -631,7 +636,13 @@ export function NookFeed({ initial = null }: { initial?: InitialNook | null }) {
             </button>
           ))}
         </nav>
-        <div className="kz-nook-status" aria-label={zh ? "时间线状态" : "Timeline status"}>
+        {/* Offline sources are an operator concern: the dot turns amber and
+            the tooltip has the count, but the bar stays quiet for readers. */}
+        <div
+          className="kz-nook-status"
+          aria-label={zh ? "时间线状态" : "Timeline status"}
+          title={failCount ? (zh ? `${failCount} 个来源暂时无法连接` : `${failCount} sources unreachable`) : undefined}
+        >
           <span className={loading ? "kz-live-dot is-syncing" : failCount ? "kz-live-dot is-warn" : "kz-live-dot"} aria-hidden />
           <span className="kz-status-stat">
             <strong>{okCount}</strong> {zh ? "源" : "live"}
@@ -639,11 +650,6 @@ export function NookFeed({ initial = null }: { initial?: InitialNook | null }) {
           <span className="kz-status-stat">
             <strong>{items.length}</strong> {zh ? "条" : "stories"}
           </span>
-          {failCount ? (
-            <span className="kz-status-stat kz-status-alert">
-              <strong>{failCount}</strong> {zh ? "异常" : "offline"}
-            </span>
-          ) : null}
           <button
             type="button"
             className="kz-btn kz-btn-sm kz-btn-ghost kz-refresh-btn"

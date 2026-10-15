@@ -128,6 +128,25 @@ export function getTodayDigestRow() {
   return prisma.digest.findUnique({ where: { date: startOfUtcDay() } });
 }
 
+/** Most recent digest before `before` (a UTC day), within the retention window. */
+export function getLatestDigestRowBefore(before: Date) {
+  return prisma.digest.findFirst({
+    where: { date: { lt: before, gte: startOfUtcDay(articleCutoff()) } },
+    orderBy: { date: "desc" },
+  });
+}
+
+/** Top-scored articles from a rolling window (e.g. the last 24 hours). */
+export function getRecentTopArticles(hours = 24, limit = 20) {
+  const since = new Date(Math.max(Date.now() - hours * 3600 * 1000, articleCutoff().getTime()));
+  return prisma.article.findMany({
+    where: { publishedAt: { gte: since, lte: new Date(Date.now() + 24 * 3600 * 1000) } },
+    orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
+    take: limit,
+    include: WITH_SOURCE,
+  });
+}
+
 /** Single article for the in-site reader (`/a/[id]`). */
 export const getArticleById = cache(function getArticleById(id: number) {
   return prisma.article.findFirst({

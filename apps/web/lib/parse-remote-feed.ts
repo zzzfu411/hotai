@@ -120,6 +120,42 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  hellip: "…", mdash: "—", ndash: "–", middot: "·", bull: "•",
+  lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", laquo: "«", raquo: "»",
+  copy: "©", reg: "®", trade: "™", deg: "°", times: "×", yen: "¥", euro: "€", pound: "£",
+};
+
+/**
+ * Feeds often escape their text twice (`&amp;#8217;`), which leaves a literal
+ * entity after XML parsing. Decode one more level for display; React escapes
+ * the result again when it renders.
+ */
+export function decodeEntities(s: string): string {
+  if (!s.includes("&")) return s;
+  return s.replace(/&(#\d{1,7}|#x[\da-f]{1,6}|[a-z]{2,8});/gi, (entity: string, body: string) => {
+    if (body[0] === "#") {
+      const hex = body[1] === "x" || body[1] === "X";
+      const code = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
+      return Number.isInteger(code) && code > 0 && code <= 0x10ffff && (code < 0xd800 || code > 0xdfff)
+        ? String.fromCodePoint(code)
+        : entity;
+    }
+    return NAMED_ENTITIES[body.toLowerCase()] ?? entity;
+  });
+}
+
+/** Summaries: drop markup, then decode what is left. */
+function plainText(s: string): string {
+  return decodeEntities(stripHtml(s)).replace(/\s+/g, " ").trim();
+}
+
+/** Titles are text already; a decoded `<canvas>` in one is content, not markup. */
+function plainTitle(s: string): string {
+  return decodeEntities(s).replace(/\s+/g, " ").trim();
+}
+
 function truncate(s: string, n: number): string {
   if (!s) return "";
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
@@ -168,7 +204,7 @@ function parseJsonFeed(body: string, baseUrl: string, opts: ParseFeedOptions = {
   for (const raw of rec.items) {
     if (!raw || typeof raw !== "object") continue;
     const it = raw as Record<string, unknown>;
-    const itemTitle = typeof it.title === "string" ? truncate(it.title.trim(), MAX_ITEM_TITLE_LEN) : "";
+    const itemTitle = typeof it.title === "string" ? truncate(plainTitle(it.title), MAX_ITEM_TITLE_LEN) : "";
     const href =
       absUrl(typeof it.url === "string" ? it.url : undefined, baseUrl) ||
       absUrl(typeof it.external_url === "string" ? it.external_url : undefined, baseUrl) ||
@@ -182,7 +218,7 @@ function parseJsonFeed(body: string, baseUrl: string, opts: ParseFeedOptions = {
     items.push({
       title: itemTitle,
       url: href,
-      summary: truncate(stripHtml(summarySrc), summaryLen),
+      summary: truncate(plainText(summarySrc), summaryLen),
       publishedAt:
         toIso(typeof it.date_published === "string" ? it.date_published : undefined) ??
         toIso(typeof it.date_modified === "string" ? it.date_modified : undefined),
@@ -213,7 +249,7 @@ async function parseRssAtom(
   const items: RemoteFeedItem[] = [];
   if (maxItems === 0) return { title, items };
   for (const it of feed.items ?? []) {
-    const itemTitle = truncate((it.title || "").trim(), MAX_ITEM_TITLE_LEN);
+    const itemTitle = truncate(plainTitle(it.title || ""), MAX_ITEM_TITLE_LEN);
     const href = absUrl(it.link, baseUrl) || absUrl(it.guid, baseUrl);
     if (!itemTitle || !href) continue;
     const rec = it as unknown as Record<string, unknown>;
@@ -222,7 +258,7 @@ async function parseRssAtom(
     items.push({
       title: itemTitle,
       url: href,
-      summary: truncate(stripHtml(summarySrc), summaryLen),
+      summary: truncate(plainText(summarySrc), summaryLen),
       publishedAt: toIso(it.isoDate) ?? toIso(it.pubDate),
       image: extractItemImage(rec, baseUrl, [encoded, it.content || "", it.summary || ""]),
     });

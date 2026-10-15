@@ -3,8 +3,8 @@ import { AskBox } from "@/components/AskBox";
 import { DigestHeader } from "@/components/DigestHeader";
 import { FeedList } from "@/components/FeedList";
 import { toCard } from "@/lib/article";
-import { linkDigestBullets, loadDigest } from "@/lib/digest";
-import { getArticlesSince, startOfUtcDay } from "@/lib/queries";
+import { linkDigestBullets, loadDigest, loadPreviousDigest } from "@/lib/digest";
+import { getRecentTopArticles } from "@/lib/queries";
 import { safeHttpUrl } from "@/lib/safe-url";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -22,25 +22,34 @@ export const metadata: Metadata = {
 export default async function DigestPage() {
   const zh = (await serverLang()) === "zh";
   let digest: Awaited<ReturnType<typeof loadDigest>> = null;
-  let todaysTop: Awaited<ReturnType<typeof getArticlesSince>> = [];
+  let earlier: Awaited<ReturnType<typeof loadPreviousDigest>> = null;
+  let recentTop: Awaited<ReturnType<typeof getRecentTopArticles>> = [];
   let dbUnavailable = false;
   try {
-    [digest, todaysTop] = await Promise.all([
+    [digest, recentTop] = await Promise.all([
       loadDigest(),
-      getArticlesSince(startOfUtcDay(), 20),
+      getRecentTopArticles(24, 20),
     ]);
+    // Until today's brief exists, the latest earlier one beats an empty page.
+    if (!digest) earlier = await loadPreviousDigest();
   } catch (err) {
     dbUnavailable = true;
     console.warn("[digest] db unavailable:", err instanceof Error ? err.message : err);
   }
+  const shown = digest ?? earlier;
 
   return (
     <div className="kz-page">
-      <DigestHeader digest={digest} aiEnabled={AI_ENABLED && AI_DIGEST_ENABLED} unavailable={dbUnavailable} />
+      <DigestHeader
+        digest={shown}
+        earlier={!digest && Boolean(earlier)}
+        aiEnabled={AI_ENABLED && AI_DIGEST_ENABLED}
+        unavailable={dbUnavailable}
+      />
 
-      {digest && (
+      {shown && (
         <ol className="kz-digest-bullets">
-          {linkDigestBullets(digest.bullets, todaysTop).map((b: DigestBullet, i: number) => (
+          {linkDigestBullets(shown.bullets, recentTop).map((b: DigestBullet, i: number) => (
             <li key={i} className="kz-digest-item">
               <div className="kz-digest-num">{i + 1}</div>
               <div>
@@ -84,11 +93,11 @@ export default async function DigestPage() {
 
       <section className="kz-digest-hot">
         <FeedList
-          articles={todaysTop.map(toCard)}
+          articles={recentTop.map(toCard)}
           ranked
           titleAs="h2"
-          titleZh="今日最热"
-          titleEn="Today's hottest"
+          titleZh="24 小时最热"
+          titleEn="Hottest in 24 hours"
           emptyTitleZh={dbUnavailable ? "入库热榜暂时不可用" : undefined}
           emptyTitleEn={dbUnavailable ? "Stored hot list unavailable" : undefined}
           emptyCopyZh={dbUnavailable ? "内容服务暂时不可用，请稍后重试。" : undefined}

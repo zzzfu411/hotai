@@ -147,7 +147,7 @@ try {
   failure = true;
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await page.getByText("Showing previously cached stories", { exact: false }).waitFor();
-  assert.equal(await page.locator(".kz-status-alert").count(), 0, "cached outage must not invent source failures");
+  assert.equal(await page.locator(".kz-live-dot.is-warn").count(), 0, "cached outage must not invent source failures");
   await page.screenshot({ path: `${output}/feed-cached-desktop.png`, fullPage: true });
   pass("service outage retains cached feed without invented source failures");
   await page.setViewportSize({ width: 390, height: 740 });

@@ -5,6 +5,7 @@ import { useLang } from "./LangContext";
 import { storyState, toggleReading, hydrateReadingStory } from "@/lib/reading-list";
 import type { ReadableStory } from "@/lib/reader-link";
 import { useReadingEntries } from "./ReadingList";
+import { ReadingProgress } from "./ReadingProgress";
 
 type BodyStatus = "ssr" | "loading" | "ok" | "fail";
 
@@ -86,11 +87,14 @@ export function ReaderBody({ url, fallbackSummary }: ReaderBodyProps) {
 
   if (status === "ok") {
     return (
-      <div
-        ref={proseRef}
-        className="reader-prose"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <>
+        <ReadingProgress />
+        <div
+          ref={proseRef}
+          className="reader-prose"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </>
     );
   }
 

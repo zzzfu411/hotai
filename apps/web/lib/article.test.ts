@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseArticleId, parseCrossPosts } from "./article";
+import { parseArticleId, parseCrossPosts, topTopics } from "./article";
 
 describe("parseArticleId", () => {
   it("accepts positive integers", () => {
@@ -40,5 +40,23 @@ describe("parseCrossPosts", () => {
   it("returns empty on non-arrays", () => {
     expect(parseCrossPosts(null)).toEqual([]);
     expect(parseCrossPosts({ source: "hn" })).toEqual([]);
+  });
+});
+
+describe("topTopics", () => {
+  it("counts each story once and keeps topics shared by two or more", () => {
+    const cards = [
+      { aiTopics: ["agents", "openai", "agents"] },
+      { aiTopics: ["agents", "chips"] },
+      { aiTopics: ["openai", " "] },
+      { aiTopics: undefined },
+      { aiTopics: ["chips", "agents"] },
+    ];
+    expect(topTopics(cards)).toEqual([
+      { name: "agents", count: 3 },
+      { name: "chips", count: 2 },
+      { name: "openai", count: 2 },
+    ]);
+    expect(topTopics(cards, 1)).toEqual([{ name: "agents", count: 3 }]);
   });
 });

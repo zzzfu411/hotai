@@ -4,9 +4,10 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { FeedList } from "@/components/FeedList";
 import { ReaderBody, ReadingFlags } from "@/components/Reader";
+import { TimeAgo } from "@/components/TimeAgo";
 import { parseArticleId, parseCrossPosts, toCard } from "@/lib/article";
 import { CATEGORIES, SITE } from "@/lib/constants";
-import { formatUtcDateTime, hostname } from "@/lib/format";
+import { formatStamp, hostname, shortSourceName } from "@/lib/format";
 import { getArticleById, getRelatedArticles } from "@/lib/queries";
 import { safeHttpUrl } from "@/lib/safe-url";
 
@@ -84,12 +85,20 @@ export default async function ArticlePage({ params }: PageProps) {
       : null;
   const host = hostname(articleUrl);
   const hasAiSummaries = Boolean(article.aiSummaryZh || article.aiSummaryEn);
+  // One summary block in the reader's language; Chinese readers also get the
+  // English précis underneath, which keeps the original's terms.
+  const primarySummary = zh
+    ? { text: article.aiSummaryZh || article.aiSummaryEn, lang: article.aiSummaryZh ? "zh" : "en" }
+    : { text: article.aiSummaryEn || article.aiSummaryZh, lang: article.aiSummaryEn ? "en" : "zh" };
+  const altSummary = zh && article.aiSummaryZh && article.aiSummaryEn ? article.aiSummaryEn : null;
 
   return (
     <article className="kz-reader">
       <header className="kz-reader-head">
         <p className="kz-reader-kicker">
-          <Link href={`/source/${article.source.slug}`} prefetch={false}>{article.source.name}</Link>
+          <Link href={`/source/${article.source.slug}`} prefetch={false} title={article.source.name}>
+            {shortSourceName(article.source.name)}
+          </Link>
           {cat ? (
             <>
               <span aria-hidden> · </span>
@@ -98,26 +107,31 @@ export default async function ArticlePage({ params }: PageProps) {
           ) : null}
         </p>
         <h1 lang={article.lang} className="kz-reader-title">{article.title}</h1>
-        <div className="kz-reader-meta">
-          <time dateTime={publishedIso}>{formatUtcDateTime(article.publishedAt)}</time>
+        <p className="kz-reader-meta">
+          <time dateTime={publishedIso}>{formatStamp(article.publishedAt, zh ? "zh" : "en")}</time>
+          <TimeAgo iso={publishedIso} lang={zh ? "zh" : "en"} />
           <a
             href={articleUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="kz-chip kz-host"
+            className="kz-host"
             title={zh ? "打开原文" : "Open original"}
           >
-            {host}
+            {host} ↗
           </a>
           {importancePct != null ? (
-            <span className="kz-chip" title={zh ? "AI 评估的重要度（0–100）" : "AI-rated importance (0–100)"}>{zh ? "重要度" : "Importance"} {importancePct}</span>
+            <span title={zh ? "AI 评估的重要度（0–100）" : "AI-rated importance (0–100)"}>{zh ? "重要度" : "Importance"} {importancePct}</span>
           ) : null}
-          {article.aiTopics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-chip" prefetch={false}>
-              #{t}
-            </Link>
-          ))}
-        </div>
+        </p>
+        {article.aiTopics.length > 0 ? (
+          <p className="kz-reader-topics">
+            {article.aiTopics.map((t) => (
+              <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} prefetch={false}>
+                #{t}
+              </Link>
+            ))}
+          </p>
+        ) : null}
         <div className="kz-reader-toolbar">
           <a className="kz-btn kz-btn-primary" href={articleUrl} target="_blank" rel="noopener noreferrer">
             {zh ? "打开原文 ↗" : "Open original ↗"}
@@ -126,27 +140,17 @@ export default async function ArticlePage({ params }: PageProps) {
         </div>
       </header>
 
-      {hasAiSummaries || article.summary ? (
-        <div className="kz-reader-summaries">
-          {article.aiSummaryZh ? (
-            <section className="kz-reader-summary" lang="zh">
-              <h2>{zh ? "中文摘要" : "Chinese summary"}</h2>
-              <p>{article.aiSummaryZh}</p>
-            </section>
-          ) : null}
-          {article.aiSummaryEn ? (
-            <section className="kz-reader-summary" lang="en">
-              <h2>English</h2>
-              <p>{article.aiSummaryEn}</p>
-            </section>
-          ) : null}
-          {!hasAiSummaries && article.summary ? (
-            <section className="kz-reader-summary">
-              <h2>{zh ? "摘要" : "Summary"}</h2>
-              <p>{article.summary}</p>
-            </section>
-          ) : null}
-        </div>
+      {hasAiSummaries ? (
+        <section className="kz-reader-summary">
+          <h2>{zh ? "AI 摘要" : "AI summary"}</h2>
+          <p lang={primarySummary.lang}>{primarySummary.text}</p>
+          {altSummary ? <p lang="en" className="kz-reader-summary-alt">{altSummary}</p> : null}
+        </section>
+      ) : article.summary ? (
+        <section className="kz-reader-summary">
+          <h2>{zh ? "摘要" : "Summary"}</h2>
+          <p>{article.summary}</p>
+        </section>
       ) : null}
 
       {crossPosts.length > 0 ? (

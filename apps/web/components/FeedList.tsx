@@ -1,8 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ArticleCard, type ArticleCardData } from "./ArticleCard";
+import { useState, type ReactNode } from "react";
+import { ArticleCard, SENTIMENT_LABEL, type ArticleCardData } from "./ArticleCard";
 import { useLang } from "./LangContext";
+
+/** Story kinds the AI pass assigns, in the order the filter shows them. */
+const KINDS = ["release", "research", "opinion", "tutorial", "rumor"] as const;
 
 export function FeedList({
   articles,
@@ -17,6 +20,7 @@ export function FeedList({
   emptyTitleEn,
   emptyCopyZh,
   emptyCopyEn,
+  kindFilter = false,
 }: {
   articles: ArticleCardData[];
   ranked?: boolean;
@@ -30,9 +34,22 @@ export function FeedList({
   emptyTitleEn?: string;
   emptyCopyZh?: string;
   emptyCopyEn?: string;
+  /** Offer chips that narrow the list to one story kind (release, research…). */
+  kindFilter?: boolean;
 }) {
   const { lang } = useLang();
   const zh = lang === "zh";
+  const [kind, setKind] = useState<string | null>(null);
+  // Ranks belong to the full list, so a filtered row keeps its place number.
+  const numbered = ranked ? articles.map((a, i) => ({ ...a, rank: i + 1 })) : articles;
+  const counts = new Map<string, number>();
+  for (const a of articles) {
+    if (a.aiSentiment) counts.set(a.aiSentiment, (counts.get(a.aiSentiment) ?? 0) + 1);
+  }
+  const kinds = KINDS.filter((k) => counts.get(k));
+  const showFilter = kindFilter && kinds.length >= 2;
+  const activeKind = showFilter && kind && counts.get(kind) ? kind : null;
+  const visible = activeKind ? numbered.filter((a) => a.aiSentiment === activeKind) : numbered;
   const title = zh ? titleZh : titleEn;
   const subtitle = zh ? subtitleZh ?? subtitleEn : subtitleEn ?? subtitleZh;
   const TitleTag = titleAs;
@@ -53,11 +70,30 @@ export function FeedList({
           <div className="kz-feed-head-end">
             {action}
             <p className="kz-feed-count">
-              {articles.length}
-              {zh ? " 篇" : articles.length === 1 ? " story" : " stories"}
+              {visible.length}
+              {zh ? " 篇" : visible.length === 1 ? " story" : " stories"}
             </p>
           </div>
         </header>
+      ) : null}
+
+      {showFilter ? (
+        <div className="kz-filter-tags kz-feed-filter" role="group" aria-label={zh ? "按类型筛选" : "Filter by kind"}>
+          <button type="button" className="kz-chip" aria-pressed={activeKind === null} onClick={() => setKind(null)}>
+            {zh ? "全部" : "All"} <span>{articles.length}</span>
+          </button>
+          {kinds.map((k) => (
+            <button
+              key={k}
+              type="button"
+              className="kz-chip"
+              aria-pressed={activeKind === k}
+              onClick={() => setKind(activeKind === k ? null : k)}
+            >
+              {zh ? SENTIMENT_LABEL[k]?.zh : SENTIMENT_LABEL[k]?.en} <span>{counts.get(k)}</span>
+            </button>
+          ))}
+        </div>
       ) : null}
 
       {articles.length === 0 ? (
@@ -67,9 +103,9 @@ export function FeedList({
         </div>
       ) : (
         <ol className="kz-feed-list">
-          {articles.map((a, i) => (
+          {visible.map((a, i) => (
             <li key={a.id}>
-              <ArticleCard a={{ ...a, rank: ranked ? i + 1 : undefined }} prefetch={i === 0} />
+              <ArticleCard a={a} prefetch={i === 0} />
             </li>
           ))}
         </ol>

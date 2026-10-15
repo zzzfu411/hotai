@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { formatScore, hostname } from "@/lib/format";
+import { formatScore, hostname, shortSourceName } from "@/lib/format";
 import { safeHttpUrl } from "@/lib/safe-url";
 import { cleanSummary } from "@/lib/story-text";
 import { useLang } from "./LangContext";
@@ -32,7 +32,7 @@ export type ArticleCardData = {
   crossPostCount?: number;
 };
 
-const SENTIMENT_LABEL: Record<string, { en: string; zh: string }> = {
+export const SENTIMENT_LABEL: Record<string, { en: string; zh: string }> = {
   release: { en: "Release", zh: "发布" },
   research: { en: "Research", zh: "研究" },
   opinion: { en: "Opinion", zh: "观点" },
@@ -55,7 +55,7 @@ export function ArticleCard({ a, prefetch = false }: { a: ArticleCardData; prefe
   const readerHref = a.href ?? `/a/${a.id}`;
   const externalUrl = safeHttpUrl(a.url);
   const host = externalUrl ? hostname(externalUrl) : "";
-  const topics = (a.aiTopics?.length ? a.aiTopics : a.tags).slice(0, 3);
+  const sourceName = shortSourceName(a.source.name);
   const cross = a.crossPostCount ?? 0;
 
   return (
@@ -80,8 +80,13 @@ export function ArticleCard({ a, prefetch = false }: { a: ArticleCardData; prefe
         </Link>
 
         <div className="kz-article-meta">
-          <Link href={`/source/${a.source.slug}`} className="kz-meta-source" prefetch={false}>
-            {a.source.name}
+          <Link
+            href={`/source/${a.source.slug}`}
+            className="kz-meta-source"
+            prefetch={false}
+            title={sourceName !== a.source.name ? a.source.name : undefined}
+          >
+            {sourceName}
           </Link>
           <TimeAgo iso={a.publishedAt} lang={lang} />
           <span className="kz-article-score" title={zh ? "热度分：来源权重 × 时间衰减 × 互动信号 × AI 重要度" : "Score: source weight × time decay × signals × AI importance"}>
@@ -99,16 +104,13 @@ export function ArticleCard({ a, prefetch = false }: { a: ArticleCardData; prefe
             </span>
           ) : null}
           <ReadingBadge story={{ url: a.url, title: a.title, articleId: a.id }} />
+          {/* Topic tags live on the story page and in the hot list's topic
+              rail; on every row they were mostly noise. */}
           {externalUrl ? (
             <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="kz-host kz-meta-extra" title={zh ? "打开原文" : "Open original"}>
               {host} ↗
             </a>
           ) : null}
-          {topics.map((t) => (
-            <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="kz-topic kz-meta-extra" prefetch={false}>
-              #{t}
-            </Link>
-          ))}
         </div>
       </div>
     </article>

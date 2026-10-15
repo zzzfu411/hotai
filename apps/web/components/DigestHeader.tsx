@@ -9,9 +9,22 @@ type Loaded = {
   themes: string[];
   model?: string | null;
   createdAt: Date | string;
+  /** The UTC day it was edited for; set when it is an earlier day's brief. */
+  date?: Date | string;
 } | null;
 
-export function DigestHeader({ digest, aiEnabled, unavailable = false }: { digest: Loaded; aiEnabled: boolean; unavailable?: boolean }) {
+export function DigestHeader({
+  digest,
+  aiEnabled,
+  unavailable = false,
+  earlier = false,
+}: {
+  digest: Loaded;
+  aiEnabled: boolean;
+  unavailable?: boolean;
+  /** Today's brief isn't out yet and this is the latest earlier one. */
+  earlier?: boolean;
+}) {
   const { lang } = useLang();
   const zh = lang === "zh";
 
@@ -36,18 +49,25 @@ export function DigestHeader({ digest, aiEnabled, unavailable = false }: { diges
     );
   }
 
-  const created = new Date(digest.createdAt);
+  const day = new Date(digest.date ?? digest.createdAt);
   const stamp = new Intl.DateTimeFormat(zh ? "zh-CN" : "en-GB", {
     month: "long",
     day: "numeric",
     weekday: "short",
     timeZone: "UTC",
-  }).format(created);
+  }).format(day);
 
   return (
     <header className="kz-digest-head">
+      {earlier ? (
+        <p className="kz-digest-pending" role="status">
+          {aiEnabled
+            ? zh ? "今日简报会在当天入库满 5 篇后生成，先看最近一期。" : "Today's brief is drafted once five stories are stored today. Here is the latest one."
+            : zh ? "本站暂未启用 AI 简报，以下是最近一期。" : "AI briefs are paused on this site. Here is the latest one."}
+        </p>
+      ) : null}
       <p className="kz-page-kicker">
-        {zh ? "今日简报" : "Today's brief"} · {stamp}
+        {earlier ? (zh ? "最近一期" : "Latest brief") : (zh ? "今日简报" : "Today's brief")} · {stamp}
         {digest.model ? ` · ${digest.model}` : ""}
       </p>
       <h1 className="kz-page-title">{digest.headline}</h1>
