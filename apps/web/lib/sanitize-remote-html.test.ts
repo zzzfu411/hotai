@@ -16,4 +16,13 @@ describe("remote HTML sanitization", () => {
     expect(html).toContain('href="https://news.example/story"');
     expect(html).toContain('rel="noopener noreferrer"');
   });
+
+  it("drops remote classes so they cannot pick up site styles", () => {
+    const html = sanitizeRemoteHtml(
+      '<div class="kz-juya-lightbox"><p class="sr-only" id="s1">text</p></div>',
+      "https://news.example/",
+    );
+    expect(html).not.toContain("class=");
+    expect(html).toContain('id="s1"');
+  });
 });

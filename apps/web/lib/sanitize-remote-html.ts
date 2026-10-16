@@ -13,7 +13,9 @@ export function sanitizeRemoteHtml(raw: string, baseUrl: string): string {
   const clean = DOMPurify.sanitize(raw, {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "link", "meta", "base"],
-    FORBID_ATTR: ["style"],
+    // Remote classes could borrow the site's own styles (fixed overlays,
+    // hidden text); the page styles remote markup by tag only.
+    FORBID_ATTR: ["style", "class"],
     ADD_ATTR: ["target", "rel"],
   }).trim();
   if (!clean) return "";
