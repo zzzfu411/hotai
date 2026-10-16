@@ -4,7 +4,8 @@ import { AI_ENABLED } from "@hotai/ai";
 import { FeedList } from "@/components/FeedList";
 import { PulseRail } from "@/components/PulseRail";
 import { toCard, topTopics } from "@/lib/article";
-import { getHomeStats, getLatestDigestRowBefore, getTodayDigestRow, getTopArticles, startOfUtcDay } from "@/lib/queries";
+import { startOfUtcDay } from "@hotai/db";
+import { getHomeStats, getLatestDigestRowBefore, getTodayDigestRow, getTopArticles } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 

@@ -13,7 +13,6 @@ import {
 } from "@/lib/juya";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 type PageProps = { searchParams: Promise<{ date?: string }> };
 

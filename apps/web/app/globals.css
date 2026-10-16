@@ -1196,8 +1196,7 @@ span.kz-search-go {
 }
 
 a.kz-meta-source:hover,
-a.kz-host:hover,
-.kz-topic:hover {
+a.kz-host:hover {
   color: var(--ink);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1211,10 +1210,6 @@ a.kz-host:hover,
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-.kz-topic {
-  color: var(--fade);
 }
 
 @media (max-width: 640px) {

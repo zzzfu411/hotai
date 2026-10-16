@@ -1,5 +1,7 @@
 import { cache } from "react";
+import { startOfUtcDay } from "@hotai/db";
 import { prisma } from "./db";
+import { envInt } from "./env";
 
 /**
  * Read layer for the web app. Every page/route goes through here instead of
@@ -12,48 +14,20 @@ import { prisma } from "./db";
 const WITH_SOURCE = { source: { select: { slug: true, name: true } } } as const;
 
 /** Keep Web reads inside the same retention contract as the fetcher purge. */
+const RETENTION_DAYS = envInt(process.env.ARTICLE_RETENTION_DAYS, 14, 1, 3_650);
+
 function articleCutoff(): Date {
-  const configured = Number(process.env.ARTICLE_RETENTION_DAYS ?? "14");
-  const days = Number.isFinite(configured) && configured >= 1 ? Math.min(configured, 3650) : 14;
-  return new Date(Date.now() - days * 24 * 3600 * 1000);
+  return new Date(Date.now() - RETENTION_DAYS * 24 * 3600 * 1000);
 }
 
 function articleWindow(): { gte: Date; lte: Date } {
   return { gte: articleCutoff(), lte: new Date(Date.now() + 24 * 3600 * 1000) };
 }
 
-export function startOfUtcDay(d: Date = new Date()): Date {
-  const x = new Date(d);
-  x.setUTCHours(0, 0, 0, 0);
-  return x;
-}
-
-function endOfUtcDay(d: Date): Date {
-  const x = startOfUtcDay(d);
-  x.setUTCDate(x.getUTCDate() + 1);
-  return x;
-}
-
 /** Global hot list — top by score (source weight × decay × signals × aiImportance). */
 export function getTopArticles(limit = 50) {
   return prisma.article.findMany({
     where: { publishedAt: articleWindow() },
-    orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
-    take: limit,
-    include: WITH_SOURCE,
-  });
-}
-
-/** Top-scored articles published since `since` (e.g. today's board). */
-export function getArticlesSince(since: Date, limit = 20) {
-  const effectiveSince = new Date(Math.max(since.getTime(), articleCutoff().getTime()));
-  // Callers use this for a calendar-day board/digest. Do not let the generic
-  // future-skew allowance pull tomorrow's articles into today's view.
-  const upperBound = new Date(
-    Math.min(Date.now() + 24 * 3600 * 1000, endOfUtcDay(since).getTime()),
-  );
-  return prisma.article.findMany({
-    where: { publishedAt: { gte: effectiveSince, lt: upperBound } },
     orderBy: [{ score: "desc" }, { publishedAt: "desc" }],
     take: limit,
     include: WITH_SOURCE,
@@ -155,14 +129,6 @@ export const getArticleById = cache(function getArticleById(id: number) {
   });
 });
 
-export function getArticlesByIds(ids: number[]) {
-  if (ids.length === 0) return Promise.resolve([]);
-  return prisma.article.findMany({
-    where: { id: { in: ids }, publishedAt: articleWindow() },
-    include: WITH_SOURCE,
-  });
-}
-
 const ENABLED_SOURCE_SELECT = {
   slug: true,
   name: true,
@@ -251,14 +217,6 @@ export function getCuratedBlogs() {
   return prisma.curatedBlog.findMany({
     where: { enabled: true },
     orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
-  });
-}
-
-/** Enabled curated-blog slugs — sitemap entries. */
-export function getCuratedBlogSlugs() {
-  return prisma.curatedBlog.findMany({
-    where: { enabled: true },
-    select: { slug: true, updatedAt: true },
   });
 }
 

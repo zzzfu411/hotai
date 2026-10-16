@@ -1,7 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { AI_DIGEST_ENABLED, AI_ENABLED } from "@hotai/ai";
+import { startOfUtcDay } from "@hotai/db";
 import { prisma } from "./db";
 import { catalogHealth } from "./catalog-health";
+import { envInt } from "./env";
 
 const AI_STATES = ["pending", "processing", "retry", "success", "failed"] as const;
 type AiState = (typeof AI_STATES)[number];
@@ -69,20 +71,8 @@ type HealthCache = {
 
 const g = globalThis as typeof globalThis & { __hotai_health_cache?: HealthCache };
 
-function startOfUtcDay(now: Date): Date {
-  const day = new Date(now);
-  day.setUTCHours(0, 0, 0, 0);
-  return day;
-}
-
-function bounded(env: string | undefined, fallback: number, min: number, max: number): number {
-  const n = Number(env);
-  const value = Number.isFinite(n) && env !== undefined && env !== "" ? n : fallback;
-  return Math.min(max, Math.max(min, Math.trunc(value)));
-}
-
-const HEALTH_CACHE_MS = bounded(process.env.HEALTH_CACHE_SECONDS, 5, 1, 60) * 1000;
-export const HEALTH_MAX_FETCH_AGE_SEC = bounded(
+const HEALTH_CACHE_MS = envInt(process.env.HEALTH_CACHE_SECONDS, 5, 1, 60) * 1000;
+export const HEALTH_MAX_FETCH_AGE_SEC = envInt(
   process.env.HEALTH_MAX_FETCH_AGE_SECONDS,
   10_800,
   60,

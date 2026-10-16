@@ -9,10 +9,6 @@ import { Pagination } from "@/components/Pagination";
 
 export const dynamic = "force-dynamic";
 
-export async function generateStaticParams() {
-  return CATEGORIES.map((c) => ({ slug: c.slug }));
-}
-
 type PageProps = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

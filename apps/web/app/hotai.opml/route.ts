@@ -3,7 +3,6 @@ import { SITE } from "@/lib/constants";
 import { escXml } from "@/lib/feed";
 import { safeShareableHttpUrl } from "@/lib/safe-url";
 
-export const revalidate = 600;
 export const dynamic = "force-dynamic";
 
 const GROUPS: { key: string; title: string }[] = [

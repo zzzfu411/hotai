@@ -153,10 +153,6 @@ export function getCatalogCategory(id: CatalogCategoryId): CatalogCategory {
   return CATALOG_CATEGORIES.find((c) => c.id === id) ?? CATALOG_CATEGORIES[0]!;
 }
 
-export function defaultEnabledIds(): string[] {
-  return [...DEFAULT_ENABLED_IDS];
-}
-
 /** Keep only ids that exist in the catalog, unique, cap at MAX_PULL_IDS. */
 export function resolveCatalogSources(ids: string[]): CatalogSource[] {
   const out: CatalogSource[] = [];

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { mapPool } from "@/lib/pool";
 import { readerLink } from "@/lib/reader-link";
 import { ReadingList, ReadingBadge } from "./ReadingList";
 import { hostname } from "@/lib/format";
@@ -45,18 +46,6 @@ type TimelineItem = FeedItem & { sourceId: string; sourceName: string };
 const HN_EXAMPLE = "https://hnrss.org/frontpage";
 const DISPLAY_CAP = 300;
 const PULL_CONCURRENCY = 4;
-
-async function mapPool<T>(items: T[], n: number, fn: (t: T) => Promise<void>): Promise<void> {
-  let cursor = 0;
-  const worker = async () => {
-    for (;;) {
-      const idx = cursor++;
-      if (idx >= items.length) return;
-      await fn(items[idx]!);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, () => worker()));
-}
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {

@@ -5,8 +5,6 @@ export const CATEGORIES = [
   { slug: "media",      label_en: "Media",      label_zh: "媒体" },
 ] as const;
 
-export type CategorySlug = (typeof CATEGORIES)[number]["slug"];
-
 /** Focus tags used on the curated /blogs directory (filter chips). */
 export const BLOG_TAGS = [
   { slug: "llm",             label_en: "LLM",             label_zh: "大模型" },

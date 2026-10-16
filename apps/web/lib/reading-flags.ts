@@ -2,8 +2,6 @@
 export const LATER_KEY = "hotai.later";
 export const READ_KEY = "hotai.read";
 
-const CAP = 400;
-
 export function parseIdArray(raw: string | null): number[] {
   if (!raw) return [];
   try {
@@ -22,14 +20,4 @@ export function parseIdArray(raw: string | null): number[] {
   } catch {
     return [];
   }
-}
-
-export function addId(ids: number[], id: number, cap = CAP): number[] {
-  const next = ids.filter((x) => x !== id);
-  next.push(id);
-  return next.length > cap ? next.slice(next.length - cap) : next;
-}
-
-export function removeId(ids: number[], id: number): number[] {
-  return ids.filter((x) => x !== id);
 }

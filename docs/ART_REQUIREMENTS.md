@@ -8,7 +8,7 @@ where inline SVG or CSS fallbacks exist.
 > **Conventions**
 > - Drop files into `apps/web/public/` at the paths shown.
 > - Prefer SVG for iconography; keep the raster family reproducible from `scripts/generate_signal_assets.py`.
-> - The visual source of truth is `apps/web/app/globals.css`; Tailwind mirrors the same tokens for utility classes.
+> - The visual source of truth is `apps/web/app/globals.css` (CSS variables; no utility framework).
 
 ---
 
@@ -99,25 +99,12 @@ light and dark themes.
 
 ---
 
-## 6 · Category icons  ✓ Implemented and runtime-linked
+## 6 · Category icons  — removed
 
-The four category icons are mounted by `components/CategoryNav.tsx` as CSS masks, so they
-inherit the current foreground colour in both themes.
-
-| File                                 | Size   | Format | Reference                            |
-| ------------------------------------ | ------ | ------ | ------------------------------------ |
-| `public/categories/research.svg`     | 20×20  | SVG    | `components/CategoryNav.tsx`         |
-| `public/categories/industry.svg`     | 20×20  | SVG    | (would render before the label)      |
-| `public/categories/opensource.svg`   | 20×20  | SVG    |                                      |
-| `public/categories/media.svg`        | 20×20  | SVG    |                                      |
-
-**Design brief.** Single-stroke line icons (1.5px), 20×20 grid. Suggestions:
-- research — a stylised "beaker" or "paper with axis lines"
-- industry — a "circuit / chip" outline
-- opensource — a "fork in the road" or "branched node"
-- media — a "broadcasting tower" or "speech bubble with a dot"
-
-Match Heroicons' visual weight (we don't import Heroicons — keep it custom).
+The four category icons (`public/categories/*.svg`) and their only mount,
+`components/CategoryNav.tsx`, were removed on 2026-10-16: no page rendered them.
+Channels and categories are text labels. Restore from git history if a category
+rail with icons comes back.
 
 ---
 
