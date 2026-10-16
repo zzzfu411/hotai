@@ -122,7 +122,7 @@ export function SearchBox({
       )}
       {unavailable && (
         <div className="kz-card kz-feed-empty" role="status">
-          <p className="font-bold">
+          <p className="kz-feed-empty-title">
             {zh ? "搜索服务暂时不可用" : "Search is temporarily unavailable"}
           </p>
           <p>

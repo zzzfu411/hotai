@@ -98,7 +98,7 @@ export function BlogCard({ blog }: { blog: BlogCardData }) {
             <span aria-hidden>{blog.author.slice(0, 1).toUpperCase()}</span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="kz-blog-info">
           <h3 className="kz-blog-name">
             {blogUrl ? (
               <a href={blogUrl} target="_blank" rel="noopener noreferrer">{blog.name}</a>

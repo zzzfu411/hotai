@@ -124,7 +124,7 @@ export function BlogDirectory({ blogs }: { blogs: BlogCardData[] }) {
 
       {filtered.length === 0 ? (
         <div className="kz-card kz-feed-empty kz-blog-empty">
-          <p className="font-bold">{zh ? "没有匹配的博客" : "No blogs match"}</p>
+          <p className="kz-feed-empty-title">{zh ? "没有匹配的博客" : "No blogs match"}</p>
           <p>{zh ? "试试换个关键词。" : "Try another filter."}</p>
           <button
             type="button"

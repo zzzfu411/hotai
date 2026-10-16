@@ -466,7 +466,7 @@ export function SubscribeClient() {
 
       {sources.length === 0 ? (
         <div className="kz-card kz-feed-empty kz-sub-empty">
-          <p className="font-bold">{zh ? "还没有自定义源" : "No custom sources yet"}</p>
+          <p className="kz-feed-empty-title">{zh ? "还没有自定义源" : "No custom sources yet"}</p>
           <p>
             {zh
               ? "这是浏览器本机订阅，不会影响全站热榜，也不会进数据库。试试 Hacker News 的 RSS，或下载 /hotai.opml 再贴回来。"
@@ -556,12 +556,12 @@ export function SubscribeClient() {
           </header>
           {loading && items.length === 0 ? (
             <div className="kz-card kz-feed-empty">
-              <p className="font-bold">{zh ? "正在拉取源…" : "Fetching feeds…"}</p>
+              <p className="kz-feed-empty-title">{zh ? "正在拉取源…" : "Fetching feeds…"}</p>
               <p>{zh ? "缓存命中不计配额；失败会原样显示。" : "Cached feeds skip the quota. Failures are shown as-is."}</p>
             </div>
           ) : items.length === 0 ? (
             <div className="kz-card kz-feed-empty">
-              <p className="font-bold">{zh ? "还没有条目" : "No items yet"}</p>
+              <p className="kz-feed-empty-title">{zh ? "还没有条目" : "No items yet"}</p>
               <p>
                 {zh
                   ? enabled.length === 0

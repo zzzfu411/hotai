@@ -79,7 +79,7 @@ export default async function JuyaPage({ searchParams }: PageProps) {
     <div className="kz-juya">
       {error ? (
         <div className="kz-card kz-feed-empty">
-          <p className="font-bold">{zh ? "加载失败" : "Could not load"}</p>
+          <p className="kz-feed-empty-title">{zh ? "加载失败" : "Could not load"}</p>
           <p>{error}</p>
         </div>
       ) : null}
@@ -176,7 +176,7 @@ export default async function JuyaPage({ searchParams }: PageProps) {
         </div>
       ) : !error ? (
         <div className="kz-card kz-feed-empty">
-          <p className="font-bold">{zh ? "还没有早报" : "No brief yet"}</p>
+          <p className="kz-feed-empty-title">{zh ? "还没有早报" : "No brief yet"}</p>
           <p>{zh ? "RSS 里暂时没有带日期的条目。" : "The RSS feed has no dated editions yet."}</p>
         </div>
       ) : null}
