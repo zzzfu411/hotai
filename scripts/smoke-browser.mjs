@@ -38,6 +38,10 @@ try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
   page = await context.newPage();
+  // Turn on file-chooser interception now. Enabling it lazily from
+  // waitForEvent races the key press that opens the dialog, which made the
+  // OPML import step time out intermittently in CI.
+  page.on("filechooser", () => {});
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await context.route("https://**/*", route => route.abort()); // external images/fonts must not affect tests
@@ -82,9 +86,8 @@ try {
   const urlBox = await page.getByLabel("Feed 地址", { exact: true }).boundingBox();
   const nameBox = await page.getByLabel("名称（可留空，用 feed 标题）", { exact: true }).boundingBox();
   assert(urlBox.y < nameBox.y, "mobile form order is wrong");
-  await page.getByRole("button", { name: "选择文件", exact: true }).focus();
   const fileChooser = page.waitForEvent("filechooser");
-  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "选择文件", exact: true }).press("Enter");
   const chooser = await fileChooser;
   await context.route("**/api/proxy/feed?**", route => route.fulfill({ json: { ok: true, title: "Fixture feed", items: [card("Subscription story")], stale: true, fetchedAt: new Date(Date.now() - 600000).toISOString() } }));
   await chooser.setFiles({ name: "fixture.opml", mimeType: "text/xml", buffer: Buffer.from('<opml version="2.0"><body><outline type="rss" text="Fixture feed" xmlUrl="https://example.com/rss"/></body></opml>') });
