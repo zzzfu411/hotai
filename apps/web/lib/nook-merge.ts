@@ -126,3 +126,20 @@ export function mergeSources(
   }
   return { items: merged, okCount: ok, failCount: fail, staleCount: stale, fetchedAt: oldest };
 }
+
+/** Same stories in the same order, as far as a rendered row can tell. */
+export function sameTimelineItems(a: TimelineItem[], b: TimelineItem[]): boolean {
+  return a.length === b.length && a.every((item, index) => {
+    const next = b[index];
+    return Boolean(
+      next &&
+      item.url === next.url &&
+      item.title === next.title &&
+      item.summary === next.summary &&
+      item.publishedAt === next.publishedAt &&
+      item.image === next.image &&
+      item.sourceId === next.sourceId &&
+      item.sourceName === next.sourceName
+    );
+  });
+}
