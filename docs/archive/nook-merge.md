@@ -1,9 +1,9 @@
 # Hot AI × NewsNook 合并方案（v1 · 落地到 hotai.yeuxark.com）
 
-> 历史设计与演进记录。2026-09-05 起，当前运行规格以 [CURRENT_BEHAVIOR.md](CURRENT_BEHAVIOR.md) 为准；以下旧阶段描述不作为新实现要求。
+> 历史设计与演进记录。2026-09-05 起，当前运行规格以 [CURRENT_BEHAVIOR.md](../CURRENT_BEHAVIOR.md) 为准；以下旧阶段描述不作为新实现要求。
 
 > 状态：已批准执行。本文档是实现的唯一规格。改核心行为前先改这里。
-> 相关：[`design.md`](./design.md)、[`../CLAUDE.md`](../CLAUDE.md)、参考站点 [music.yeuxark.com](https://music.yeuxark.com)（KAZAM）、[news.aizeek.com](https://news.aizeek.com)（NewsNook Web）。
+> 相关：[`design.md`](../design.md)、[`../CLAUDE.md`](../../CLAUDE.md)、参考站点 [music.yeuxark.com](https://music.yeuxark.com)（KAZAM）、[news.aizeek.com](https://news.aizeek.com)（NewsNook Web）。
 
 ---
 

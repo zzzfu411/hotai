@@ -58,9 +58,9 @@
 
 保留既有奶油纸色、黄色、墨色和深色蓝影；统一阅读列表、原文入口和状态提示。截图已人工检查，深色截图等待主题过渡结束后采集，页面没有横向溢出。
 
-![手机阅读与订阅](screenshots/maturity-mine-mobile.png)
+![手机阅读与订阅](../screenshots/maturity-mine-mobile.png)
 
-![手机深色缓存状态](screenshots/maturity-feed-mobile-dark.png)
+![手机深色缓存状态](../screenshots/maturity-feed-mobile-dark.png)
 
 桌面热榜截图：`screenshots/maturity-hot-desktop.png`。
 

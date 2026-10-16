@@ -4,7 +4,7 @@
 
 生产站 [`https://hotai.yeuxark.com`](https://hotai.yeuxark.com)。
 
-当前行为以 [CURRENT_BEHAVIOR.md](docs/CURRENT_BEHAVIOR.md) 为准；完整整改计划见 [MATURITY_PLAN_2026-09-05.md](docs/MATURITY_PLAN_2026-09-05.md)，验收证据见 [整改报告](docs/REMEDIATION_REPORT_2026-09-05.md)。
+当前行为以 [CURRENT_BEHAVIOR.md](docs/CURRENT_BEHAVIOR.md) 为准；文档索引见 [docs/README.md](docs/README.md)；2026-09 的整改计划与验收报告已移入 [docs/archive](docs/archive/)。
 
 ## 产品预览
 
@@ -172,7 +172,7 @@ AI_PROMPT_CACHE="false"                       # 多数中转站不支持 cache_c
 ## 设计 / 路线图
 
 整体逻辑详解、痛点自查、优化 + 扩展方案、按 ROI 排序的 sprint 清单见
-[`docs/design.md`](docs/design.md)。阅读壳规格见 [`docs/nook-merge.md`](docs/nook-merge.md)。
+[`docs/design.md`](docs/design.md)。阅读壳的原始规格见 [`docs/archive/nook-merge.md`](docs/archive/nook-merge.md)。
 改任何核心模块前请先翻一下,避免重复踩坑。
 
 ## 生产部署

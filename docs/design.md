@@ -25,7 +25,7 @@ Postgres 里的 `Article` 仍然只服务这个模块：14 天硬删除、AI 开
 
 下面所有的优化和扩展方案都必须服务于上面这些边界。**任何引入"用户态"或"长期归档"的方案默认不做。**
 
-**阅读壳升级（2026-08 · NewsNook 交互 + KAZAM 视觉）：** 站点包含综合速闻与独立的 AI 热榜模块。交互改成分类轨 / 场景 / 站内阅读 / 本机 OPML 订阅（localStorage，不进 Postgres）；视觉对齐 [music.yeuxark.com](https://music.yeuxark.com)。规格见 [`nook-merge.md`](./nook-merge.md)。这不改变上表四条硬边界——本机偏好不是账号系统，自定义源不进入全局排名。
+**阅读壳升级（2026-08 · NewsNook 交互 + KAZAM 视觉）：** 站点包含综合速闻与独立的 AI 热榜模块。交互改成分类轨 / 场景 / 站内阅读 / 本机 OPML 订阅（localStorage，不进 Postgres）；视觉对齐 [music.yeuxark.com](https://music.yeuxark.com)。规格见 [`nook-merge.md`](./archive/nook-merge.md)。这不改变上表四条硬边界——本机偏好不是账号系统，自定义源不进入全局排名。
 
 > **实现校准（2026-09-01）**：默认 `/` 是客户端实时速闻目录，按需调用 `/api/catalog/pull`，不依赖 `Article`；数据库热榜位于 `/hot`。Fetcher 负责主要内容写入，但 Web 会在缺少当日简报时写入 `Digest`，并由 `/api/ask` 写入 `AskCache`。当前 AI 配置、Ask 配额、公开抓取限流、AI lease/retry、retention、URL/HTML 边界和 CI 已有代码与测试；本文后面的历史更新记录保留原始决策背景，若与本段冲突，以代码、`README.md` 和最新安全审计为准。
 
