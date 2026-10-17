@@ -8,32 +8,48 @@
 
 ## 产品预览
 
-截图来自一次真实的本地抓取 + 前端运行。首页已改为 NewsNook 式「速闻」时间线，热榜移到 `/hot`；下面几张是改版前的热榜 / 博客 / 搜索界面。
+截图来自当前生产站 [`https://hotai.yeuxark.com`](https://hotai.yeuxark.com)（与 main `74cd6e9` 成熟度整改后的界面一致）。首页仍是 NewsNook 式「速闻」：来源渐进同步、综合栏编辑排序；入库热榜在 `/hot`。本机阅读列表在「我的」，条目可标稍后读 / 已读；控制台把在线源、信号和异常分开，搜索按页计数。
 
 <p align="center">
-  <img src="docs/screenshots/home.png" alt="Hot AI 热榜" />
+  <img src="docs/screenshots/home.png" alt="Hot AI 速闻首页" />
 </p>
-<p align="center"><sub>热榜（现入口 `/hot`）：来源权重 × 时间衰减 × 信号 × AI 重要度</sub></p>
+<p align="center"><sub>速闻：LIVE 信号台 + 分类轨 + LEAD 首卡。来源渐进同步，综合栏按编辑权重 / 新鲜度排序；稍后读徽标和「异常」计数是本机阅读与故障状态。</sub></p>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/home-dark.png" alt="暗色模式热榜" />
-      <br /><sub>暗色模式</sub>
+      <img src="docs/screenshots/home-dark.png" alt="暗色模式速闻" />
+      <br /><sub>同一首页的暗色模式</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/blogs.png" alt="精选博客目录" />
-      <br /><sub>精选博客目录，卡片可展开阅读指南</sub>
+      <img src="docs/screenshots/hot.png" alt="Hot AI 入库热榜" />
+      <br /><sub>`/hot` 入库热榜 + 今日脉搏 + Ask：来源权重 × 时间衰减 × 信号 × AI 重要度</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/search.png" alt="搜索" />
-      <br /><sub>标题 / 摘要 / 标签检索</sub>
+      <img src="docs/screenshots/blogs.png" alt="研究者博客目录" />
+      <br /><sub>研究者目录，卡片可展开阅读指南</sub>
     </td>
     <td align="center" width="50%">
+      <img src="docs/screenshots/search.png" alt="搜索" />
+      <br /><sub>14 天入库检索；本页计数，每页 60；不含速闻 live RSS</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
       <img src="docs/screenshots/category-industry.png" alt="产业分类" />
-      <br /><sub>按分类浏览：OpenAI、DeepMind 等产业动态</sub>
+      <br /><sub>按分类浏览入库时间线：OpenAI、DeepMind 等产业动态</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/mine.png" alt="我的阅读与订阅" />
+      <br /><sub>「我的」：本机稍后读 / 已读 + 自定义 RSS / OPML（不入库）</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2">
+      <img src="docs/screenshots/home-mobile.png" alt="速闻手机页头" width="390" />
+      <br /><sub>手机速闻：收起搜索后页头约 119px；控制台仍区分在线源 / 信号 / 异常</sub>
     </td>
   </tr>
 </table>
@@ -85,13 +101,13 @@ pnpm dev:web             # http://localhost:3000
 
 | 路径                 | 说明                                              |
 | -------------------- | ------------------------------------------------- |
-| `/`                  | 速闻：多源 RSS；综合/头条按编辑信号，其他频道按最新 |
-| `/hot`               | Hot AI 模块：最近 14 天入库热榜 + 今日脉搏          |
+| `/`                  | 速闻：多源 RSS 渐进同步；综合/头条按编辑信号，其他频道按最新 |
+| `/hot`               | Hot AI 模块：最近 14 天入库热榜 + 今日脉搏 + Ask     |
 | `/digest`            | 今日 AI 简报 + AskBox                             |
 | `/juya`              | 橘鸦 AI 早报（daily.juya.uk RSS，不入库）         |
 | `/r`                 | 速闻条目的站内阅读（Readability，不入库）         |
 | `/a/[id]`            | 热榜条目站内阅读（AI 摘要 + 正文）                |
-| `/search?q=…`        | 标题 / 摘要 / 主题标签检索（当前为子串匹配）    |
+| `/search?q=…`        | 14 天入库检索（标题 / 摘要 / 主题）；每页 60，URL 翻页 |
 | `/category/{slug}`   | 分类时间线（publishedAt：research / industry / opensource / media） |
 | `/source/{slug}`     | 单源时间线                                        |
 | `/blogs`             | 精选博客目录                                      |
