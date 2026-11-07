@@ -1,0 +1,34 @@
+# Hot AI · fetcher — one cycle per start: purge → fetch → enrich → digest → revalidate.
+#
+# Started by hotai-fetcher.timer instead of running as a resident cron daemon:
+# the cycle takes a couple of minutes per hour, so the worker holds memory
+# (~110-160 MB) only while it works and nothing for the other ~58 minutes.
+# Overlapping runs are impossible (systemd never starts an active unit twice)
+# and the Postgres cycle lease still guards against any other runner.
+#
+# Install: cp deploy/systemd/hotai-* /etc/systemd/system/ && systemctl daemon-reload
+#          systemctl enable --now hotai-fetcher.timer
+# Run now: systemctl start hotai-fetcher        Logs: journalctl -u hotai-fetcher
+
+[Unit]
+Description=Hot AI fetcher (one cycle)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# /root/hotai-current is the release symlink; switching it switches both units.
+WorkingDirectory=/root/hotai-current/apps/fetcher
+Environment=HOME=/root
+Environment=NODE_ENV=production
+Environment=NODE_OPTIONS=--max-old-space-size=256
+ExecStart=/usr/local/bin/node dist/index.js --once
+# A normal cycle takes ~2 minutes; AI retries can stretch it. Kill a stuck run
+# so the next hour starts clean (the cycle lease expires on its own).
+TimeoutStartSec=40min
+# Guard rails: reclaim above MemoryHigh, kill only this unit above MemoryMax.
+MemoryHigh=256M
+MemoryMax=384M
+# Yield CPU to hotai-web and the other services while it works.
+Nice=10
+SyslogIdentifier=hotai-fetcher

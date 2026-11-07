@@ -11,7 +11,7 @@
 │  ┌──────────────┐    ┌──────────────────┐  │
 │  │ hotai-web    │    │ hotai-fetcher    │  │
 │  │ Next.js :3000│◄───┤ Node dist worker │  │
-│  │ (PM2)        │    │ (PM2)            │  │
+│  │ (systemd)    │    │ (systemd timer)  │  │
 │  └──────┬───────┘    └────────┬─────────┘  │
 │         │  reads               │ writes     │
 │         └───────┬───────┬──────┘            │
@@ -30,6 +30,9 @@
 
 Fetcher 负责文章与来源健康写入；Web 还会在首访生成 Digest，并写入 AskCache。
 每小时(默认 `:07`)抓一轮所有源,做 AI 摘要,生成当日 digest,然后 POST `/api/revalidate` 发送兼容的缓存失效通知；DB 内容页现为动态渲染。
+
+进程由 systemd 管理（单元文件在 [`deploy/systemd/`](systemd/)）：`hotai-web` 常驻；`hotai-fetcher` 由 `hotai-fetcher.timer`
+每小时 :07 启动，跑完一轮就退出，两轮之间不占内存。两个单元都经 `/root/hotai-current`（指向当前版本目录的符号链接）找到代码。
 
 ---
 
@@ -51,7 +54,7 @@ cd hotai
 bash deploy/setup.sh
 ```
 
-`setup.sh` 安装:Node 22 LTS（最低 22.22.2）、corepack(自带 pnpm)、PM2、PostgreSQL、Nginx、certbot,并创建 `hotai` 数据库 + 同名用户。
+`setup.sh` 安装:Node 22 LTS（最低 22.22.2）、corepack(自带 pnpm)、PostgreSQL、Nginx、certbot,并创建 `hotai` 数据库 + 同名用户。进程由 systemd 管理，不需要 PM2。
 脚本会生成随机数据库密码并写入仅当前用户可读的 `.db-password`，不要提交或放入日志。
 
 > **pnpm 版本由仓库锁定** —— `package.json` 里 `"packageManager": "pnpm@9.12.0"`,corepack 自动装这个版本。你不需要、也不应该 `npm i -g pnpm`。
@@ -134,15 +137,15 @@ pnpm build
 # 发布内容门槛：构建成功不代表 DB / 迁移 / 数据已就绪
 pnpm release:check
 
-# 7) 起 PM2
-mkdir -p logs
-pm2 start ecosystem.config.js
-pm2 save
+# 7) 用 systemd 起服务（开机自启）：web 常驻；fetcher 由定时器每小时 :07 跑一轮后退出
+#    单元文件按 root + /root/hotai-current 编写；换用户或目录时改 User= / WorkingDirectory=
+ln -sfn "$PWD" /root/hotai-current
+sudo cp deploy/systemd/hotai-* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now hotai-web hotai-fetcher.timer
 
 # 在接入公网前检查运行服务和实际 RSS 通路
 RELEASE_BASE_URL=http://127.0.0.1:3000 pnpm release:check
-
-pm2 startup     # 按提示执行它输出的 sudo 命令,实现开机自启
 ```
 
 ### `pnpm fetch:once` 应该看到的输出
@@ -210,8 +213,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 | 检查项 | 命令 / URL | 期望 |
 |---|---|---|
-| Web 进程 | `pm2 status hotai-web` | online |
-| Fetcher 进程 | `pm2 status hotai-fetcher` | online |
+| Web 进程 | `systemctl is-active hotai-web` | active |
+| Fetcher 定时器 | `systemctl list-timers hotai-fetcher.timer` | 列出下一次 :07 的运行时间 |
+| Fetcher 上一轮 | `systemctl status hotai-fetcher` | `status=0/SUCCESS`，进程已退出（两轮之间不常驻是正常的） |
 | Liveness | `curl -fsS https://hotai.yeuxark.com/api/live` | HTTP 200，`status=live` |
 | Readiness | `curl -fsS https://hotai.yeuxark.com/api/health` | HTTP 200，`ready=true`；过久无抓取则 503 |
 | Prometheus 指标 | `curl -fsS -H "Authorization: Bearer $OBSERVABILITY_TOKEN" https://hotai.yeuxark.com/api/metrics` | `hotai_up 1`、`hotai_ready 1` 等低基数指标 |
@@ -226,20 +230,27 @@ sudo nginx -t && sudo systemctl reload nginx
 | JSON Feed | `curl https://hotai.yeuxark.com/feed.json \| head` | JSON Feed 1.1 |
 | OPML 目录 | `curl https://hotai.yeuxark.com/hotai.opml \| head` | 编辑源 + 有 `feedUrl` 的博客 |
 | Readability | `curl -X POST https://hotai.yeuxark.com/api/readability -H 'content-type: application/json' -d '{"url":"https://example.com"}'` | 公网 URL 抽取；`http://127.0.0.1/` 应被拒 |
-| ISR revalidate 工作 | 等 fetcher 下一轮(每小时 :07) | `pm2 logs hotai-fetcher` 出现 `revalidate -> 200` |
+| ISR revalidate 工作 | 等 fetcher 下一轮(每小时 :07) | `journalctl -u hotai-fetcher` 出现 `revalidate -> 200` |
 
 ---
 
 ## 七、日常更新流程
 
+每个版本一个目录（`git worktree`），`/root/hotai-current` 指向正在运行的那个；构建时线上不受影响，
+回滚只需把链接指回旧目录。
+
 ```bash
-cd ~/hotai
-git pull
-pnpm install         # 如果 lock 变了
-pnpm db:generate     # 如果 schema 变了
+cd /root/hotai && git fetch
+C=$(git rev-parse --short origin/main); R=/root/hotai-releases/$C
+git worktree add --detach "$R" origin/main && cp -p /root/hotai-current/.env "$R/.env"
+cd "$R"
+pnpm install --frozen-lockfile
 pnpm db:migrate      # 如果有新 migration 文件
-pnpm build
-pm2 reload all       # 滚动重载；单实例 fetcher 仍会短暂重启，不等于全链路零停机
+# 小内存机器：把构建关进有上限的 cgroup 并降低优先级，免得挤掉其他服务
+systemd-run --scope -p MemoryMax=1200M nice -n 15 pnpm build
+pnpm test
+ln -sfn "$R" /root/hotai-current.next && mv -T /root/hotai-current.next /root/hotai-current
+sudo systemctl restart hotai-web     # 中断约 5 秒；fetcher 下一轮自动用新版本
 
 # nginx 模板有变时：证书存在则重新安装 nginx-https.conf；首次签证书前使用
 # nginx.conf 的 HTTP-only bootstrap，避免无证书时 nginx -t 失败，然后：
@@ -253,12 +264,13 @@ sudo nginx -t && sudo systemctl reload nginx
 ## 八、常用运维命令
 
 ```bash
-pm2 status                    # 看进程
-pm2 logs hotai-web --lines 100
-pm2 logs hotai-fetcher --lines 100
-pm2 restart hotai-fetcher     # 立刻重启抓取器
+systemctl status hotai-web                 # 看进程与内存（Memory: 一行）
+systemctl list-timers hotai-fetcher.timer  # fetcher 下一轮时间
+journalctl -u hotai-web -n 100             # 日志（-f 持续跟踪）
+journalctl -u hotai-fetcher -n 100
+sudo systemctl restart hotai-web           # 重启 web（改了 .env 也用这个）
 
-pnpm fetch:once               # 立刻跑一次完整 cycle,不等定时
+sudo systemctl start hotai-fetcher         # 立刻跑一次完整 cycle,不等定时（与 pnpm fetch:once 等价）
 pnpm db:studio                # 在服务器开 Prisma Studio(端口 5555,建议 SSH 转发本地访问)
 
 # 看当前文章 / 源 / digest 状态
@@ -275,35 +287,42 @@ psql -U hotai hotai -c "SELECT date, headline FROM \"Digest\" ORDER BY date DESC
 
 ### 问题：大量 enrichment 进入 retry / failed
 
-| 症状(看 `pm2 logs hotai-fetcher`) | 原因 | 修复 |
+| 症状(看 `journalctl -u hotai-fetcher`) | 原因 | 修复 |
 |---|---|---|
 | `401 Unauthorized` | 密钥错误或鉴权方式不匹配 | Bearer 中转站检查 `ANTHROPIC_AUTH_TOKEN`；直连 Anthropic 检查 `ANTHROPIC_API_KEY` |
 | `404` / `model not found` | 模型 ID 中转站不认 | 改 `LLM_MODEL_FAST` / `LLM_MODEL_SMART` 为中转站文档里给的 ID |
-| `400` 含 `cache_control` 字样 | 中转站不支持 prompt cache | `AI_PROMPT_CACHE=false` 然后 `pm2 restart hotai-fetcher` |
+| `400` 含 `cache_control` 字样 | 中转站不支持 prompt cache | `AI_PROMPT_CACHE=false`（fetcher 每轮都是新进程，下一轮自动生效） |
 | `ECONNREFUSED` / `ENOTFOUND` | `ANTHROPIC_BASE_URL` 不可达 | `curl -I $ANTHROPIC_BASE_URL` 确认能连;注意结尾**不要**带 `/v1` |
-| `429 Too Many Requests` | 中转站限流 | 调小 `AI_CONCURRENCY=2` / `AI_BATCH_SIZE`，或拉长 `FETCHER_CRON` 间隔；系统会自动退避重试 |
+| `429 Too Many Requests` | 中转站限流 | 调小 `AI_CONCURRENCY=2` / `AI_BATCH_SIZE`，或拉长 `hotai-fetcher.timer` 的 `OnCalendar` 间隔；系统会自动退避重试 |
 
 ### 问题:fetcher 正常但 `/digest` 一直显示"未生成"
 
 - 至少要当日(UTC)入库 ≥5 篇文章 digest 才会生成
-- 看 `pm2 logs hotai-fetcher | grep digest`
+- 看 `journalctl -u hotai-fetcher | grep digest`
 - 如果一直 skip,可手动触发:`pnpm fetch:once` 之后再访问 `/digest`(会按需生成)
 
 ### 问题:`/api/ask` 返回 503
 
 - `AI_ENABLED` 是 false（`ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_API_KEY` 都没填）
-- 或:web 进程加载 .env 时 key 还没填,`pm2 restart hotai-web` 重新读
+- 或:web 进程加载 .env 时 key 还没填,`sudo systemctl restart hotai-web` 重新读
 
 ---
 
 ## 十、监控 + 备份
 
-### 日志轮转
-```bash
-pm2 install pm2-logrotate
-pm2 set pm2-logrotate:max_size 10M
-pm2 set pm2-logrotate:retain 30
-```
+### 日志
+两个服务的输出都进 journald（`journalctl -u hotai-web` / `-u hotai-fetcher`），由 journald 统一轮转。
+整机日志上限在 `/etc/systemd/journald.conf` 的 `SystemMaxUse=`；临时清理：`sudo journalctl --vacuum-size=200M`。
+
+### 内存
+单元文件里有两道护栏：超过 `MemoryHigh` 时内核优先回收这个服务自己的内存，超过 `MemoryMax`
+只重启这个服务，不会像以前那样让内核 OOM killer 去杀机器上别的进程。
+
+- `hotai-web`：稳态约 150-170 MB RSS（GC 后堆约 45 MB），`MemoryHigh=384M` / `MemoryMax=512M`。
+- `hotai-fetcher`：只在每小时那一两分钟里存在，`MemoryHigh=256M` / `MemoryMax=384M`。
+- 远程 HTML 的 DOMPurify 净化在 worker 线程里做（`apps/web/lib/sanitize-worker.cjs`）：jsdom 会永久留住
+  它解析过的每一棵 DOM 树（2026-11 实测：每刷新一次 Juya 堆 +31 MB），worker 用完即结束，内存随之全部归还。
+  **不要在主线程直接 import `isomorphic-dompurify` / `jsdom`**，统一走 `sanitizeRemoteHtml` / `sanitizeRemoteHtmlBatch`。
 
 ### 备份
 14 天保留期不等于可恢复性保证：上游内容可能删除，Digest、Source 配置、Ask 成本状态和
@@ -350,14 +369,12 @@ curl -fsS \
 
 ## 十一、回滚
 
+旧版本目录都还在 `/root/hotai-releases/`，回滚只是切换符号链接：
+
 ```bash
-cd ~/hotai
-git log --oneline -10           # 找想回到的 commit
-git checkout <commit-hash>
-pnpm install
-pnpm db:generate
-pnpm build
-pm2 reload all
+ls /root/hotai-releases/                      # 找想回到的版本
+ln -sfn /root/hotai-releases/<版本> /root/hotai-current.next && mv -T /root/hotai-current.next /root/hotai-current
+sudo systemctl restart hotai-web              # fetcher 下一轮自动用回旧版本
 ```
 
 **注意 schema 回滚:** Prisma 不会自动回滚 migration。如果回退跨过 schema 变更,需手动 `psql` 修复或 `prisma migrate resolve --rolled-back <name>`。所以重要的 schema 变更前请 `pg_dump` 一份全量。

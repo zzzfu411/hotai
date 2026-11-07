@@ -72,7 +72,7 @@ A running Postgres is required for DB-backed pages, fetcher, migrations, seed, a
 
 ## Production
 
-PM2 (`ecosystem.config.js`) runs two processes: `hotai-web` (`next start`) and `hotai-fetcher` (compiled `dist/index.js`; development uses `tsx`). Nginx + certbot setup lives in `deploy/`. Build and deploy with Node 22.22.2, then run the committed Prisma migrations before starting either process.
+systemd runs two units from `deploy/systemd/` through the `/root/hotai-current` release symlink: `hotai-web` (`next start`, resident) and `hotai-fetcher` (`dist/index.js --once`, started hourly at :07 by `hotai-fetcher.timer`, exits after the cycle; development uses `tsx`). Both units carry `MemoryHigh`/`MemoryMax` guard rails — the VPS has 2.4 GB of RAM shared with other services. Nginx + certbot setup lives in `deploy/`. Build and deploy with Node 22.22.2, then run the committed Prisma migrations before starting either process.
 
 **Remote HTML sanitization runs in a worker thread.** jsdom keeps every DOM tree it ever parses reachable (process-wide, so `clearWindow()`/`window.close()` do not help); sanitizing one Juya refresh pinned ~31 MB of heap and crashed `hotai-web` with heap OOMs every day or two. `lib/sanitize-remote-html.ts` sends DOMPurify work to `lib/sanitize-worker.cjs` and terminates the worker when idle, which frees its whole heap. Never import `isomorphic-dompurify` or `jsdom` on the main thread; use `sanitizeRemoteHtml` / `sanitizeRemoteHtmlBatch`.
 

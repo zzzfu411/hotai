@@ -1,0 +1,38 @@
+# Hot AI · web — Next.js on 127.0.0.1:3000 (Nginx is the only public entry).
+#
+# Runs directly under systemd instead of PM2: one less resident daemon, logs in
+# journald, and cgroup memory limits that protect the other services on this
+# small VPS (the kernel OOM killer used to pick unrelated processes).
+#
+# Install: cp deploy/systemd/hotai-* /etc/systemd/system/ && systemctl daemon-reload
+#          systemctl enable --now hotai-web
+# Deploy:  point /root/hotai-current at the new release, then systemctl restart hotai-web
+# Logs:    journalctl -u hotai-web -f
+
+[Unit]
+Description=Hot AI web (Next.js)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/hotai-current/apps/web
+Environment=HOME=/root
+Environment=NODE_ENV=production
+# A capped old space makes V8 collect before RSS drifts; a small young
+# generation trades a few cheap scavenges for ~30 MB less RSS on this
+# low-traffic site. The 2026-11 heap OOMs were a jsdom leak (fixed by running
+# DOMPurify in a worker, lib/sanitize-worker.cjs), not this cap.
+Environment="NODE_OPTIONS=--max-old-space-size=256 --max-semi-space-size=4"
+ExecStart=/usr/local/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+Restart=always
+RestartSec=2
+TimeoutStopSec=20
+# Guard rails: reclaim above MemoryHigh, restart only this unit above MemoryMax.
+# The sanitize worker thread lives in this cgroup too (briefly, ~60-100 MB).
+MemoryHigh=384M
+MemoryMax=512M
+SyslogIdentifier=hotai-web
+
+[Install]
+WantedBy=multi-user.target
