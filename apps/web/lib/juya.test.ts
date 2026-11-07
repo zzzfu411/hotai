@@ -12,8 +12,8 @@ function feed(date: string): string {
 const cache = globalThis as typeof globalThis & { __hotai_juya?: { at: number; issues: unknown[] } };
 
 describe("juya", () => {
-  it("parses dated RSS items and keeps sanitized HTML", () => {
-    const issues = issuesFromParsed([
+  it("parses dated RSS items and keeps sanitized HTML", async () => {
+    const issues = await issuesFromParsed([
       {
         title: "2026-08-25",
         link: "https://daily.juya.uk/issues/2026-08-25/",
@@ -34,16 +34,16 @@ describe("juya", () => {
     expect(issues[0]?.toc.some((t) => t.text === "概览")).toBe(true);
   });
 
-  it("strips scripts in sanitizer", () => {
-    const html = sanitizeJuyaHtml('<p style="position:fixed;inset:0">ok</p><script>x()</script><img src="https://assets.juya.uk/a.png">');
+  it("strips scripts in sanitizer", async () => {
+    const html = await sanitizeJuyaHtml('<p style="position:fixed;inset:0">ok</p><script>x()</script><img src="https://assets.juya.uk/a.png">');
     expect(html).toContain("ok");
     expect(html).not.toContain("script");
     expect(html).not.toContain("style=");
     expect(html).toContain("assets.juya.uk");
   });
 
-  it("ignores an invalid pubDate instead of aborting the whole feed", () => {
-    const issues = issuesFromParsed([
+  it("ignores an invalid pubDate instead of aborting the whole feed", async () => {
+    const issues = await issuesFromParsed([
       {
         title: "2026-08-26",
         link: "https://daily.juya.uk/issues/2026-08-26/",
