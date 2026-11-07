@@ -25,11 +25,6 @@ sudo corepack enable
 # corepack reads "packageManager": "pnpm@9.12.0" from package.json on first run
 # inside the repo, so no explicit version pin needed here.
 
-echo "==> Installing PM2"
-if ! command -v pm2 >/dev/null; then
-  sudo npm install -g pm2
-fi
-
 echo "==> Installing PostgreSQL"
 sudo apt-get install -y postgresql postgresql-contrib
 sudo systemctl enable --now postgresql
@@ -78,8 +73,8 @@ echo "   2. cp .env.example .env && chmod 600 .env  (set DATABASE_URL using the 
 echo "   3. pnpm install"
 echo "   4. pnpm db:generate && pnpm db:migrate && pnpm db:seed"
 echo "   5. pnpm build"
-echo "   6. mkdir -p logs && pm2 start ecosystem.config.js && pm2 save"
-echo "   7. pm2 startup   (copy/paste the command it prints, run it with sudo)"
+echo "   6. ln -sfn \"$PWD\" /root/hotai-current && sudo cp deploy/systemd/hotai-* /etc/systemd/system/ && sudo systemctl daemon-reload"
+echo "   7. sudo systemctl enable --now hotai-web hotai-fetcher.timer   (web resident; fetcher runs hourly at :07 and exits)"
 echo "   8. sudo cp deploy/nginx.conf /etc/nginx/sites-available/hotai && sudo ln -sf /etc/nginx/sites-available/hotai /etc/nginx/sites-enabled/hotai && sudo nginx -t && sudo systemctl reload nginx"
 echo "   9. sudo certbot --nginx -d hotai.yeuxark.com"
 echo "  10. sudo cp deploy/nginx-https.conf /etc/nginx/sites-available/hotai && sudo nginx -t && sudo systemctl reload nginx"

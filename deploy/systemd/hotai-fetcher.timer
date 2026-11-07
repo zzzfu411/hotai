@@ -1,0 +1,15 @@
+# Hot AI · fetcher schedule. Same cadence as the old FETCHER_CRON="7 * * * *":
+# every hour at :07. FETCHER_CRON only applies to the resident daemon mode
+# (`node dist/index.js` without --once); change the schedule here instead.
+
+[Unit]
+Description=Hot AI fetcher, hourly at :07
+
+[Timer]
+OnCalendar=*-*-* *:07:00
+AccuracySec=1s
+# Run once after boot if the server was down at :07.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -186,6 +186,7 @@ sudo ln -s /etc/nginx/sites-available/hotai /etc/nginx/sites-enabled/
 sudo certbot --nginx -d hotai.yeuxark.com
 sudo cp deploy/nginx-https.conf /etc/nginx/sites-available/hotai
 sudo nginx -t && sudo systemctl reload nginx
-pm2 start ecosystem.config.js
-pm2 save && pm2 startup
+ln -sfn "$PWD" /root/hotai-current
+sudo cp deploy/systemd/hotai-* /etc/systemd/system/ && sudo systemctl daemon-reload
+sudo systemctl enable --now hotai-web hotai-fetcher.timer
 ```
