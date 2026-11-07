@@ -22,7 +22,7 @@ function stripTags(html: string): string {
 }
 
 /** Run Readability + DOMPurify on an already-fetched HTML document. */
-export function extractArticle(html: string, url: string): ExtractedArticle | null {
+export async function extractArticle(html: string, url: string): Promise<ExtractedArticle | null> {
   if (!html.trim()) return null;
   const window = parseHTML(injectBase(html, url));
   let parsed: ReturnType<Readability["parse"]>;
@@ -36,7 +36,7 @@ export function extractArticle(html: string, url: string): ExtractedArticle | nu
   }
   if (!parsed?.content) return null;
 
-  const contentHtml = sanitizeRemoteHtml(String(parsed.content), url);
+  const contentHtml = await sanitizeRemoteHtml(String(parsed.content), url);
   if (!contentHtml) return null;
 
   const title = (parsed.title || "").trim();

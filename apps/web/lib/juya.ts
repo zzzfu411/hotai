@@ -1,7 +1,7 @@
 import Parser from "rss-parser";
 import { fetchPublic } from "./ssrf";
 import { safeHttpUrl } from "./safe-url";
-import { sanitizeRemoteHtml } from "./sanitize-remote-html";
+import { sanitizeRemoteHtml, sanitizeRemoteHtmlBatch } from "./sanitize-remote-html";
 import { shapeJuyaHtml, type JuyaTocItem, type JuyaVideo } from "./juya-shape";
 
 /** Live Juya briefing. Official GitHub Pages RSS is gone; daily.juya.uk is current. */
@@ -50,22 +50,23 @@ function stripTags(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function sanitizeJuyaHtml(raw: string): string {
+export function sanitizeJuyaHtml(raw: string): Promise<string> {
   return sanitizeRemoteHtml(raw, JUYA_HOME);
 }
 
-export function issuesFromParsed(
-  items: Array<{
-    title?: string;
-    link?: string;
-    isoDate?: string;
-    pubDate?: string;
-    content?: string;
-    contentSnippet?: string;
-    contentEncoded?: string;
-  }>,
-): JuyaIssue[] {
-  const out: JuyaIssue[] = [];
+type JuyaFeedItem = {
+  title?: string;
+  link?: string;
+  isoDate?: string;
+  pubDate?: string;
+  content?: string;
+  contentSnippet?: string;
+  contentEncoded?: string;
+};
+
+export async function issuesFromParsed(items: JuyaFeedItem[]): Promise<JuyaIssue[]> {
+  // Pick the dated items first, then sanitize them in one worker round trip.
+  const picked: Array<{ it: JuyaFeedItem; title: string; date: string; rawHtml: string }> = [];
   const seen = new Set<string>();
   for (const it of items) {
     const title = (it.title || "").trim();
@@ -74,7 +75,13 @@ export function issuesFromParsed(
     seen.add(date);
     const rawHtml = (it.contentEncoded || it.content || "").trim();
     if (!rawHtml) continue;
-    const clean = sanitizeJuyaHtml(rawHtml);
+    picked.push({ it, title, date, rawHtml });
+  }
+  const cleaned = await sanitizeRemoteHtmlBatch(picked.map((p) => p.rawHtml), JUYA_HOME);
+
+  const out: JuyaIssue[] = [];
+  for (const [i, { it, title, date }] of picked.entries()) {
+    const clean = cleaned[i];
     if (!clean) continue;
     const { html, heading, toc, cover, videos, count } = shapeJuyaHtml(clean);
     const excerpt = stripTags(it.contentSnippet || html).slice(0, 220);
@@ -113,17 +120,7 @@ async function fetchJuyaIssues(): Promise<JuyaIssue[]> {
     accept: "application/rss+xml, application/xml, text/xml, */*",
   });
   const feed = await parser.parseString(fetched.body);
-  return issuesFromParsed(
-    (feed.items ?? []) as Array<{
-      title?: string;
-      link?: string;
-      isoDate?: string;
-      pubDate?: string;
-      content?: string;
-      contentSnippet?: string;
-      contentEncoded?: string;
-    }>,
-  );
+  return issuesFromParsed((feed.items ?? []) as JuyaFeedItem[]);
 }
 
 function refreshJuyaIssues(previous: CacheBox | undefined): Promise<JuyaIssue[]> {

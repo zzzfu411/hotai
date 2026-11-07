@@ -74,6 +74,8 @@ A running Postgres is required for DB-backed pages, fetcher, migrations, seed, a
 
 PM2 (`ecosystem.config.js`) runs two processes: `hotai-web` (`next start`) and `hotai-fetcher` (compiled `dist/index.js`; development uses `tsx`). Nginx + certbot setup lives in `deploy/`. Build and deploy with Node 22.22.2, then run the committed Prisma migrations before starting either process.
 
+**Remote HTML sanitization runs in a worker thread.** jsdom keeps every DOM tree it ever parses reachable (process-wide, so `clearWindow()`/`window.close()` do not help); sanitizing one Juya refresh pinned ~31 MB of heap and crashed `hotai-web` with heap OOMs every day or two. `lib/sanitize-remote-html.ts` sends DOMPurify work to `lib/sanitize-worker.cjs` and terminates the worker when idle, which frees its whole heap. Never import `isomorphic-dompurify` or `jsdom` on the main thread; use `sanitizeRemoteHtml` / `sanitizeRemoteHtmlBatch`.
+
 ## Art assets
 
 Logo / favicons / OG image specs live in [`docs/ART_REQUIREMENTS.md`](docs/ART_REQUIREMENTS.md). The repo ships placeholder SVGs in `apps/web/public/`; replacing them is purely a drop-in.

@@ -16,8 +16,8 @@ const html = `<!DOCTYPE html>
 </html>`;
 
 describe("extractArticle", () => {
-  it("returns sanitized article HTML without scripts", () => {
-    const out = extractArticle(html, "https://example.com/post");
+  it("returns sanitized article HTML without scripts", async () => {
+    const out = await extractArticle(html, "https://example.com/post");
     expect(out).not.toBeNull();
     expect(out!.title.length).toBeGreaterThan(0);
     expect(out!.contentHtml).toContain("language models");
@@ -25,8 +25,8 @@ describe("extractArticle", () => {
     expect(out!.excerpt.length).toBeGreaterThan(0);
   });
 
-  it("removes inline styles that could escape the reader viewport", () => {
-    const out = extractArticle(
+  it("removes inline styles that could escape the reader viewport", async () => {
+    const out = await extractArticle(
       html.replace("<article>", '<article style="position:fixed;inset:0">'),
       "https://example.com/post",
     );
@@ -34,7 +34,7 @@ describe("extractArticle", () => {
     expect(out!.contentHtml).not.toContain("style=");
   });
 
-  it("returns null on empty input", () => {
-    expect(extractArticle("  ", "https://example.com")).toBeNull();
+  it("returns null on empty input", async () => {
+    expect(await extractArticle("  ", "https://example.com")).toBeNull();
   });
 });
