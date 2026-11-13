@@ -5,6 +5,7 @@
 | 文档 | 内容 |
 |---|---|
 | [CURRENT_BEHAVIOR.md](CURRENT_BEHAVIOR.md) | 行为合同：各模块的数据来源、边界、交互和运维约定。与其他文档冲突时以它和代码为准 |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | 路由与接口速查、AI 流水线与限流机制、中转站配置、健康指标与生产部署摘要 |
 | [design.md](design.md) | 范围边界（无账号、14 天保留等）、架构说明和历史决策 |
 | [ART_REQUIREMENTS.md](ART_REQUIREMENTS.md) | 图标、OG 图等美术资产 |
 | [FRONTEND_OPTIMIZATION_2026-10-13.md](FRONTEND_OPTIMIZATION_2026-10-13.md) | 2026-10 前端改版记录：阅读器、密度、暗色、首页、橘鸦 |
